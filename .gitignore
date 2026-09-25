@@ -1,0 +1,37 @@
+# Editors
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+.uv/
+.uv-cache/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Generated outputs
+artifacts/
+reports/
+*.log
+
+# Mobile and performance artifacts
+*.apk
+*.ipa
+*.app
+*.hprof
+*.trace
+
+# OS
+.DS_Store
+Thumbs.db

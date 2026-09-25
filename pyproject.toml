@@ -1,0 +1,18 @@
+[project]
+name = "quality-engineering-lab"
+version = "0.1.0"
+description = "Enterprise quality engineering lab for API, Android, iOS, performance, and AI-agent testing."
+requires-python = ">=3.12,<3.13"
+dependencies = []
+
+[dependency-groups]
+dev = []
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]
+pythonpath = ["packages", "src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
