@@ -3,6 +3,7 @@
 - Date: 2026-09-27 00:19:21 +08:00
 - Branch: main
 - Base commit: edb7c18
+- Day commit: 90ba602
 - Remote: not configured
 
 ## Completion status
@@ -18,28 +19,21 @@ PASSED: automated quality checks completed.
 | Pytest | PASS |
 | Allure report | PASS |
 
-## Workspace before report generation
+## Deliverables
 
-```text
-M .env.example
- M packages/qa_core/config/settings.py
- M pyproject.toml
- M scripts/complete-day.ps1
- M tests/conftest.py
- M uv.lock
-?? .tmp-aosp-atd.zip
-?? .tmp-commandlinetools.zip
-?? .tmp-repository2-3.xml
-?? .tmp-selenium-pypi.json
-?? .tmp-wheel-metadata/
-?? .tmp-wheels/
-?? packages/qa_core/driver/
-?? tests/android/
-```
+- Android driver factory in `packages/qa_core/driver/android.py`.
+- Android Session smoke test in `tests/android/test_session.py`.
+- Android settings and environment template updates.
+- Appium and Selenium dependencies recorded in `pyproject.toml` and `uv.lock`.
+- Android 35 AOSP ATD emulator and Appium 2.19 Server verified online.
+- Allure HTML report generated under `artifacts/allure-report`.
 
 ## Notes
 
 Installed Android 35 AOSP ATD environment, Appium 2.19.0, UiAutomator2 4.2.9, Appium Python Client 5.3.1, and verified a real Android session. Network instability required verified-wheel fallback for Python dependencies.
+
+Temporary SDK archives, metadata, and local wheel mirrors were removed before
+the clean Day 3 commit. The `.tmp-*` pattern is ignored to prevent recurrence.
 
 ## Command output
 
