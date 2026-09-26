@@ -16,12 +16,15 @@ It is an operational contract, not one of the two project planning documents.
 
 ```powershell
 uv sync
+.\.venv\Scripts\python.exe -m ensurepip --upgrade
 uv run pytest
 uv run python -c "import sys; print(sys.executable)"
 ```
 
 Only the project virtual environment is trusted. Do not use the Windows Store
 `python.exe` placeholder or a globally installed Python for project execution.
+PyCharm package detection requires `pip` inside `.venv`; `uv` does not seed it
+by default.
 
 ## Agent Safety
 

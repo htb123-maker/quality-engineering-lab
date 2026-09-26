@@ -964,6 +964,7 @@ docs(adr): record ios wda signing strategy
 
 - 创建基础目录。
 - 加入 pytest、Allure、HTTP Client、Pydantic、psycopg 和 Redis Client。
+- 执行 `ensurepip`，让 PyCharm 能通过 pip 检测 pytest。
 - 建立第一条单元测试和第一条 smoke 测试。
 - 配置 PyCharm pytest Run Configuration。
 
