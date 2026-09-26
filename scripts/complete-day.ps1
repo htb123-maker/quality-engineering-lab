@@ -55,11 +55,15 @@ try {
     }
 
     if (-not $SkipChecks) {
-        $checks += Invoke-QualityCheck "Ruff" { uv run ruff check . }
-        $checks += Invoke-QualityCheck "Mypy" { uv run mypy packages tests }
-        $checks += Invoke-QualityCheck "Unit tests" { uv run pytest tests/unit -q }
-        $checks += Invoke-QualityCheck "Smoke tests" {
-            uv run pytest tests/smoke -q --alluredir=artifacts/allure-results
+        $python = Join-Path $root ".venv\Scripts\python.exe"
+        $checks += Invoke-QualityCheck "Ruff" { & $python -m ruff check . }
+        $checks += Invoke-QualityCheck "Mypy" { & $python -m mypy packages tests }
+        $checks += Invoke-QualityCheck "Pytest" {
+            & $python -m pytest -q --alluredir=artifacts/allure-results
+        }
+        $checks += Invoke-QualityCheck "Allure report" {
+            $env:ALLURE_NO_ANALYTICS = "true"
+            allure generate artifacts/allure-results --clean -o artifacts/allure-report
         }
     }
 

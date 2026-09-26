@@ -4,12 +4,14 @@ version = "0.1.0"
 description = "Enterprise quality engineering lab for API, Android, iOS, performance, and AI-agent testing."
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "appium-python-client>=5.3.1,<6",
     "httpx>=0.28",
     "psycopg[binary]>=3.2",
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
     "pyyaml>=6",
     "redis>=5",
+    "selenium>=4.49,<5",
     "structlog>=25",
 ]
 
@@ -29,6 +31,7 @@ addopts = "-ra --strict-markers"
 testpaths = ["tests"]
 pythonpath = ["packages", "src"]
 markers = [
+    "android: Android Appium tests requiring an emulator or real device",
     "unit: fast isolated unit tests",
     "smoke: minimal environment and integration smoke tests",
 ]
@@ -57,3 +60,7 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["qa_core.*"]
 strict = true
+
+[[tool.mypy.overrides]]
+module = ["appium.*", "selenium.*"]
+ignore_missing_imports = true

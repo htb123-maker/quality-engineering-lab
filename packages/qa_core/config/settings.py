@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     appium_server_url: AnyHttpUrl = Field(
         default_factory=lambda: AnyHttpUrl("http://127.0.0.1:4723")
     )
+    android_device_name: str = Field(default="Pixel_API_35_AOSP_ATD")
+    android_udid: str = Field(default="emulator-5554")
+    android_platform_version: str = Field(default="15")
+    android_app_package: str = Field(default="com.android.fakesystemapp")
+    android_app_activity: str = Field(
+        default=".launcher.EmptyHomeActivity"
+    )
     postgres_dsn: PostgresDsn | None = Field(default=None)
     redis_url: RedisDsn | None = Field(default=None)
     artifacts_dir: Path = Field(default=Path("artifacts"))
