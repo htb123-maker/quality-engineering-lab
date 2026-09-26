@@ -10,13 +10,11 @@ It is an operational contract, not one of the two project planning documents.
 - Python: 3.12
 - Environment manager: uv
 - Project cache: `.uv/cache`
-- Project Python installs: `.uv/python`
 - Virtual environment: `.venv`
 
 ## Environment Commands
 
 ```powershell
-uv --cache-dir .uv/cache python install --install-dir .uv/python 3.12
 uv sync
 uv run pytest
 uv run python -c "import sys; print(sys.executable)"

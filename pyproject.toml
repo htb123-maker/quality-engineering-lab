@@ -3,16 +3,57 @@ name = "quality-engineering-lab"
 version = "0.1.0"
 description = "Enterprise quality engineering lab for API, Android, iOS, performance, and AI-agent testing."
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "httpx>=0.28",
+    "psycopg[binary]>=3.2",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.7",
+    "pyyaml>=6",
+    "redis>=5",
+    "structlog>=25",
+]
 
 [dependency-groups]
-dev = []
+dev = [
+    "allure-pytest>=2.14",
+    "mypy>=1.14",
+    "pytest>=8.3,<9",
+    "pytest-rerunfailures>=15",
+    "pytest-timeout>=2.3",
+    "pytest-xdist>=3",
+    "ruff>=0.9",
+]
 
 [tool.pytest.ini_options]
 addopts = "-ra --strict-markers"
 testpaths = ["tests"]
 pythonpath = ["packages", "src"]
+markers = [
+    "unit: fast isolated unit tests",
+    "smoke: minimal environment and integration smoke tests",
+]
 
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["packages", "tests"]
+plugins = ["pydantic.mypy"]
+check_untyped_defs = true
+disallow_untyped_calls = false
+disallow_untyped_decorators = false
+disallow_untyped_defs = false
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = ["allure.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["qa_core.*"]
+strict = true
