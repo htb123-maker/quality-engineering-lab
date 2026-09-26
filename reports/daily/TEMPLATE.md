@@ -1,0 +1,36 @@
+# DAY-XX - Day Title
+
+- Date:
+- Branch:
+- Base commit:
+- Pull request:
+
+## Scope
+
+Describe what was completed.
+
+## Quality checks
+
+| Check | Status | Evidence |
+| --- | --- | --- |
+| Ruff | | |
+| Mypy | | |
+| Unit tests | | |
+| Smoke tests | | |
+| Allure | | |
+
+## Files changed
+
+List important source and configuration changes.
+
+## Environment
+
+Record Python, package, device, service, or infrastructure prerequisites.
+
+## Risks and limitations
+
+Record unresolved issues honestly.
+
+## Next day
+
+List the next concrete tasks.

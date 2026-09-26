@@ -22,7 +22,6 @@ htmlcov/
 
 # Generated outputs
 artifacts/
-reports/
 *.log
 
 # Mobile and performance artifacts
