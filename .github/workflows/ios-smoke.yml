@@ -53,7 +53,7 @@ jobs:
           open -a Simulator
 
       - name: Check iOS environment
-        run: uv run --no-sync python scripts/check_ios_environment.py --doctor
+        run: uv run --no-sync python scripts/check_ios_environment.py
 
       - name: Start Appium Server
         run: |
