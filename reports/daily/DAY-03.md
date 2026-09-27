@@ -48,6 +48,8 @@ real emulator session lifecycle, Allure evidence, and PyCharm run configuration.
   -avd Pixel_API_35_AOSP_ATD `
   -no-window -no-audio -no-boot-anim -no-snapshot
 
+.\scripts\wait_for_android_ready.ps1 -Serial emulator-5554
+
 appium --address 127.0.0.1 --port 4723 --log-level debug
 ```
 
@@ -102,7 +104,8 @@ locked dependencies, and a PyCharm pytest run configuration are included.
 
 - 首次安装最新 UiAutomator2 Driver 失败，因为最新版要求 Appium 3；项目固定 Appium 2，因此安装兼容版本 4.2.9。
 - PyPI/CDN 多次 TLS 中断，因此使用官方 wheel、SHA-256 校验和离线安装作为网络受限时的恢复路径。
-- Appium 日志中保留了一些早期中断 Session 的错误；判断当前状态时应看最新 `POST /session 200`、`session created successfully` 和 pytest 结果，不能只看 `tail` 中的旧错误。
+- Appium 日志中曾出现 `Cannot start the 'io.appium.settings' application`。根因是 AVD 冷启动后 Android `settings`/Package Manager 服务尚未完全就绪，不是业务代码或 Driver 缺陷。当前状态已确认 `Service package: found`、`Service settings: found`、`init.svc.bootanim: stopped`，并新增 `wait_for_android_ready.ps1` 防止复发。
+- 判断当前状态时应看最新 `POST /session 200`、`session created successfully` 和 pytest 结果，不能只看 `tail` 中的旧错误。
 - 临时 SDK 压缩包、metadata 和 wheel 镜像已删除，`.tmp-*` 已加入忽略规则。
 
 English notes: latest UiAutomator2 required Appium 3; version 4.2.9 was selected
