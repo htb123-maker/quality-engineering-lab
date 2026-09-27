@@ -18,6 +18,9 @@ def test_default_settings_are_local_and_safe() -> None:
     assert settings.ios_bundle_id == "com.apple.Preferences"
     assert settings.ios_wda_local_port == 8100
     assert settings.ios_use_new_wda is True
+    assert settings.ios_wda_launch_timeout_ms == 240_000
+    assert settings.ios_wda_startup_retries == 2
+    assert settings.ios_wda_startup_retry_interval_ms == 10_000
     assert settings.postgres_dsn is None
     assert settings.redis_url is None
     assert settings.artifacts_dir == Path("artifacts")

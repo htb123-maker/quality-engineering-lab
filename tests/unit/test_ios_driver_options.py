@@ -15,6 +15,9 @@ def test_ios_options_map_project_settings_to_xcuitest_capabilities() -> None:
         ios_bundle_id="com.example.settings",
         ios_wda_local_port=8101,
         ios_use_new_wda=False,
+        ios_wda_launch_timeout_ms=300_000,
+        ios_wda_startup_retries=1,
+        ios_wda_startup_retry_interval_ms=5_000,
     )
 
     capabilities = build_ios_options(settings).to_capabilities()
@@ -28,6 +31,9 @@ def test_ios_options_map_project_settings_to_xcuitest_capabilities() -> None:
     assert capabilities["appium:noReset"] is True
     assert capabilities["appium:useNewWDA"] is False
     assert capabilities["appium:wdaLocalPort"] == 8101
+    assert capabilities["appium:wdaLaunchTimeout"] == 300_000
+    assert capabilities["appium:wdaStartupRetries"] == 1
+    assert capabilities["appium:wdaStartupRetryInterval"] == 5_000
 
 
 @pytest.mark.unit

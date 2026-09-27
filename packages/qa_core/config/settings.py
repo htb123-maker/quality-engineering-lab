@@ -41,6 +41,17 @@ class Settings(BaseSettings):
     ios_bundle_id: str = Field(default="com.apple.Preferences")
     ios_wda_local_port: int = Field(default=8100, ge=1, le=65535)
     ios_use_new_wda: bool = Field(default=True)
+    ios_wda_launch_timeout_ms: int = Field(
+        default=240_000,
+        ge=10_000,
+        le=600_000,
+    )
+    ios_wda_startup_retries: int = Field(default=2, ge=0, le=5)
+    ios_wda_startup_retry_interval_ms: int = Field(
+        default=10_000,
+        ge=1_000,
+        le=60_000,
+    )
     postgres_dsn: PostgresDsn | None = Field(default=None)
     redis_url: RedisDsn | None = Field(default=None)
     artifacts_dir: Path = Field(default=Path("artifacts"))

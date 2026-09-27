@@ -22,6 +22,9 @@ def build_ios_options(settings: Settings) -> XCUITestOptions:
     options.no_reset = True
     options.use_new_wda = settings.ios_use_new_wda
     options.wda_local_port = settings.ios_wda_local_port
+    options.wda_launch_timeout = settings.ios_wda_launch_timeout_ms
+    options.wda_startup_retries = settings.ios_wda_startup_retries
+    options.wda_startup_retry_interval = settings.ios_wda_startup_retry_interval_ms
     return options
 
 

@@ -54,10 +54,15 @@ export QA_IOS_PLATFORM_VERSION="18.5"
 export QA_IOS_BUNDLE_ID="com.apple.Preferences"
 export QA_IOS_WDA_LOCAL_PORT="8100"
 export QA_IOS_USE_NEW_WDA="true"
+export QA_IOS_WDA_LAUNCH_TIMEOUT_MS="240000"
+export QA_IOS_WDA_STARTUP_RETRIES="2"
+export QA_IOS_WDA_STARTUP_RETRY_INTERVAL_MS="10000"
 ```
 
 Set `QA_IOS_UDID` when more than one matching Simulator exists. Leave
 `QA_IOS_PLATFORM_VERSION` unset when Appium should select the available runtime.
+The WDA timeout values allow the first hosted-runner build to finish before
+Appium marks the session as failed.
 
 ## Preflight
 

@@ -19,7 +19,7 @@ from qa_core.driver.ios import create_ios_driver
     sys.platform != "darwin",
     reason="XCUITest requires macOS, Xcode, and WebDriverAgent.",
 )
-@pytest.mark.timeout(180)
+@pytest.mark.timeout(600)
 def test_ios_session_starts_and_quits(settings: Settings) -> None:
     driver = create_ios_driver(settings)
 
