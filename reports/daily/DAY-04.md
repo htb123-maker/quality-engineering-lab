@@ -3,21 +3,26 @@
 - 日期 / Date: 2026-09-27
 - 分支 / Branch: main
 - 基线提交 / Base Commit: cfe8018
-- 远程仓库 / Remote: 未配置 / not configured
-- 完成状态 / Status: Windows 可验证范围通过，macOS 真实 Session 待验证 / PARTIAL
+- 当日提交 / Day Commits: 32b97a4, dae6032, 259c37c
+- 远程仓库 / Remote: https://github.com/htb123-maker/quality-engineering-lab
+- 完成状态 / Status: 通过 / PASSED
 
 ## 完成状态 / Completion Status
 
-通过 / PASSED（Windows 可验证范围）：类型化 iOS 配置、XCUITest
-Options、非 macOS 自动跳过、Appium XCUITest Driver 安装、预检脚本、CI
-工作流和调用链分析均已完成。
+通过 / PASSED: Windows 本地验证和 GitHub Actions macOS Runner 真实 iOS
+Session 均已通过。
 
-待验证 / PENDING（macOS 范围）：Xcode 编译 WebDriverAgent、启动 iOS
-Simulator、创建真实 XCUITest Session 和退出 Session 必须在 macOS、macOS CI
-或设备云执行。
+GitHub Actions 运行 36324371670 在 `macos-15-arm64` 上完成：
 
-English: all Windows-verifiable work passed. WDA compilation and a real
-XCUITest session remain unverified because the current host is Windows.
+- 选择并启动 iPhone 16、iOS 18.5 Simulator。
+- 编译并启动 WebDriverAgent 9.2.0。
+- 创建真实 XCUITest Session，`POST /session 200`。
+- 执行 Session smoke，`1 passed in 176.90s`。
+- 正常退出 Session，`DELETE /session 200`。
+
+English: the public repository and manual macOS workflow are active. The real
+XCUITest session, WDA startup, and session teardown passed on GitHub's
+macOS 15 ARM64 runner.
 
 ## 完成范围 / Scope
 
@@ -30,6 +35,9 @@ XCUITest session remain unverified because the current host is Windows.
 - 增加 Simulator 选择器，优先选择指定设备，失败时回退到 iPhone。
 - 增加 iOS Simulator/Device Cloud runbook 和 Android/iOS Driver 调用链对比。
 - 增加手工触发的 macOS GitHub Actions Smoke 工作流。
+- 创建公开仓库并推送全部 Day 4 变更。
+- 在 GitHub Actions `macos-15-arm64` Runner 完成真实 WDA 和 Simulator session。
+- 根据首次失败证据，将 WDA 启动预算提高到 240 秒并将测试超时提高到 600 秒。
 - 完成一次只读 Agent 分析，记录 iOS 与 Android Driver 创建差异。
 
 English summary: added the iOS driver factory, typed settings, skip-safe session
@@ -99,7 +107,10 @@ flowchart LR
 | XCUITest Driver | 通过 / PASS | `xcuitest@8.4.3`，兼容 `appium ^2.5.4` |
 | iOS 预检 / iOS preflight | 预期失败 / EXPECTED FAIL | Appium/Driver 通过；macOS/Xcode/Simulator 缺失 |
 | Allure report | 通过 / PASS | `artifacts/allure-report/index.html` |
-| macOS 真实 Session | 未验证 / UNVERIFIED | 当前主机不是 macOS |
+| GitHub macOS Runner | 通过 / PASS | Run 36324371670，`macos-15-arm64` |
+| WDA / Simulator | 通过 / PASS | WebDriverAgent 9.2.0，iPhone 16 / iOS 18.5 |
+| 真实 Session | 通过 / PASS | `POST /session 200`、`DELETE /session 200` |
+| macOS iOS smoke | 通过 / PASS | `1 passed in 176.90s (0:02:56)` |
 
 ## 验收方式 / Acceptance Method
 
@@ -137,7 +148,33 @@ Report successfully generated
 预检返回非零不是测试缺陷。`passed=false` 明确证明当前阻塞边界是 macOS、
 Xcode 和 Simulator，而不是 Appium 或 XCUITest Driver 安装。
 
-### macOS 待执行命令
+### macOS GitHub Actions 验收
+
+工作流地址：
+
+```text
+https://github.com/htb123-maker/quality-engineering-lab/actions/runs/36324371670
+```
+
+触发命令：
+
+```powershell
+gh workflow run ios-smoke.yml --ref main
+gh run watch 36324371670 --exit-status
+```
+
+实际关键输出：
+
+```text
+iOS environment ready: True
+Appium /status ready=true
+WebDriverAgent is ready to accept commands
+POST /session 200
+1 passed in 176.90s
+DELETE /session 200
+```
+
+### 本地 Mac 待执行命令
 
 完整步骤见 `docs/runbooks/ios-xcuitest-simulator.md`。
 
@@ -151,7 +188,7 @@ uv run --no-sync pytest tests/ios -q \
   --alluredir=artifacts/allure-results
 ```
 
-通过标准 / Pass criteria:
+本地 Mac 通过标准 / Local Mac pass criteria:
 
 ```text
 iOS environment ready: True
@@ -168,7 +205,8 @@ WebDriverAgentRunner launched
 - `docs/runbooks/ios-xcuitest-simulator.md`
 - `docs/architecture/mobile-driver-call-chain.md`
 - `artifacts/allure-report/index.html`
-- macOS 执行后应保存 Appium、Xcode/WDA 和 Allure 日志
+- GitHub Actions Run 36324371670
+- 远程诊断 artifact: `ios-appium-diagnostics`
 
 ## 交付物 / Deliverables
 
@@ -182,6 +220,7 @@ WebDriverAgentRunner launched
 - iOS Runbook: `docs/runbooks/ios-xcuitest-simulator.md`
 - Driver 调用链分析: `docs/architecture/mobile-driver-call-chain.md`
 - 手工 macOS CI: `.github/workflows/ios-smoke.yml`
+- 公开仓库: `https://github.com/htb123-maker/quality-engineering-lab`
 
 ## Agent 只读分析结论 / Read-only Agent Findings
 
@@ -193,19 +232,22 @@ WebDriverAgentRunner launched
    测试。后续跨平台阶段由 `PlatformAdapter` 统一生命周期和诊断。
 4. `import XCUITestOptions` 成功只证明 Python Client 和 Options 类可加载，
    不能证明 Xcode、WDA、Simulator 和 bundleId 能形成真实 session。
-5. 真实通过证据必须来自 `POST /session 200`、WDA 构建结果、Simulator 状态
-   和 pytest；静态代码检查只能证明配置结构正确。
+5. 首次 GitHub 运行证明，macOS Runner 的首次 WDA 编译超过默认 60 秒；
+   最终使用 240 秒启动预算，真实 session 在 161 秒内建立。
+6. 真实通过证据来自 `POST /session 200`、WDA ready 响应、Simulator 状态、
+   pytest 和正常 `DELETE /session 200`。
 
 ## 已知限制 / Known Limitations
 
-- 当前主机为 Windows，没有 Xcode、`xcrun` 和 iOS Simulator runtime。
-- 真实 XCUITest Session、WDA 构建、Simulator 启动和退出均未验证。
+- 当前 Windows 主机仍不能本地运行 Xcode 和 iOS Simulator，验证通过
+  GitHub Actions 的公开仓库 macOS Runner 完成。
 - Device Cloud 账号、endpoint 和凭证未提供，因此未实现供应商 Adapter。
-- `.github/workflows/ios-smoke.yml` 已做 YAML 解析验证，但没有推送到远端，
-  也没有实际运行 macOS Runner。
-- `actionlint` 未安装，工作流未做专用 lint。
+- `.github/workflows/ios-smoke.yml` 已在 `macos-15-arm64` Runner 上真实通过。
+- `actionlint` 未安装，但工作流已经由 GitHub Actions 实际执行验证。
 - Windows 上 `appium driver doctor xcuitest` 必然报告 Xcode、`xcrun` 和
   macOS 环境缺失；该结果不能作为 Driver 安装失败判断。
+- `appium driver doctor xcuitest` 在 hosted macOS Runner 上曾长时间不返回，
+  已从必跑 CI 步骤移除；它保留为本地排障工具。
 - Android 设备测试仍要求 AVD 已启动，因此 Day 4 使用
   `-m "not android"` 验证所有非设备测试。
 
