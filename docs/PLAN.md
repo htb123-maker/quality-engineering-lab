@@ -321,6 +321,20 @@ quality-engineering-lab/
 
 缺陷管理不单独增加一套框架，直接嵌入 Week 11、12、23、24、31 和 32。先跑通轻量闭环 `Jenkins/GitLab CI + Allure + GitLab Issues`，再接入 `Kiwi TCMS + OpenProject/ReportPortal` 等开源增强组件。任何新增平台都必须能通过 API 适配器接入，不能把核心测试代码绑定到单一缺陷系统。
 
+### 5.1 每日验收协议
+
+每完成一个 Day，必须同时提供以下内容：
+
+```text
+完成范围
++ 可复制执行的验收命令
++ 预期输出或通过标准
++ 证据文件或报告路径
++ 已知限制和未验证项
+```
+
+验收方式必须由执行者写入 `reports/daily/DAY-XX.md`，不能只停留在聊天记录中。每日收尾脚本使用 `-Acceptance` 参数强制传入验收方式。
+
 AI/Agent 不作为独立第四门课程抢走传统测试时间。每周用 1 到 2 小时，把 Agent 嵌入当前正在学习的真实任务：
 
 | 周 | AI/Agent 融入 |

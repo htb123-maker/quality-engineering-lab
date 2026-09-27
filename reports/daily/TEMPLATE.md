@@ -19,6 +19,10 @@ Describe what was completed.
 | Smoke tests | | |
 | Allure | | |
 
+## Acceptance method
+
+List copy-ready commands, expected results, and the evidence path.
+
 ## Files changed
 
 List important source and configuration changes.

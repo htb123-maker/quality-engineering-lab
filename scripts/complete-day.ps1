@@ -8,6 +8,9 @@ param(
 
     [string]$Notes = "",
 
+    [Parameter(Mandatory = $true)]
+    [string]$Acceptance,
+
     [switch]$SkipChecks,
 
     [switch]$NoCommit,
@@ -107,6 +110,10 @@ $(if ($failed) { "FAILED: one or more quality checks did not pass." } else { "PA
 | --- | --- |
 $checkRows
 
+## Acceptance method
+
+$Acceptance
+
 ## Workspace before report generation
 
 ``````text
@@ -141,7 +148,25 @@ $checkDetails
         return
     }
 
-    git add .
+    $allowedPaths = @(
+        ".env.example",
+        ".github",
+        ".gitignore",
+        "AGENTS.md",
+        "docs",
+        "packages",
+        "pyproject.toml",
+        "reports",
+        "scripts",
+        "tests",
+        "uv.lock",
+        "uv.toml"
+    )
+    foreach ($path in $allowedPaths) {
+        if (Test-Path -LiteralPath $path) {
+            git add -- $path
+        }
+    }
     git diff --cached --quiet
     if ($LASTEXITCODE -ne 0) {
         git commit -m "docs(day-$Day): add completion report"
