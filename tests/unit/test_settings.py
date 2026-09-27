@@ -12,6 +12,12 @@ def test_default_settings_are_local_and_safe() -> None:
     assert settings.environment == "local"
     assert str(settings.api_base_url) == "http://127.0.0.1:8000/"
     assert str(settings.appium_server_url) == "http://127.0.0.1:4723/"
+    assert settings.ios_device_name == "iPhone 16"
+    assert settings.ios_platform_version is None
+    assert settings.ios_udid is None
+    assert settings.ios_bundle_id == "com.apple.Preferences"
+    assert settings.ios_wda_local_port == 8100
+    assert settings.ios_use_new_wda is True
     assert settings.postgres_dsn is None
     assert settings.redis_url is None
     assert settings.artifacts_dir == Path("artifacts")

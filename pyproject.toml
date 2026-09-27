@@ -32,6 +32,7 @@ testpaths = ["tests"]
 pythonpath = ["packages", "src"]
 markers = [
     "android: Android Appium tests requiring an emulator or real device",
+    "ios: iOS Appium tests requiring macOS, Xcode, and an iOS simulator or device",
     "unit: fast isolated unit tests",
     "smoke: minimal environment and integration smoke tests",
 ]

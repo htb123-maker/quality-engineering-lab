@@ -1,0 +1,85 @@
+name: iOS Appium Smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-simulator:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      QA_IOS_DEVICE_NAME: iPhone 16
+      QA_IOS_BUNDLE_ID: com.apple.Preferences
+      QA_IOS_WDA_LOCAL_PORT: "8100"
+      QA_IOS_USE_NEW_WDA: "true"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Appium and XCUITest Driver
+        run: |
+          npm install --global appium@2.19.0
+          appium driver install xcuitest@8.4.3
+
+      - name: Select and boot iOS Simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEVICE_UDID="$(
+            xcrun simctl list devices available -j |
+              python3 scripts/select_ios_simulator.py \
+                --device-name "$QA_IOS_DEVICE_NAME" \
+                --fallback-prefix iPhone
+          )"
+          echo "QA_IOS_UDID=$DEVICE_UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$DEVICE_UDID" || true
+          open -a Simulator
+
+      - name: Check iOS environment
+        run: uv run --no-sync python scripts/check_ios_environment.py --doctor
+
+      - name: Start Appium Server
+        run: |
+          mkdir -p artifacts
+          nohup appium --address 127.0.0.1 --port 4723 --log-level debug \
+            > artifacts/appium-ios.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4723/status; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat artifacts/appium-ios.log
+          exit 1
+
+      - name: Run iOS smoke
+        run: |
+          mkdir -p artifacts/allure-results
+          uv run --no-sync pytest tests/ios -q \
+            --alluredir=artifacts/allure-results
+
+      - name: Upload iOS diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-appium-diagnostics
+          path: |
+            artifacts/
+          if-no-files-found: ignore

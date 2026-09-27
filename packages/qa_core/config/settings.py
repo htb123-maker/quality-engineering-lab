@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     android_app_activity: str = Field(
         default=".launcher.EmptyHomeActivity"
     )
+    ios_device_name: str = Field(default="iPhone 16")
+    ios_platform_version: str | None = Field(default=None)
+    ios_udid: str | None = Field(default=None)
+    ios_bundle_id: str = Field(default="com.apple.Preferences")
+    ios_wda_local_port: int = Field(default=8100, ge=1, le=65535)
+    ios_use_new_wda: bool = Field(default=True)
     postgres_dsn: PostgresDsn | None = Field(default=None)
     redis_url: RedisDsn | None = Field(default=None)
     artifacts_dir: Path = Field(default=Path("artifacts"))
