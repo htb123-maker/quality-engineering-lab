@@ -76,10 +76,10 @@ try {
     }
 
     $checkRows = if ($checks.Count -eq 0) {
-        "| Check | Status |`n| --- | --- |`n| Checks skipped | SKIP |"
+        "| 检查项 / Check | 结果 / Status |`n| --- | --- |`n| Checks skipped | 跳过 / SKIP |"
     } else {
         ($checks | ForEach-Object {
-            $status = if ($_.Passed) { "PASS" } else { "FAIL" }
+            $status = if ($_.Passed) { "通过 / PASS" } else { "失败 / FAIL" }
             "| $($_.Name) | $status |"
         }) -join "`n"
     }
@@ -100,38 +100,38 @@ try {
 - Base commit: $baseCommit
 - Remote: $(if ($hasRemote) { $remoteUrl } else { "not configured" })
 
-## Completion status
+## 完成状态 / Completion Status
 
-$(if ($failed) { "FAILED: one or more quality checks did not pass." } else { "PASSED: automated quality checks completed." })
+$(if ($failed) { "失败 / FAILED: one or more quality checks did not pass." } else { "通过 / PASSED: automated quality checks completed." })
 
-## Quality checks
+## 质量检查 / Quality Checks
 
-| Check | Status |
+| 检查项 / Check | 结果 / Status |
 | --- | --- |
 $checkRows
 
-## Acceptance method
+## 验收方式 / Acceptance Method
 
 $Acceptance
 
-## Workspace before report generation
+## 生成日报前的工作区 / Workspace Before Report Generation
 
 ``````text
 $statusLines
 ``````
 
-## Notes
+## 备注 / Notes
 
 $Notes
 
-## Command output
+## 命令输出 / Command Output
 
 $checkDetails
 
-## Follow-up
+## 后续 / Follow-up
 
-- Unchecked items must be recorded explicitly before this day is considered complete.
-- Do not close defects or approve releases automatically.
+- 未验证项必须明确记录 / Unchecked items must be recorded explicitly.
+- 不允许自动关闭缺陷或批准发布 / Do not auto-close defects or approve releases.
 "@
 
     if (-not $DryRun) {

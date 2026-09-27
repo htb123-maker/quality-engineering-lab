@@ -1,40 +1,50 @@
-# DAY-XX - Day Title
+# DAY-XX - 中文标题 / English Title
 
-- Date:
-- Branch:
-- Base commit:
-- Pull request:
+- 日期 / Date:
+- 分支 / Branch:
+- 基线提交 / Base Commit:
+- 当日提交 / Day Commit:
+- Pull Request:
 
-## Scope
+## 完成范围 / Scope
 
-Describe what was completed.
+用中文说明当天完成了什么，以及这些工作为什么满足目标要求。
 
-## Quality checks
+English summary: describe what was completed and how it satisfies the day goal.
 
-| Check | Status | Evidence |
+## 质量检查 / Quality Checks
+
+| 检查项 / Check | 结果 / Status | 证据 / Evidence |
 | --- | --- | --- |
-| Ruff | | |
-| Mypy | | |
-| Unit tests | | |
-| Smoke tests | | |
-| Allure | | |
+| Ruff | 通过 / PASS | |
+| Mypy | 通过 / PASS | |
+| Pytest | 通过 / PASS | |
+| Allure | 通过 / PASS | |
 
-## Acceptance method
+说明：`PASS`、`FAILED`、命令输出和错误信息保留原始英文，避免改变工具语义。
 
-List copy-ready commands, expected results, and the evidence path.
+## 验收方式 / Acceptance Method
 
-## Files changed
+这里必须写出可复制执行的中文验收步骤。每一段包含：
 
-List important source and configuration changes.
+1. 前置条件 / Precondition。
+2. 执行命令 / Commands。
+3. 预期结果 / Expected Results。
+4. 证据路径 / Evidence Paths。
+5. 未验证项 / Unverified Items。
 
-## Environment
+## 变更文件 / Files Changed
 
-Record Python, package, device, service, or infrastructure prerequisites.
+列出重要的源码、配置、测试和文档变更。
 
-## Risks and limitations
+## 环境 / Environment
 
-Record unresolved issues honestly.
+记录 Python、依赖、设备、服务、端口、JDK、Node.js 或基础设施前置条件。
 
-## Next day
+## 风险与限制 / Risks and Limitations
 
-List the next concrete tasks.
+如实记录未解决问题、网络限制、环境限制和尚未执行的验证。
+
+## 下一步 / Next Day
+
+列出下一日的最小可执行任务和验收目标。
