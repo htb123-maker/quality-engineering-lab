@@ -27,6 +27,53 @@ English: automated quality checks and a real Android Appium session passed.
 English summary: completed the Android Appium environment, driver factory,
 real emulator session lifecycle, Allure evidence, and PyCharm run configuration.
 
+## 术语解释 / Glossary
+
+| 名词 / Term | 简单解释 / Plain Meaning | 作用 / Purpose | 在本项目中的位置 / Position |
+| --- | --- | --- | --- |
+| Appium | 使用统一 WebDriver 协议控制移动 App 的工具 | 让 Python 测试能够操作 Android 和 iOS | 移动端自动化总入口 |
+| Appium Client | Python 测试代码侧发送命令的库 | 把 Python 调用转换成 Appium HTTP 请求 | `Appium-Python-Client` |
+| Appium Server | 接收命令并调度设备 Driver 的服务 | 连接测试代码、Driver 和设备 | `http://127.0.0.1:4723` |
+| Driver | 负责某一种平台技术的适配层 | 把统一命令转换成 Android 或 iOS 原生操作 | Android 使用 UiAutomator2 |
+| UiAutomator2 | Android 官方 UI 自动化和元素定位框架 | 查找元素、点击、滑动并读取页面状态 | `appium-uiautomator2-driver` |
+| Capabilities | 告诉 Appium“要控制哪台设备、哪个 App、怎样启动”的参数字典 | 决定 session 的目标设备和 App | `qa_core.driver.android` |
+| Session | 一次 Appium 自动化连接的生命周期 | 从创建到退出期间保存设备状态和命令上下文 | 每条 Android 测试 |
+| ADB | Android Debug Bridge，电脑与 Android 设备通信的桥梁 | 安装 APK、启动 Activity、查看日志和执行设备命令 | `D:\Android\Sdk\platform-tools\adb.exe` |
+| AVD | Android Virtual Device，安卓模拟器实例 | 不用真机也能执行 Android 自动化 | `Pixel_API_35_AOSP_ATD` |
+| AOSP ATD | Google 官方面向自动化的精简测试镜像 | 启动更快，适合 CI 和基础自动化 | Android 35 系统镜像 |
+| `io.appium.settings` | Appium 安装到设备上的辅助 App | 协助处理通知、权限和系统设置 | 由 UiAutomator2 Driver 管理 |
+
+简单理解：Day 1 是地基，Day 2 是测试插座，Day 3 是第一台真正通电运行的 Android 机器。
+
+## 今日在整体路线中的位置 / Day Position
+
+```mermaid
+flowchart LR
+    D1[DAY-01 工程基线] --> D2[DAY-02 测试基础]
+    D2 --> D3["DAY-03 Android<br/>当前完成"]
+    D3 --> D4[DAY-04 iOS]
+    D4 --> D5[DAY-05 接口与数据库]
+    D5 --> D6[DAY-06+ 性能与 Agent]
+    class D3 current
+    classDef current fill:#2d7ff9,color:#fff,stroke:#1b4f9c,stroke-width:2px
+```
+
+Android 自动化调用链：
+
+```mermaid
+flowchart LR
+    P[pytest] --> F[Android Driver Factory]
+    F --> C[Appium Python Client]
+    C --> H[HTTP / W3C]
+    H --> S[Appium Server]
+    S --> U[UiAutomator2 Driver]
+    U --> A[ADB]
+    A --> V[Android 35 AVD]
+    V --> X[Settings / App UI]
+```
+
+`io.appium.settings` 失败发生在 `Appium Server -> UiAutomator2 Driver -> ADB -> AVD` 这段初始化链路中，不是 pytest 断言或业务代码问题。
+
 ## 质量检查 / Quality Checks
 
 | 检查项 / Check | 结果 / Status | 证据 / Evidence |

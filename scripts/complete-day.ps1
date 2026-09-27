@@ -11,6 +11,12 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$Acceptance,
 
+    [Parameter(Mandatory = $true)]
+    [string]$Glossary,
+
+    [Parameter(Mandatory = $true)]
+    [string]$PositionDiagram,
+
     [switch]$SkipChecks,
 
     [switch]$NoCommit,
@@ -103,6 +109,14 @@ try {
 ## 完成状态 / Completion Status
 
 $(if ($failed) { "失败 / FAILED: one or more quality checks did not pass." } else { "通过 / PASSED: automated quality checks completed." })
+
+## 术语解释 / Glossary
+
+$Glossary
+
+## 今日在整体路线中的位置 / Day Position
+
+$PositionDiagram
 
 ## 质量检查 / Quality Checks
 

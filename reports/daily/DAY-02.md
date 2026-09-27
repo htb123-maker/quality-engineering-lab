@@ -21,6 +21,47 @@
 English summary: created the initial typed configuration and smoke-test baseline,
 then verified pytest, Ruff, mypy, Allure, and PyCharm package detection.
 
+## 术语解释 / Glossary
+
+| 名词 / Term | 简单解释 / Plain Meaning | 作用 / Purpose | 在本项目中的位置 / Position |
+| --- | --- | --- | --- |
+| pytest | Python 的自动化测试运行器 | 发现测试、执行测试、判断通过或失败 | 所有单元、API、Appium 和 E2E 测试的入口 |
+| Test Function | 名称以 `test_` 开头的测试函数 | 表达一个可独立执行的检查 | `tests/` 下的测试文件 |
+| Unit Test | 不依赖外部服务的快速小测试 | 验证配置、算法和纯函数是否正确 | `tests/unit/` |
+| Smoke Test | 只检查最关键链路是否可用的测试 | 快速判断环境是否具备继续工作的条件 | `tests/smoke/` |
+| Fixture | pytest 提供的测试前置和后置资源 | 创建配置、Driver、数据库连接并负责清理 | `tests/conftest.py` |
+| Marker | 给测试加标签，例如 `smoke`、`android` | 按类别选择测试，不必运行全部用例 | `pyproject.toml` |
+| Allure | 测试报告和证据可视化工具 | 展示步骤、结果、附件和历史 | `artifacts/allure-report` |
+| Pydantic | 用 Python 类型描述和校验数据的库 | 防止配置字段类型错误 | `qa_core.config.settings` |
+| Ruff | Python 代码检查和格式质量工具 | 尽早发现导入、语法和常见代码问题 | 本地质量门禁和 CI |
+| mypy | Python 类型检查工具 | 在运行前发现类型不匹配 | 本地质量门禁和 CI |
+
+简单理解：Day 1 建好了房子，Day 2 装上了“测试插座”和“报警器”。
+
+## 今日在整体路线中的位置 / Day Position
+
+```mermaid
+flowchart LR
+    D1[DAY-01 工程基线] --> D2["DAY-02 测试基础<br/>当前完成"]
+    D2 --> D3[DAY-03 Android]
+    D3 --> D4[DAY-04 iOS]
+    D4 --> D5[DAY-05 接口与数据库]
+    D5 --> D6[DAY-06+ 性能与 Agent]
+    class D2 current
+    classDef current fill:#2d7ff9,color:#fff,stroke:#1b4f9c,stroke-width:2px
+```
+
+Day 2 建立了后续所有测试共用的执行入口和数据校验方式：
+
+```mermaid
+flowchart LR
+    P[pytest] --> F[Fixture]
+    F --> S[Typed Settings]
+    S --> T[Test Function]
+    T --> A[Allure Results]
+    A --> R[Allure HTML Report]
+```
+
 ## 质量检查 / Quality Checks
 
 | 检查项 / Check | 结果 / Status | 证据 / Evidence |

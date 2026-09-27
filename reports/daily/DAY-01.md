@@ -32,6 +32,37 @@ Day 1 的目标不是写业务测试，而是建立唯一可信的工程基线�
 English summary: created the repository baseline and a project-local Python
 environment without relying on the broken Windows Store Python placeholder.
 
+## 术语解释 / Glossary
+
+| 名词 / Term | 简单解释 / Plain Meaning | 作用 / Purpose | 在本项目中的位置 / Position |
+| --- | --- | --- | --- |
+| Git | 记录代码每次变化的版本管理工具 | 知道谁在什么时候改了什么，也能回退错误修改 | 整个项目的地基，Day 1 开始使用 |
+| Repository | Git 管理的项目仓库 | 保存代码、配置、测试和提交历史 | `D:\Codex projects\Appium 2 study` |
+| Commit | 一次被 Git 记录的完整改动快照 | 形成可回退、可比较、可追踪的检查点 | Day 1 的 `8bf7ef7` |
+| Python 虚拟环境 | 属于当前项目的独立 Python 运行空间 | 避免不同项目互相污染依赖 | 项目根目录的 `.venv` |
+| uv | Python 环境和依赖管理工具 | 快速创建环境、安装依赖并锁定版本 | 管理 `.venv` 和 `uv.lock` |
+| `pyproject.toml` | Python 项目的标准配置入口 | 声明 Python 版本、依赖、pytest、Ruff 和 mypy 配置 | 项目根目录 |
+| Lock File | 记录依赖精确版本的锁文件 | 保证本机、PyCharm 和 CI 安装相同版本 | `uv.lock` |
+| Interpreter | 实际执行 Python 代码的程序 | 决定测试使用哪套 Python 和依赖 | `.venv\Scripts\python.exe` |
+| `AGENTS.md` | Agent 的操作契约和边界 | 告诉 Agent 哪些操作允许、哪些禁止 | 项目根目录 |
+
+简单理解：Day 1 像建造房屋前先确认地基、水电和门禁，还没开始装修测试框架。
+
+## 今日在整体路线中的位置 / Day Position
+
+```mermaid
+flowchart LR
+    D1["DAY-01 工程基线<br/>当前完成"] --> D2[DAY-02 测试基础]
+    D2 --> D3[DAY-03 Android]
+    D3 --> D4[DAY-04 iOS]
+    D4 --> D5[DAY-05 接口与数据库]
+    D5 --> D6[DAY-06+ 性能与 Agent]
+    class D1 current
+    classDef current fill:#2d7ff9,color:#fff,stroke:#1b4f9c,stroke-width:2px
+```
+
+Day 1 是后续所有工作的唯一环境起点。没有统一解释器、锁文件和 Git 基线，后面即使测试通过，也无法保证在 PyCharm、终端和 CI 中结果一致。
+
 ## 质量检查 / Quality Checks
 
 | 检查项 / Check | 结果 / Status | 证据 / Evidence |

@@ -12,6 +12,27 @@
 
 English summary: describe what was completed and how it satisfies the day goal.
 
+## 术语解释 / Glossary
+
+用简单语言解释当天出现的专业名词。每一行必须说明：
+
+| 名词 / Term | 简单解释 / Plain Meaning | 作用 / Purpose | 在本项目中的位置 / Position |
+| --- | --- | --- | --- |
+|  |  |  |  |
+
+## 今日在整体路线中的位置 / Day Position
+
+```mermaid
+flowchart LR
+    D1[DAY-01 工程基线] --> D2[DAY-02 测试基础]
+    D2 --> D3[DAY-03 Android]
+    D3 --> D4[DAY-04 iOS]
+    D4 --> D5[DAY-05 接口与数据库]
+    D5 --> D6[DAY-06+ 性能与 Agent]
+```
+
+说明当前 Day 已完成哪些前置条件，以及它为后续哪些能力提供基础。
+
 ## 质量检查 / Quality Checks
 
 | 检查项 / Check | 结果 / Status | 证据 / Evidence |
