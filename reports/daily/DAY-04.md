@@ -175,9 +175,13 @@ POST /session 200
 DELETE /session 200
 ```
 
-### 本地 Mac 待执行命令
+### macOS 宿主机命令 / macOS Host Commands
 
 完整步骤见 `docs/runbooks/ios-xcuitest-simulator.md`。
+
+执行位置说明：以下 `bash` 命令只能运行在 macOS 主机上，包括本地 Mac、
+SSH 远程 Mac 或 GitHub Actions macOS Runner。当前 Windows 主机的 PyCharm
+终端不能执行 Xcode、Simulator 和 WebDriverAgent 命令。
 
 ```bash
 uv sync --frozen
@@ -189,7 +193,7 @@ uv run --no-sync pytest tests/ios -q \
   --alluredir=artifacts/allure-results
 ```
 
-本地 Mac 通过标准 / Local Mac pass criteria:
+macOS 宿主机通过标准 / macOS host pass criteria:
 
 ```text
 iOS environment ready: True
