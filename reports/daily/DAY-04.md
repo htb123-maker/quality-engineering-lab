@@ -3,7 +3,7 @@
 - 日期 / Date: 2026-09-27
 - 分支 / Branch: main
 - 基线提交 / Base Commit: cfe8018
-- 当日提交 / Day Commits: 32b97a4, dae6032, 259c37c
+- 当日提交 / Day Commits: 32b97a4, dae6032, 259c37c, 1dadd38, 2e378b5
 - 远程仓库 / Remote: https://github.com/htb123-maker/quality-engineering-lab
 - 完成状态 / Status: 通过 / PASSED
 
@@ -111,6 +111,7 @@ flowchart LR
 | WDA / Simulator | 通过 / PASS | WebDriverAgent 9.2.0，iPhone 16 / iOS 18.5 |
 | 真实 Session | 通过 / PASS | `POST /session 200`、`DELETE /session 200` |
 | macOS iOS smoke | 通过 / PASS | `1 passed in 176.90s (0:02:56)` |
+| Ubuntu Quality Gates | 通过 / PASS | Run 36325043074，Ruff/Mypy/Unit/Smoke 全部通过 |
 
 ## 验收方式 / Acceptance Method
 
