@@ -15,10 +15,13 @@ from qa_core.config.settings import Settings
 @allure.story("Python runtime")
 @pytest.mark.smoke
 def test_project_uses_python_312_virtual_environment(project_root: Path) -> None:
-    expected_python = (project_root / ".venv" / "Scripts" / "python.exe").resolve()
+    if sys.platform == "win32":
+        expected_python = project_root / ".venv" / "Scripts" / "python.exe"
+    else:
+        expected_python = project_root / ".venv" / "bin" / "python"
 
     assert sys.version_info[:2] == (3, 12)
-    assert Path(sys.executable).resolve() == expected_python
+    assert Path(sys.executable).resolve() == expected_python.resolve()
 
 
 @allure.epic("Quality Engineering Lab")
