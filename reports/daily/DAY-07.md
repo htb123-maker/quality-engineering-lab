@@ -15,10 +15,16 @@ smoke、检查资源泄漏、生成第一份 Allure 报告。
 连续 10 轮 API + Android smoke 全部通过，共 20 次用例执行；运行前后
 Appium session、监听端口和进程数量完全一致，没有发现泄漏。
 
+Day 5 到 Day 7 的改动已推送到 `origin/main`（`ff47a07`）。iOS smoke 在同一次
+推送的代码上由 GitHub macOS Runner 真实通过（Run `37130258592`），
+Ubuntu Runner 上的集成测试也通过（Run `37130251742`）。
+
 English: Day 7 closed out Day 5-06 (commit `f165884`), ran the API and Android
 smoke suites ten consecutive times, and compared baseline and final
 session/port/process snapshots. All 20 executions passed and no leak was
-detected.
+detected. The Day 5-07 work was pushed to `origin/main`, iOS smoke passed on a
+GitHub macOS runner against the same commit, and the psycopg integration tests
+passed on an Ubuntu runner.
 
 ## 完成范围 / Scope
 
@@ -103,7 +109,7 @@ Day 7 是第一周的出口。前面几天分别在搭环境、写 smoke、建�
 | SUT 可启动 | 通过 / PASS | API、PostgreSQL、Redis 三个容器 `healthy` |
 | API smoke 可运行 | 通过 / PASS | 10 轮 `1 passed` |
 | Android smoke 可运行 | 通过 / PASS | 10 轮 `1 passed`，Appium 2.19.0 + `emulator-5554` |
-| iOS smoke 可运行 | 通过 / PASS | 本机环境跳过；GitHub macOS Runner Run `36829347849` |
+| iOS smoke 可运行 | 通过 / PASS | 本机环境跳过；GitHub macOS Runner Run `37130258592`（`ff47a07`） |
 | Allure 有报告 | 通过 / PASS | `artifacts/allure-report/index.html` |
 | 无 session 泄漏 | 通过 / PASS | 基线 0 → 最终 0 |
 | PyCharm 可调试 | 由人工确认 / MANUAL | `.venv` 内含 `pip`，可被 PyCharm 识别 |
@@ -120,8 +126,10 @@ Day 7 是第一周的出口。前面几天分别在搭环境、写 smoke、建�
 | 完整回归（不含集成） | 通过 / PASS | `15 passed, 1 skipped in 2.73s` |
 | SUT 只读验证 | 通过 / PASS | catalog 3 条；PostgreSQL `2/3/4`；Redis `PONG` |
 | Allure | 通过 / PASS | `artifacts/allure-report/index.html` |
-| 集成测试 | 本机无法执行 / BLOCKED | `psycopg` 被 Smart App Control 拦截 |
+| 集成测试 | 通过 / PASS（GitHub） | Ubuntu SUT Integration Run `37130251742`，`4 passed` |
 | Day 5-6 收口提交 | 完成 / COMPLETE | `f165884` |
+| GitHub Quality Gates | 通过 / PASS | Run `37130251660` @ `ff47a07` |
+| iOS smoke（GitHub） | 通过 / PASS | Run `37130258592` @ `ff47a07`，3m49s |
 
 ## 验收方式 / Acceptance Method
 
@@ -298,6 +306,50 @@ SMOKE-IOS-SESSION-001
 分组成同一条用例的重试记录，所以报告首页显示 16 条唯一用例，而不是 36 条
 原始执行记录。
 
+### iOS 环境验收（GitHub macOS Runner）/ iOS Acceptance on GitHub
+
+推送 `ff47a07` 后，iOS smoke 在真实 macOS Runner 上执行，因此这次验收覆盖的
+代码与本地完全一致，不再存在“远端还是旧基线”的缺口。
+
+```powershell
+git push origin main
+
+gh workflow run ios-smoke.yml --ref main
+
+gh run watch 37130258592 --exit-status
+```
+
+实际结果 / Actual results:
+
+```text
+iOS environment ready: True
+{"value":{"ready":true,...,"build":{"version":"2.19.0"}}}
+WebDriverAgent is ready to accept commands (version 9.2.0, iOS 18.5)
+POST /session 200 87342 ms
+DELETE /session 200 332 ms
+test_ios_session_starts_and_quits | status=passed | duration=89.4s
+1 passed in 90.63s (0:01:30)
+```
+
+```text
+ios-simulator in 3m49s
+```
+
+关键点 / Key points:
+
+- `POST /session` 的 87.3 秒几乎全部花在 WDA 首次编译和启动上，实际 WDA
+  session 建立只用了 4018ms；这正是 Day 4 把启动预算提高到 240 秒的原因。
+- `DELETE /session 200` 正常返回，说明 Runner 上也没有残留 session。
+- Allure 结果中的稳定标识为 `SMOKE-IOS-SESSION-001`，并带
+  `docs/runbooks/failed-quality-gate.md` 链接。
+- 同一次推送还触发了 Quality Gates 和 SUT Integration：
+  Run `37130251660` 通过；Run `37130251742` 在 Ubuntu 上跑出
+  `4 passed`（集成测试）和 `1 passed`（API smoke），数据库校验
+  `Day 5 database verification: PASS`。
+
+说明：以上三个运行针对的代码提交是 `ff47a07`。之后只追加了日报和文档更新，
+没有改动被测试的代码、配置或工作流，因此这些结果仍然对应当前代码基线。
+
 ## 本周最难的 3 个问题与最小复现 / Three Hardest Problems of Week 1
 
 ### 1. macOS Runner 首次 WDA 编译超时（Day 4）
@@ -344,7 +396,11 @@ SMOKE-IOS-SESSION-001
 - Appium 日志: `artifacts/appium-server.out.log`
 - AVD 日志: `artifacts/emulator.out.log`、`artifacts/emulator.err.log`
 - Day 5-6 收口提交: `f165884`
-- iOS macOS Runner: `https://github.com/htb123-maker/quality-engineering-lab/actions/runs/36829347849`
+- iOS macOS Runner（当前基线）: `https://github.com/htb123-maker/quality-engineering-lab/actions/runs/37130258592`
+- iOS macOS Runner（Day 4 基线）: `https://github.com/htb123-maker/quality-engineering-lab/actions/runs/36829347849`
+- SUT Integration（Ubuntu 集成测试）: `https://github.com/htb123-maker/quality-engineering-lab/actions/runs/37130251742`
+- GitHub Quality Gates: `https://github.com/htb123-maker/quality-engineering-lab/actions/runs/37130251660`
+- iOS 诊断 artifact: `artifacts/github-run-37130258592/ios-appium-diagnostics/appium-ios.log`
 
 ## 变更文件 / Files Changed
 
@@ -371,8 +427,9 @@ SMOKE-IOS-SESSION-001
 
 - Smart App Control 处于强制模式，会拦截未受信任的 Python 二进制扩展。
   `mypy` 已用纯 Python 副本替代验证；`psycopg` 没有可用的纯 Python libpq，
-  因此 `tests/integration/test_sut.py` 在本机无法执行。该文件仍需在
-  Ubuntu SUT integration workflow 或关闭策略后的本机验证。
+  因此 `tests/integration/test_sut.py` 在本机依旧无法执行。该缺口已由
+  Ubuntu SUT Integration Run `37130251742` 覆盖（`4 passed`），但本机证据
+  仍需在关闭策略后补齐。
 - 上述策略是系统级安全设置，本次没有修改。是否关闭必须由项目所有者决定，
   Smart App Control 关闭后不能在不重装系统的前提下重新开启。
 - 本日 soak 只覆盖 `api` 和 `android`；Windows 主机不能运行 Xcode/WDA，
@@ -391,4 +448,6 @@ SMOKE-IOS-SESSION-001
 2. 让 `scripts/check_sut.py` 在无法导入 `psycopg` 时给出明确的环境提示，
    而不是直接崩溃。
 3. 视需要把 soak 的端口和进程审计扩展到动态端口范围。
-4. 在 macOS CI 或关闭 Smart App Control 后补齐集成测试的本机证据。
+4. 视需要关闭 Smart App Control，或在 Ubuntu Runner 上继续承担集成测试职责。
+5. 把 iOS smoke 从手动 `workflow_dispatch` 改为按需定时或标签触发，
+   让跨平台 smoke 有稳定的周期性证据。

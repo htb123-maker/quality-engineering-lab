@@ -347,13 +347,16 @@ Report successfully generated to artifacts\allure-report
 - 当前 Windows 主机不能本地运行 Xcode、iOS Simulator 和 WDA，因此 Day 6
   本地 iOS smoke 只能明确跳过；真实 iOS 证据由 GitHub macOS Runner
   Run `36829347849` 补充。
-- GitHub macOS Run 使用远端 `main` 的 `4f5f297`，尚未包含本地 Day 5/Day 6
-  未提交改动。
+- GitHub macOS Run `36829347849` 使用的是基线提交 `4f5f297`，当时还未包含
+  Day 5/Day 6 改动。该缺口已在 Day 7 由 Run `37130258592` 补齐：同一套 iOS
+  smoke 针对包含 Day 5、Day 6 和 Day 7 全部改动的 `ff47a07` 真实通过。
 - Docker Desktop 在本机 idle shutdown 后需要 `docker desktop restart` 才能
   恢复 Linux engine；该环境行为已记录，不属于应用缺陷。
 - 在提升权限运行 pytest 时可能出现 `.pytest_cache` 权限警告；正式验收已用
   `-p no:cacheprovider` 避免该噪声。
-- GitHub Actions workflow 已更新但尚未推送触发；当前验证是本机真实链路。
+- GitHub Actions workflow 当时尚未推送触发。Day 7 推送 `ff47a07` 后，
+  Quality Gates、SUT Integration 和 iOS Appium Smoke 三个工作流都已在
+  GitHub 上真实执行通过。
 - 缺陷闭环目前只有生命周期、指纹和链接规范，尚未接入 GitLab/Jira 等具体
   Adapter；按计划在 Week 11 到 12 实现。
 - Day 5 和 Day 6 的改动已在 Day 7 收尾时合并提交为 `f165884`；Day 5 的
