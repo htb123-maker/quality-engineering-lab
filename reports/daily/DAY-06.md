@@ -3,7 +3,7 @@
 - 日期 / Date: 2026-10-01
 - 分支 / Branch: main
 - 基线提交 / Base Commit: 4f5f297
-- 当日提交 / Day Commit: 尚未提交 / not committed
+- 当日提交 / Day Commit: f165884
 - 远程仓库 / Remote: https://github.com/htb123-maker/quality-engineering-lab
 - 完成状态 / Status: 通过 / PASSED
 
@@ -356,7 +356,8 @@ Report successfully generated to artifacts\allure-report
 - GitHub Actions workflow 已更新但尚未推送触发；当前验证是本机真实链路。
 - 缺陷闭环目前只有生命周期、指纹和链接规范，尚未接入 GitLab/Jira 等具体
   Adapter；按计划在 Week 11 到 12 实现。
-- 工作区包含 Day 5 未提交改动和 Day 6 新文件，未擅自创建提交或 PR。
+- Day 5 和 Day 6 的改动已在 Day 7 收尾时合并提交为 `f165884`；Day 5 的
+  验收报告 `DAY-05.md` 随同该提交一起纳入版本历史。
 
 ## 下一步 / Next Day
 
