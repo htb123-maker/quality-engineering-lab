@@ -328,6 +328,7 @@ quality-engineering-lab/
 ```text
 完成范围
 + 专业名词的简单解释、作用和在项目中的位置
++ 用通俗语言和一张生活化结构图解释当天主链路
 + 当前 Day 在整体学习路线中的结构图
 + 可复制执行的验收命令
 + 预期输出或通过标准
@@ -335,7 +336,7 @@ quality-engineering-lab/
 + 已知限制和未验证项
 ```
 
-验收方式必须由执行者写入 `reports/daily/DAY-XX.md`，不能只停留在聊天记录中。每日收尾脚本使用 `-Acceptance`、`-Glossary` 和 `-PositionDiagram` 参数强制传入验收方式、术语解释和结构图。
+验收方式必须由执行者写入 `reports/daily/DAY-XX.md`，不能只停留在聊天记录中。每日收尾脚本使用 `-Acceptance`、`-Glossary`、`-PlainLanguage` 和 `-PositionDiagram` 参数强制传入验收方式、术语解释、通俗解读和结构图。
 
 AI/Agent 不作为独立第四门课程抢走传统测试时间。每周用 1 到 2 小时，把 Agent 嵌入当前正在学习的真实任务：
 

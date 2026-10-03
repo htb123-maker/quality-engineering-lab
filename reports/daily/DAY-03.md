@@ -45,6 +45,21 @@ real emulator session lifecycle, Allure evidence, and PyCharm run configuration.
 
 简单理解：Day 1 是地基，Day 2 是测试插座，Day 3 是第一台真正通电运行的 Android 机器。
 
+## 通俗解读 / Plain-Language Guide
+
+Day 3 像给 Windows 装了一套“Android 遥控器”：pytest 按键，Appium Server 转发命令，
+UiAutomator2 翻译成 Android 操作，ADB 把命令送到模拟器，最后由 AVD 执行点击和读取页面。
+
+**一句话理解：** 你写的是 Python 测试，真正动手的是 Android 模拟器。
+
+```mermaid
+flowchart LR
+    TEST["pytest<br/>遥控指令"] --> SERVER["Appium Server<br/>信号转发站"]
+    SERVER --> UIA2["UiAutomator2<br/>Android 翻译器"]
+    UIA2 --> ADB["ADB<br/>电脑到 Android 的桥"]
+    ADB --> AVD["AVD / 真机<br/>执行点击、滑动、读页面"]
+```
+
 ## 今日在整体路线中的位置 / Day Position
 
 ```mermaid

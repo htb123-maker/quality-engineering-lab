@@ -23,7 +23,7 @@ class Settings(BaseSettings):
 
     environment: Environment = "local"
     api_base_url: AnyHttpUrl = Field(
-        default_factory=lambda: AnyHttpUrl("http://127.0.0.1:8000")
+        default_factory=lambda: AnyHttpUrl("http://127.0.0.1:18000")
     )
     appium_server_url: AnyHttpUrl = Field(
         default_factory=lambda: AnyHttpUrl("http://127.0.0.1:4723")
@@ -52,8 +52,12 @@ class Settings(BaseSettings):
         ge=1_000,
         le=60_000,
     )
-    postgres_dsn: PostgresDsn | None = Field(default=None)
-    redis_url: RedisDsn | None = Field(default=None)
+    postgres_dsn: PostgresDsn = Field(
+        default_factory=lambda: PostgresDsn("postgresql://qa:qa@127.0.0.1:15432/qa")
+    )
+    redis_url: RedisDsn = Field(
+        default_factory=lambda: RedisDsn("redis://127.0.0.1:16379/0")
+    )
     artifacts_dir: Path = Field(default=Path("artifacts"))
     log_level: LogLevel = Field(default="INFO")
 

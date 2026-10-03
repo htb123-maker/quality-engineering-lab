@@ -20,6 +20,21 @@ English summary: describe what was completed and how it satisfies the day goal.
 | --- | --- | --- | --- |
 |  |  |  |  |
 
+## 通俗解读 / Plain-Language Guide
+
+先用一句生活化的话说明今天在做什么，再用一张图展示“谁调用谁、谁依赖谁”。
+图里可以使用比喻，但节点名称仍要能对应到真实文件、服务或设备。
+
+**一句话理解：** 今天做了什么，可以类比成生活中的什么。
+
+```mermaid
+flowchart LR
+    A[入口] --> B[核心组件]
+    B --> C[结果或证据]
+```
+
+说明：图只解释主线，不替代后面的验收命令和技术细节。
+
 ## 今日在整体路线中的位置 / Day Position
 
 ```mermaid

@@ -10,7 +10,7 @@ def test_default_settings_are_local_and_safe() -> None:
     settings = Settings(_env_file=None)
 
     assert settings.environment == "local"
-    assert str(settings.api_base_url) == "http://127.0.0.1:8000/"
+    assert str(settings.api_base_url) == "http://127.0.0.1:18000/"
     assert str(settings.appium_server_url) == "http://127.0.0.1:4723/"
     assert settings.ios_device_name == "iPhone 16"
     assert settings.ios_platform_version is None
@@ -21,8 +21,8 @@ def test_default_settings_are_local_and_safe() -> None:
     assert settings.ios_wda_launch_timeout_ms == 240_000
     assert settings.ios_wda_startup_retries == 2
     assert settings.ios_wda_startup_retry_interval_ms == 10_000
-    assert settings.postgres_dsn is None
-    assert settings.redis_url is None
+    assert str(settings.postgres_dsn) == "postgresql://qa:qa@127.0.0.1:15432/qa"
+    assert str(settings.redis_url) == "redis://127.0.0.1:16379/0"
     assert settings.artifacts_dir == Path("artifacts")
     assert settings.log_level == "INFO"
 

@@ -65,6 +65,22 @@ and a manual macOS CI workflow.
 简单理解：Android 的 session 依赖 ADB 和 UiAutomator2；iOS 的 session
 依赖 Xcode 编译 WDA，再把 WDA 启动到 Simulator 或真机。
 
+## 通俗解读 / Plain-Language Guide
+
+Day 4 像给 iPhone 配一个“遥控器”，但这个遥控器必须先由 Mac/Xcode 现场组装。
+Python 测试把命令交给 Appium，Appium 再通过 XCUITest 操作 WebDriverAgent，
+最后由 WDA 控制 iOS Simulator 或真机。
+
+**一句话理解：** Android 遥控器靠 ADB 直接送到设备；iOS 遥控器要先在 Mac 上编译出来。
+
+```mermaid
+flowchart LR
+    TEST["pytest<br/>遥控指令"] --> APPIUM["Appium Server<br/>统一入口"]
+    APPIUM --> XCUITEST["XCUITest Driver<br/>iOS 翻译器"]
+    XCUITEST --> XCODE["Xcode / WDA<br/>现场组装遥控器"]
+    XCODE --> SIM["iOS Simulator / 真机<br/>执行 UI 操作"]
+```
+
 ## 今日在整体路线中的位置 / Day Position
 
 ```mermaid

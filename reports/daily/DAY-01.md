@@ -48,6 +48,24 @@ environment without relying on the broken Windows Store Python placeholder.
 
 简单理解：Day 1 像建造房屋前先确认地基、水电和门禁，还没开始装修测试框架。
 
+## 通俗解读 / Plain-Language Guide
+
+Day 1 像盖房前先确定地基、工具箱和门禁：以后所有人、所有测试都从同一套环境出发，
+避免“你的电脑能跑、我的电脑跑不了”。
+
+**一句话理解：** Git 是施工日志，uv 是材料管理员，`.venv` 是独立工作间，
+PyCharm 是操作台，`AGENTS.md` 是门禁与安全规则。
+
+```mermaid
+flowchart LR
+    GIT["Git<br/>施工日志"] --> REPO["项目仓库<br/>统一场地"]
+    UV["uv<br/>材料管理员"] --> VENV[".venv<br/>独立工作间"]
+    LOCK["uv.lock<br/>精确材料清单"] --> VENV
+    PY["Python 3.12<br/>统一执行工具"] --> VENV
+    IDE["PyCharm<br/>操作台"] --> VENV
+    AGENTS["AGENTS.md<br/>门禁与安全规则"] --> REPO
+```
+
 ## 今日在整体路线中的位置 / Day Position
 
 ```mermaid

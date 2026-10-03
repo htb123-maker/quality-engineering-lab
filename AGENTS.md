@@ -26,6 +26,22 @@ Only the project virtual environment is trusted. Do not use the Windows Store
 PyCharm package detection requires `pip` inside `.venv`; `uv` does not seed it
 by default.
 
+## Learning Experience
+
+- The user is learning the project and benefits from a plain-language mental
+  model before implementation details.
+- For conceptual explanations, onboarding, comparisons, reviews, and recaps,
+  use the personal `learning-guide` skill when it is available.
+- Prefer Chinese explanations with one concrete analogy, a small Mermaid
+  diagram when relationships matter, exact project mapping, and a short
+  practical example.
+- Introduce a technical term before relying on it. Correct imprecise wording
+  gently, for example distinguishing SQL from PostgreSQL.
+- Keep routine implementation updates concise. Do not repeat the full learner
+  profile or project history in every answer.
+- Persist only durable learning preferences. Never store secrets, credentials,
+  private data, or raw chat transcripts in the skill or repository.
+
 ## Agent Safety
 
 - Default to read-only file and tool access.

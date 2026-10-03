@@ -1,0 +1,78 @@
+name: quality-engineering-lab
+
+services:
+  api:
+    image: quality-engineering-lab/sut-api:local
+    build:
+      context: ../..
+      dockerfile: apps/compose/api/Dockerfile
+    environment:
+      QA_POSTGRES_DSN: postgresql://${QA_POSTGRES_USER:-qa}:${QA_POSTGRES_PASSWORD:-qa}@postgres:5432/${QA_POSTGRES_DB:-qa}
+      QA_REDIS_URL: redis://redis:6379/0
+      QA_LOG_LEVEL: ${QA_LOG_LEVEL:-INFO}
+    ports:
+      - "${QA_API_PORT:-18000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=2).read()"
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    init: true
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${QA_POSTGRES_DB:-qa}
+      POSTGRES_USER: ${QA_POSTGRES_USER:-qa}
+      POSTGRES_PASSWORD: ${QA_POSTGRES_PASSWORD:-qa}
+    ports:
+      - "${QA_POSTGRES_PORT:-15432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+      - ./postgres/verify_day05.sql:/opt/qa/verify_day05.sql:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${QA_POSTGRES_USER:-qa} -d ${QA_POSTGRES_DB:-qa}
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+    ports:
+      - "${QA_REDIS_PORT:-16379}:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:

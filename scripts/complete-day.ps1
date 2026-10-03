@@ -15,6 +15,9 @@ param(
     [string]$Glossary,
 
     [Parameter(Mandatory = $true)]
+    [string]$PlainLanguage,
+
+    [Parameter(Mandatory = $true)]
     [string]$PositionDiagram,
 
     [switch]$SkipChecks,
@@ -113,6 +116,10 @@ $(if ($failed) { "失败 / FAILED: one or more quality checks did not pass." } e
 ## 术语解释 / Glossary
 
 $Glossary
+
+## 通俗解读 / Plain-Language Guide
+
+$PlainLanguage
 
 ## 今日在整体路线中的位置 / Day Position
 

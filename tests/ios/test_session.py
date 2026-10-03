@@ -20,6 +20,8 @@ from qa_core.driver.ios import create_ios_driver
     reason="XCUITest requires macOS, Xcode, and WebDriverAgent.",
 )
 @pytest.mark.timeout(600)
+@allure.testcase("SMOKE-IOS-SESSION-001", "iOS session lifecycle")
+@allure.link("docs/runbooks/failed-quality-gate.md", name="Failure triage runbook")
 def test_ios_session_starts_and_quits(settings: Settings) -> None:
     driver = create_ios_driver(settings)
 

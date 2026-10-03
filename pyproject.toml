@@ -31,7 +31,9 @@ addopts = "-ra --strict-markers"
 testpaths = ["tests"]
 pythonpath = ["packages", "src"]
 markers = [
+    "api: API tests requiring the local SUT",
     "android: Android Appium tests requiring an emulator or real device",
+    "integration: tests requiring the local Docker Compose SUT",
     "ios: iOS Appium tests requiring macOS, Xcode, and an iOS simulator or device",
     "unit: fast isolated unit tests",
     "smoke: minimal environment and integration smoke tests",

@@ -25,6 +25,13 @@ htmlcov/
 artifacts/
 *.log
 
+# Docker Compose local override
+compose.override.yaml
+compose.override.yml
+
+# Test data volumes
+data/
+
 # Mobile and performance artifacts
 *.apk
 *.ipa

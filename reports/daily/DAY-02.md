@@ -38,6 +38,22 @@ then verified pytest, Ruff, mypy, Allure, and PyCharm package detection.
 
 简单理解：Day 1 建好了房子，Day 2 装上了“测试插座”和“报警器”。
 
+## 通俗解读 / Plain-Language Guide
+
+Day 2 像在已经建好的房子里装一条自动检查流水线：pytest 负责开关机器，
+Fixture 负责准备材料，Settings 负责读参数，测试函数负责检查，Allure 负责留下报告。
+
+**一句话理解：** 这就是“测试插座 + 自动报警器 + 巡检记录”的组合。
+
+```mermaid
+flowchart LR
+    PYTEST["pytest<br/>流水线开关"] --> FIXTURE["Fixture<br/>准备和清理现场"]
+    FIXTURE --> SETTINGS["Settings<br/>读取统一参数"]
+    SETTINGS --> TEST["Test Function<br/>执行检查"]
+    TEST --> RESULTS["Allure Results<br/>原始检查记录"]
+    RESULTS --> REPORT["Allure HTML<br/>可阅读报告"]
+```
+
 ## 今日在整体路线中的位置 / Day Position
 
 ```mermaid
