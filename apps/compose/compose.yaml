@@ -10,6 +10,10 @@ services:
       QA_POSTGRES_DSN: postgresql://${QA_POSTGRES_USER:-qa}:${QA_POSTGRES_PASSWORD:-qa}@postgres:5432/${QA_POSTGRES_DB:-qa}
       QA_REDIS_URL: redis://redis:6379/0
       QA_LOG_LEVEL: ${QA_LOG_LEVEL:-INFO}
+      QA_AUTH_TEST_PASSWORD: ${QA_AUTH_TEST_PASSWORD:-local-test-password}
+      QA_AUTH_JWT_SECRET: ${QA_AUTH_JWT_SECRET:-local-sut-jwt-secret-not-for-production}
+      QA_AUTH_ACCESS_TOKEN_TTL_SECONDS: ${QA_AUTH_ACCESS_TOKEN_TTL_SECONDS:-300}
+      QA_AUTH_REFRESH_TOKEN_TTL_SECONDS: ${QA_AUTH_REFRESH_TOKEN_TTL_SECONDS:-3600}
     ports:
       - "${QA_API_PORT:-18000}:8000"
     depends_on:

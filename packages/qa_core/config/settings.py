@@ -9,6 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["local", "ci", "performance", "staging"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
+AuthMode = Literal["bearer", "cookie"]
 
 
 class Settings(BaseSettings):
@@ -25,6 +26,24 @@ class Settings(BaseSettings):
     api_base_url: AnyHttpUrl = Field(
         default_factory=lambda: AnyHttpUrl("http://127.0.0.1:18000")
     )
+    api_connect_timeout_seconds: float = Field(default=2.0, gt=0.0, le=120.0)
+    api_read_timeout_seconds: float = Field(default=5.0, gt=0.0, le=120.0)
+    api_write_timeout_seconds: float = Field(default=5.0, gt=0.0, le=120.0)
+    api_pool_timeout_seconds: float = Field(default=2.0, gt=0.0, le=120.0)
+    api_retry_max_attempts: int = Field(default=3, ge=1, le=10)
+    api_retry_backoff_seconds: float = Field(default=0.25, ge=0.0, le=30.0)
+    api_retry_max_backoff_seconds: float = Field(default=2.0, ge=0.0, le=120.0)
+    api_retry_jitter_ratio: float = Field(default=0.2, ge=0.0, le=1.0)
+    auth_mode: AuthMode = "bearer"
+    auth_token_path: str = Field(default="/oauth/token", pattern=r"^/")
+    auth_revoke_path: str = Field(default="/oauth/revoke", pattern=r"^/")
+    auth_discovery_path: str = Field(
+        default="/.well-known/openid-configuration",
+        pattern=r"^/",
+    )
+    auth_refresh_skew_seconds: float = Field(default=30.0, ge=0.0, le=600.0)
+    auth_test_username: str = Field(default="owner@atlas.example", min_length=1)
+    auth_test_password: str = Field(default="local-test-password", min_length=1)
     appium_server_url: AnyHttpUrl = Field(
         default_factory=lambda: AnyHttpUrl("http://127.0.0.1:4723")
     )

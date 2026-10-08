@@ -63,6 +63,19 @@ uv run --no-sync pytest tests/api -q -m smoke `
   --alluredir=artifacts/allure-results
 ```
 
+On Windows hosts where Smart App Control blocks the `psycopg` binary
+extension, run the same integration tests through the locked Linux dependency
+set:
+
+```powershell
+.\scripts\run_integration_linux.ps1
+```
+
+The script starts the Compose SUT, exports the frozen dependency list, and runs
+`tests/integration` in a one-off Linux container attached to the Compose
+network. This verifies the real PostgreSQL and Redis services without changing
+the Windows security policy.
+
 Expected key results:
 
 ```text

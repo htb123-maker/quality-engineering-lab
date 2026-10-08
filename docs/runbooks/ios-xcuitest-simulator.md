@@ -108,6 +108,19 @@ Expected result:
 ```
 
 On Windows, the same test reports `1 skipped` because XCUITest requires macOS.
+That skip is expected only for the local Windows process. The canonical
+cross-platform verification uses the macOS workflow:
+
+```powershell
+gh auth status
+gh workflow run ios-smoke.yml --ref main
+gh run list --workflow ios-smoke.yml --limit 1
+gh run watch <run-id> --exit-status
+```
+
+The workflow installs Appium and XCUITest Driver, boots an available Simulator,
+starts Appium, and runs `tests/ios`. Its success is the macOS execution
+evidence; the Windows `1 skipped` must not be reported as an iOS pass.
 
 ## Evidence
 
