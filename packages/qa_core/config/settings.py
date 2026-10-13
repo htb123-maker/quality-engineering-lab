@@ -44,6 +44,20 @@ class Settings(BaseSettings):
     auth_refresh_skew_seconds: float = Field(default=30.0, ge=0.0, le=600.0)
     auth_test_username: str = Field(default="owner@atlas.example", min_length=1)
     auth_test_password: str = Field(default="local-test-password", min_length=1)
+    auth_issuer: str = Field(
+        default="quality-engineering-lab-local",
+        min_length=1,
+    )
+    auth_jwt_secret: str = Field(
+        default="local-sut-jwt-secret-not-for-production",
+        min_length=1,
+    )
+    rate_limit_write_max: int = Field(default=20, ge=0, le=10_000)
+    rate_limit_write_window_seconds: float = Field(
+        default=60.0,
+        gt=0.0,
+        le=3600.0,
+    )
     appium_server_url: AnyHttpUrl = Field(
         default_factory=lambda: AnyHttpUrl("http://127.0.0.1:4723")
     )
@@ -75,7 +89,7 @@ class Settings(BaseSettings):
         default_factory=lambda: PostgresDsn("postgresql://qa:qa@127.0.0.1:15432/qa")
     )
     redis_url: RedisDsn = Field(
-        default_factory=lambda: RedisDsn("redis://127.0.0.1:16379/0")
+        default_factory=lambda: RedisDsn("redis://127.0.0.1:26379/0")
     )
     artifacts_dir: Path = Field(default=Path("artifacts"))
     log_level: LogLevel = Field(default="INFO")

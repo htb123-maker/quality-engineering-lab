@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
+import hmac
 import json
 import threading
 import time
@@ -123,6 +125,35 @@ def decode_jwt_claims_unverified(token: str) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError("JWT payload must be a JSON object")
     return cast(dict[str, Any], payload)
+
+
+def encode_hs256_jwt(claims: Mapping[str, Any], *, secret: str) -> str:
+    """Sign an HS256 JWT for negative-path tests.
+
+    Tests use this to craft expired, wrongly-issued, or forged tokens against
+    the local SUT so those boundaries are deterministic. The secret here is the
+    documented local development value, never a production credential.
+    """
+
+    def _segment(raw: bytes) -> str:
+        return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+    header = {"alg": "HS256", "typ": "JWT"}
+    encoded_header = _segment(
+        json.dumps(header, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    )
+    encoded_payload = _segment(
+        json.dumps(dict(claims), separators=(",", ":"), sort_keys=True).encode(
+            "utf-8"
+        )
+    )
+    signing_input = f"{encoded_header}.{encoded_payload}".encode("ascii")
+    signature = hmac.new(
+        secret.encode("utf-8"),
+        signing_input,
+        hashlib.sha256,
+    ).digest()
+    return f"{encoded_header}.{encoded_payload}.{_segment(signature)}"
 
 
 class AuthClient:

@@ -4,6 +4,9 @@
 - 日期 / Date: 2026-10-01
 - 决策者 / Deciders: Quality Engineering Lab
 - 替代 / Supersedes: None
+- 更新 / Update: 2026-10-13 宿主机 Redis 端口由 `16379` 改为 `26379`。本机
+  Windows 保留了 TCP 端口段 `16377-16476`，导致 `16379` 无法绑定；API `18000`
+  和 PostgreSQL `15432` 不受影响。
 
 ## 背景 / Context
 
@@ -25,7 +28,7 @@ Windows and Ubuntu CI without relying on machine-specific services or ports.
 1. 使用一个 Compose project 同时编排 API、PostgreSQL 16 和 Redis 7。
 2. API 由仓库内的 `apps/compose/api` 构建，保持小型、只读和可诊断。
 3. PostgreSQL 使用 `001_schema.sql` 和 `002_seed.sql` 初始化空 volume。
-4. 宿主机端口固定为 API `18000`、PostgreSQL `15432`、Redis `16379`。
+4. 宿主机端口固定为 API `18000`、PostgreSQL `15432`、Redis `26379`。
 5. PostgreSQL 和 Redis 使用命名 volume，普通停止不删除测试数据。
 6. 为三个服务设置 health check，启动脚本等待服务真正可用。
 7. `.env.example` 只保存本地测试凭据，Compose 默认值也不得复用于生产。

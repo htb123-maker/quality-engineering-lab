@@ -15,7 +15,7 @@ from psycopg.rows import dict_row
 
 DEFAULT_API_BASE_URL = "http://127.0.0.1:18000"
 DEFAULT_POSTGRES_DSN = "postgresql://qa:qa@127.0.0.1:15432/qa"
-DEFAULT_REDIS_URL = "redis://127.0.0.1:16379/0"
+DEFAULT_REDIS_URL = "redis://127.0.0.1:26379/0"
 
 
 @dataclass(frozen=True)
@@ -100,6 +100,7 @@ def wait_for_http_checks(
                         {"LAB-001", "LAB-002"}.issubset(skus)
                         and "/oauth/token" in paths
                         and "/api/v1/workspaces/{slug}/catalog" in paths
+                        and "/api/v1/workspaces/{slug}/catalog/items" in paths
                     ):
                         return [
                             CheckResult("API live", True, "HTTP 200"),

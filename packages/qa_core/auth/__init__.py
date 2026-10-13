@@ -10,6 +10,7 @@ from qa_core.auth.client import (
     RefreshTokenInvalid,
     TokenSet,
     decode_jwt_claims_unverified,
+    encode_hs256_jwt,
 )
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "RefreshTokenInvalid",
     "TokenSet",
     "decode_jwt_claims_unverified",
+    "encode_hs256_jwt",
 ]
