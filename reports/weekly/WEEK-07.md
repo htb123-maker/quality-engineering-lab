@@ -4,8 +4,8 @@
 - 日期范围 / Date Range: 2026-10-13
 - 分支 / Branch: study/week-07-p0-p1-test-suite
 - 基线提交 / Base Commit: 0151a1b（week-06 分支）
-- 计划提交 / Plan Commit: pending
-- Pull Request: pending
+- 计划提交 / Plan Commit: 9d99de2
+- Pull Request: https://github.com/htb123-maker/quality-engineering-lab/pull/2
 
 ## 计划目标 / Plan Goal
 
@@ -239,7 +239,7 @@ Report successfully generated to artifacts\allure-report-week7
 - 限流是进程内固定窗口，未验证多实例或生产级精度。
 - 5xx 只验证了错误模型与分类，未真实打断数据库或缓存来触发。
 - 未接入 Schemathesis、OpenAPI Diff 或外部契约注册中心。
-- 本次尚未提交、推送和创建 Pull Request。
+- 已提交并推送（`9d99de2`），Pull Request #2 已创建，基于 Week 6 分支的堆叠 PR。
 
 ## 变更文件 / Files Changed
 
