@@ -14,6 +14,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from qa_core.config.settings import Settings
+from qa_core.contracts import TokenResponse
 from qa_core.http import HttpClient
 
 AuthMode = Literal["bearer", "cookie"]
@@ -77,27 +78,14 @@ class TokenSet(BaseModel):
     def from_payload(cls, payload: Mapping[str, Any], *, now: float) -> Self:
         """Build a token set from an OAuth2 token response."""
 
-        access_token = payload.get("access_token")
-        refresh_token = payload.get("refresh_token")
-        if not isinstance(access_token, str) or not access_token:
-            raise ValueError("token response does not contain access_token")
-        if not isinstance(refresh_token, str) or not refresh_token:
-            raise ValueError("token response does not contain refresh_token")
-
-        expires_at = _expires_at(payload, access_token=access_token, now=now)
-        token_type = payload.get("token_type", "Bearer")
-        if not isinstance(token_type, str) or not token_type:
-            token_type = "Bearer"
-        scope = payload.get("scope")
-        if not isinstance(scope, str):
-            scope = None
+        response = TokenResponse.model_validate(payload)
 
         return cls(
-            access_token=access_token,
-            refresh_token=refresh_token,
-            token_type=token_type,
-            expires_at=expires_at,
-            scope=scope,
+            access_token=response.access_token,
+            refresh_token=response.refresh_token,
+            token_type=response.token_type,
+            expires_at=now + response.expires_in,
+            scope=response.scope,
         )
 
     @property
@@ -135,29 +123,6 @@ def decode_jwt_claims_unverified(token: str) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError("JWT payload must be a JSON object")
     return cast(dict[str, Any], payload)
-
-
-def _expires_at(
-    payload: Mapping[str, Any],
-    *,
-    access_token: str,
-    now: float,
-) -> float:
-    raw_expires_in = payload.get("expires_in")
-    if raw_expires_in is not None:
-        try:
-            expires_in = float(raw_expires_in)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("expires_in must be numeric") from exc
-        if expires_in <= 0:
-            raise ValueError("expires_in must be greater than zero")
-        return now + expires_in
-
-    claims = decode_jwt_claims_unverified(access_token)
-    exp = claims.get("exp")
-    if not isinstance(exp, (int, float)):
-        raise ValueError("token response has neither expires_in nor JWT exp")
-    return float(exp)
 
 
 class AuthClient:

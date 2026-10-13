@@ -20,6 +20,26 @@ from urllib.parse import parse_qs, urlparse
 import psycopg
 import redis
 from psycopg.rows import dict_row
+from pydantic import BaseModel
+from qa_core.contracts import (
+    AdminAuditResponse,
+    ApiError,
+    CatalogItem,
+    CatalogResponse,
+    CatalogWorkspace,
+    HealthCheck,
+    HealthLiveResponse,
+    OAuthErrorResponse,
+    OidcMetadataResponse,
+    ReadinessResponse,
+    RevokeResponse,
+    RootResponse,
+    TokenResponse,
+    UserResponse,
+    openapi_document,
+)
+
+ResponsePayload = BaseModel | dict[str, Any]
 
 POSTGRES_DSN = os.getenv(
     "QA_POSTGRES_DSN",
@@ -238,35 +258,35 @@ def _authenticate_password(username: str, password: str) -> dict[str, Any] | Non
     return user
 
 
-def _token_response(user: dict[str, Any]) -> tuple[dict[str, Any], str]:
+def _token_response(user: dict[str, Any]) -> tuple[TokenResponse, str]:
     now = int(time.time())
     access_token = _issue_access_token(user, now=now)
     refresh_token = _create_refresh_token(user)
     return (
-        {
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "token_type": "Bearer",
-            "expires_in": AUTH_ACCESS_TOKEN_TTL_SECONDS,
-            "scope": "openid profile",
-        },
+        TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="Bearer",
+            expires_in=AUTH_ACCESS_TOKEN_TTL_SECONDS,
+            scope="openid profile",
+        ),
         refresh_token,
     )
 
 
-def _user_payload(user: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "id": user["id"],
-        "workspace_id": user["workspace_id"],
-        "workspace_slug": user["workspace_slug"],
-        "email": user["email"],
-        "display_name": user["display_name"],
-        "role": user["role"],
-        "status": user["status"],
-    }
+def _user_payload(user: dict[str, Any]) -> UserResponse:
+    return UserResponse(
+        id=user["id"],
+        workspace_id=user["workspace_id"],
+        workspace_slug=user["workspace_slug"],
+        email=user["email"],
+        display_name=user["display_name"],
+        role=user["role"],
+        status=user["status"],
+    )
 
 
-def _catalog_payload(slug: str) -> tuple[int, dict[str, Any]]:
+def _catalog_payload(slug: str) -> tuple[int, CatalogResponse | ApiError]:
     with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
         with connection.cursor(row_factory=dict_row) as cursor:
             cursor.execute(
@@ -279,10 +299,10 @@ def _catalog_payload(slug: str) -> tuple[int, dict[str, Any]]:
             )
             workspace = cursor.fetchone()
             if workspace is None:
-                return HTTPStatus.NOT_FOUND, {
-                    "error": "workspace_not_found",
-                    "message": f"Workspace '{slug}' was not found.",
-                }
+                return HTTPStatus.NOT_FOUND, ApiError(
+                    error="workspace_not_found",
+                    message=f"Workspace '{slug}' was not found.",
+                )
 
             cursor.execute(
                 """
@@ -295,14 +315,14 @@ def _catalog_payload(slug: str) -> tuple[int, dict[str, Any]]:
             )
             items = cursor.fetchall()
 
-    return HTTPStatus.OK, {
-        "workspace": {
-            "slug": workspace["slug"],
-            "name": workspace["name"],
-        },
-        "items": items,
-        "count": len(items),
-    }
+    return HTTPStatus.OK, CatalogResponse(
+        workspace=CatalogWorkspace(
+            slug=workspace["slug"],
+            name=workspace["name"],
+        ),
+        items=[CatalogItem.model_validate(item) for item in items],
+        count=len(items),
+    )
 
 
 class SutRequestHandler(BaseHTTPRequestHandler):
@@ -316,10 +336,11 @@ class SutRequestHandler(BaseHTTPRequestHandler):
         if path == "/":
             self._send_json(
                 HTTPStatus.OK,
-                {
-                    "service": "quality-engineering-lab-sut",
-                    "status": "ok",
-                    "endpoints": [
+                RootResponse(
+                    service="quality-engineering-lab-sut",
+                    status="ok",
+                    endpoints=[
+                        "/openapi.json",
                         "/health/live",
                         "/health/ready",
                         "/.well-known/openid-configuration",
@@ -329,12 +350,16 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                         "/api/v1/admin/audit",
                         "/api/v1/workspaces/{slug}/catalog",
                     ],
-                },
+                ),
             )
             return
 
+        if path == "/openapi.json":
+            self._send_json(HTTPStatus.OK, openapi_document())
+            return
+
         if path == "/health/live":
-            self._send_json(HTTPStatus.OK, {"status": "live"})
+            self._send_json(HTTPStatus.OK, HealthLiveResponse(status="live"))
             return
 
         if path == "/health/ready":
@@ -344,16 +369,16 @@ class SutRequestHandler(BaseHTTPRequestHandler):
         if path == "/.well-known/openid-configuration":
             self._send_json(
                 HTTPStatus.OK,
-                {
-                    "issuer": AUTH_ISSUER,
-                    "token_endpoint": "/oauth/token",
-                    "userinfo_endpoint": "/api/v1/auth/me",
-                    "revocation_endpoint": "/oauth/revoke",
-                    "grant_types_supported": [
+                OidcMetadataResponse(
+                    issuer=AUTH_ISSUER,
+                    token_endpoint="/oauth/token",
+                    userinfo_endpoint="/api/v1/auth/me",
+                    revocation_endpoint="/oauth/revoke",
+                    grant_types_supported=[
                         "password",
                         "refresh_token",
                     ],
-                },
+                ),
             )
             return
 
@@ -372,10 +397,10 @@ class SutRequestHandler(BaseHTTPRequestHandler):
 
         self._send_json(
             HTTPStatus.NOT_FOUND,
-            {
-                "error": "not_found",
-                "message": f"No route matches GET {path}.",
-            },
+            ApiError(
+                error="not_found",
+                message=f"No route matches GET {path}.",
+            ),
         )
 
     def do_POST(self) -> None:  # noqa: N802
@@ -391,36 +416,36 @@ class SutRequestHandler(BaseHTTPRequestHandler):
 
         self._send_json(
             HTTPStatus.NOT_FOUND,
-            {
-                "error": "not_found",
-                "message": f"No route matches POST {path}.",
-            },
+            ApiError(
+                error="not_found",
+                message=f"No route matches POST {path}.",
+            ),
         )
 
     def _handle_readiness(self) -> None:
-        checks: dict[str, dict[str, Any]] = {}
+        checks: dict[str, HealthCheck] = {}
 
         for name, check in (
             ("postgres", _postgres_check),
             ("redis", _redis_check),
         ):
             try:
-                checks[name] = check()
+                checks[name] = HealthCheck.model_validate(check())
             except Exception as exc:  # noqa: BLE001
                 LOGGER.warning("Readiness check failed for %s: %s", name, exc)
-                checks[name] = {
-                    "status": "error",
-                    "error": type(exc).__name__,
-                }
+                checks[name] = HealthCheck(
+                    status="error",
+                    error=type(exc).__name__,
+                )
 
-        ready = all(check["status"] == "ok" for check in checks.values())
+        ready = all(check.status == "ok" for check in checks.values())
         status = HTTPStatus.OK if ready else HTTPStatus.SERVICE_UNAVAILABLE
         self._send_json(
             status,
-            {
-                "status": "ready" if ready else "degraded",
-                "checks": checks,
-            },
+            ReadinessResponse(
+                status="ready" if ready else "degraded",
+                checks=checks,
+            ),
         )
 
     def _handle_catalog(self, slug: str) -> None:
@@ -430,10 +455,10 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             LOGGER.exception("Catalog query failed")
             self._send_json(
                 HTTPStatus.SERVICE_UNAVAILABLE,
-                {
-                    "error": "database_unavailable",
-                    "message": type(exc).__name__,
-                },
+                ApiError(
+                    error="database_unavailable",
+                    message=type(exc).__name__,
+                ),
             )
             return
 
@@ -496,7 +521,7 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             return
 
         token_payload, _ = _token_response(user)
-        access_token = str(token_payload["access_token"])
+        access_token = token_payload.access_token
         self._send_json(
             HTTPStatus.OK,
             token_payload,
@@ -525,7 +550,7 @@ class SutRequestHandler(BaseHTTPRequestHandler):
 
         self._send_json(
             HTTPStatus.OK,
-            {"revoked": True},
+            RevokeResponse(revoked=True),
             headers={
                 "Set-Cookie": (
                     "qa_access_token=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
@@ -546,19 +571,19 @@ class SutRequestHandler(BaseHTTPRequestHandler):
         if user["role"] not in {"owner", "admin"}:
             self._send_json(
                 HTTPStatus.FORBIDDEN,
-                {
-                    "error": "permission_denied",
-                    "message": "The authenticated role cannot read the audit view.",
-                },
+                ApiError(
+                    error="permission_denied",
+                    message="The authenticated role cannot read the audit view.",
+                ),
             )
             return
         self._send_json(
             HTTPStatus.OK,
-            {
-                "workspace_slug": user["workspace_slug"],
-                "role": user["role"],
-                "events": ["workspace.created", "user.invited"],
-            },
+            AdminAuditResponse(
+                workspace_slug=user["workspace_slug"],
+                role=user["role"],
+                events=["workspace.created", "user.invited"],
+            ),
         )
 
     def _authenticated_user(self) -> dict[str, Any] | None:
@@ -566,10 +591,10 @@ class SutRequestHandler(BaseHTTPRequestHandler):
         if token is None:
             self._send_json(
                 HTTPStatus.UNAUTHORIZED,
-                {
-                    "error": "authentication_required",
-                    "message": "Provide a Bearer token or access cookie.",
-                },
+                ApiError(
+                    error="authentication_required",
+                    message="Provide a Bearer token or access cookie.",
+                ),
             )
             return None
 
@@ -579,10 +604,10 @@ class SutRequestHandler(BaseHTTPRequestHandler):
         except (KeyError, TypeError, ValueError, json.JSONDecodeError):
             self._send_json(
                 HTTPStatus.UNAUTHORIZED,
-                {
-                    "error": "invalid_token",
-                    "message": "The access token is invalid or expired.",
-                },
+                ApiError(
+                    error="invalid_token",
+                    message="The access token is invalid or expired.",
+                ),
             )
             return None
 
@@ -590,10 +615,10 @@ class SutRequestHandler(BaseHTTPRequestHandler):
         if user is None or user["status"] != "active":
             self._send_json(
                 HTTPStatus.UNAUTHORIZED,
-                {
-                    "error": "invalid_token",
-                    "message": "The token user is missing or disabled.",
-                },
+                ApiError(
+                    error="invalid_token",
+                    message="The token user is missing or disabled.",
+                ),
             )
             return None
         return user
@@ -644,20 +669,29 @@ class SutRequestHandler(BaseHTTPRequestHandler):
     ) -> None:
         self._send_json(
             status,
-            {
-                "error": error,
-                "error_description": description,
-            },
+            OAuthErrorResponse(
+                error=error,
+                error_description=description,
+            ),
         )
 
     def _send_json(
         self,
         status: HTTPStatus,
-        payload: dict[str, Any],
+        payload: ResponsePayload,
         *,
         headers: dict[str, str] | None = None,
     ) -> None:
-        body = json.dumps(payload, ensure_ascii=True, sort_keys=True).encode("utf-8")
+        payload_dict = (
+            payload.model_dump(mode="json")
+            if isinstance(payload, BaseModel)
+            else payload
+        )
+        body = json.dumps(
+            payload_dict,
+            ensure_ascii=True,
+            sort_keys=True,
+        ).encode("utf-8")
         self.send_response(status.value)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))

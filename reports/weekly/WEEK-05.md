@@ -1,11 +1,11 @@
 # WEEK-05 - OAuth2/OIDC 与并发刷新认证 SDK / OAuth2/OIDC and Concurrent Refresh SDK
 
 - 计划 / Plan: Week 5，OAuth2/OIDC、JWT、Cookie 和并发刷新
-- 日期范围 / Date Range: 2026-10-08
+- 日期范围 / Date Range: 2026-10-08，复核于 2026-10-12
 - 分支 / Branch: main
 - 基线提交 / Base Commit: 16860b1
-- 计划提交 / Plan Commit: pending（Week 4 与 Week 5 改动仍在工作区）
-- Pull Request: pending
+- 计划提交 / Plan Commit: a061e4b
+- Pull Request: 未创建，提交已推送到 `origin/main`
 
 ## 计划目标 / Plan Goal
 
@@ -31,6 +31,14 @@ refresh, cookie transport, revocation, and diagnosable failure boundaries.
 
 本计划没有使用 macOS Runner，因为 Week 5 只改共享认证层和本地 SUT API，没有
 修改 Android/iOS Driver。Windows 本机和 Linux 容器足以验证本计划的范围。
+
+### 2026-10-12 复核 / Recheck
+
+- `a061e4b` 已推送到 `origin/main`。
+- Ruff 通过，Mypy 检查 33 个源文件通过。
+- 25 条单元测试和 6 条真实 API 认证契约通过。
+- 本地 SUT 重建为 healthy；`start_sut.ps1` 后续检查仍受已知 Windows
+  Smart App Control 阻止本机 `psycopg` 导入的限制。
 
 ## 完成范围 / Scope
 
@@ -224,7 +232,7 @@ Report successfully generated to artifacts\allure-report-week5
 - 未实现 Authorization Code + PKCE、MFA 和设备授权流。
 - 未验证多进程 Locust 和高并发 token 池。
 - Windows 本机仍受 Smart App Control 限制，PostgreSQL 集成依赖 Linux 容器。
-- Week 4 与 Week 5 改动尚未提交、推送和创建 Pull Request。
+- 改动已提交并推送，但还没有创建 Pull Request。
 - iOS 远端最近一次 Run 仍对应基线 `16860b1`，不是当前组合工作树。
 
 ## 变更文件 / Files Changed
