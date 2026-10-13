@@ -2,10 +2,10 @@
 
 - 计划 / Plan: Week 6，Pydantic、JSON Schema、OpenAPI 和兼容性
 - 日期范围 / Date Range: 2026-10-12
-- 分支 / Branch: main
+- 分支 / Branch: study/week-06-contract-testing
 - 基线提交 / Base Commit: a061e4b
-- 计划提交 / Plan Commit: pending
-- Pull Request: pending
+- 计划提交 / Plan Commit: 3cb03ea
+- Pull Request: https://github.com/htb123-maker/quality-engineering-lab/pull/1
 
 ## 计划目标 / Plan Goal
 
@@ -200,7 +200,7 @@ Report successfully generated to artifacts\allure-report-week6
 - 未覆盖 WebSocket、异步事件、分页和复杂 `oneOf`/`discriminator`。
 - 当前兼容性比较器不替代完整 OpenAPI 语义 Diff。
 - Windows 本机仍受 Smart App Control 限制，PostgreSQL 集成依赖 Linux 容器。
-- 当前改动尚未提交、推送和创建 Pull Request。
+- 已提交并推送（`3cb03ea`），Pull Request 已创建（#1）。
 
 ## 变更文件 / Files Changed
 
