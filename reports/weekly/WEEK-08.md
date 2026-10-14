@@ -4,7 +4,7 @@
 - 日期范围 / Date Range: 2026-10-14
 - 分支 / Branch: study/week-08-data-factory-parallel-isolation
 - 基线提交 / Base Commit: 1b82c10（week-07 分支）
-- 计划提交 / Plan Commit: 待提交
+- 计划提交 / Plan Commit: e505ea8
 - Pull Request: 基于 Week 7 分支的堆叠 PR（Week 7 为
   https://github.com/htb123-maker/quality-engineering-lab/pull/2）
 
@@ -288,6 +288,8 @@ Report successfully generated to artifacts\allure-report-week8
   不支持的方法返回 HTML 501，而不是 JSON 错误契约。是否登记为缺陷需人工批准。
 - `.github/workflows/sut-integration.yml` 的改动只在本地等价命令上验证，未在
   GitHub Actions 上实际执行。
+- 已提交到本地 `study/week-08-data-factory-parallel-isolation`（`e505ea8`）。
+  尚未推送远程，也尚未创建堆叠 Pull Request，等待人工确认后再执行。
 
 ## 变更文件 / Files Changed
 
