@@ -8,9 +8,10 @@ import httpx
 import pytest
 from qa_core.config.settings import Settings
 from qa_core.contracts import ValidationErrorResponse, validate_contract
+from qa_core.data_factories import CatalogApiFactory, items_path
 from qa_core.http import HttpClient
 
-from tests.api.conftest import CatalogItemFactory, attach_json
+from tests.api.conftest import attach_json
 
 
 def _validation(response: httpx.Response) -> ValidationErrorResponse:
@@ -23,7 +24,7 @@ def _field_paths(validation: ValidationErrorResponse) -> list[str]:
 
 @pytest.mark.api
 def test_zero_price_is_allowed_at_the_lower_boundary(
-    catalog_items: CatalogItemFactory,
+    catalog_items: CatalogApiFactory,
 ) -> None:
     response = catalog_items.create(price_cents=0)
 
@@ -35,7 +36,7 @@ def test_zero_price_is_allowed_at_the_lower_boundary(
 @pytest.mark.api
 @pytest.mark.parametrize("price_cents", [-1, 100_000_001])
 def test_out_of_range_price_is_rejected(
-    catalog_items: CatalogItemFactory,
+    catalog_items: CatalogApiFactory,
     price_cents: int,
 ) -> None:
     response = catalog_items.create(price_cents=price_cents)
@@ -49,7 +50,7 @@ def test_out_of_range_price_is_rejected(
 
 @pytest.mark.api
 def test_blank_name_is_rejected(
-    catalog_items: CatalogItemFactory,
+    catalog_items: CatalogApiFactory,
 ) -> None:
     response = catalog_items.create(name="")
 
@@ -59,7 +60,7 @@ def test_blank_name_is_rejected(
 
 @pytest.mark.api
 def test_name_at_max_length_is_allowed(
-    catalog_items: CatalogItemFactory,
+    catalog_items: CatalogApiFactory,
 ) -> None:
     response = catalog_items.create(name="A" * 120)
 
@@ -69,7 +70,7 @@ def test_name_at_max_length_is_allowed(
 
 @pytest.mark.api
 def test_name_over_max_length_is_rejected(
-    catalog_items: CatalogItemFactory,
+    catalog_items: CatalogApiFactory,
 ) -> None:
     response = catalog_items.create(name="A" * 121)
 
@@ -80,7 +81,7 @@ def test_name_over_max_length_is_rejected(
 @pytest.mark.api
 @pytest.mark.parametrize("sku", ["QA", "qa7w-lower", "QA7W BAD!"])
 def test_invalid_sku_is_rejected(
-    catalog_items: CatalogItemFactory,
+    catalog_items: CatalogApiFactory,
     sku: str,
 ) -> None:
     response = catalog_items.create(sku=sku)
@@ -92,7 +93,7 @@ def test_invalid_sku_is_rejected(
 
 @pytest.mark.api
 def test_sku_over_max_length_is_rejected(
-    catalog_items: CatalogItemFactory,
+    catalog_items: CatalogApiFactory,
 ) -> None:
     response = catalog_items.create(sku="Q" * 65)
 
@@ -102,10 +103,10 @@ def test_sku_over_max_length_is_rejected(
 
 @pytest.mark.api
 def test_missing_required_field_reports_field_path(
-    catalog_items: CatalogItemFactory,
+    catalog_items: CatalogApiFactory,
 ) -> None:
     response = catalog_items.auth.post(
-        "/api/v1/workspaces/atlas/catalog/items",
+        items_path(catalog_items.workspace_slug),
         json={"name": "No SKU", "price_cents": 100},
         headers={"X-QA-Client-Id": catalog_items.client_id},
     )
@@ -116,10 +117,10 @@ def test_missing_required_field_reports_field_path(
 
 @pytest.mark.api
 def test_unknown_field_is_rejected(
-    catalog_items: CatalogItemFactory,
+    catalog_items: CatalogApiFactory,
 ) -> None:
     response = catalog_items.auth.post(
-        "/api/v1/workspaces/atlas/catalog/items",
+        items_path(catalog_items.workspace_slug),
         json={
             "sku": catalog_items.new_sku("EXTRA"),
             "name": "Extra field",
@@ -135,7 +136,7 @@ def test_unknown_field_is_rejected(
 
 @pytest.mark.api
 def test_duplicate_sku_is_a_conflict(
-    catalog_items: CatalogItemFactory,
+    catalog_items: CatalogApiFactory,
 ) -> None:
     sku = catalog_items.new_sku("DUP")
     first = catalog_items.create(sku=sku)
@@ -160,3 +161,111 @@ def test_workspace_slug_is_case_sensitive(
     assert response.status_code == 404
     assert response.json()["error"] == "workspace_not_found"
     attach_json("Case-sensitive slug", response.json())
+
+
+@pytest.mark.api
+def test_sku_at_minimum_length_is_allowed(
+    catalog_items: CatalogApiFactory,
+) -> None:
+    response = catalog_items.create(sku="QAB")
+
+    assert response.status_code == 201
+    assert response.json()["sku"] == "QAB"
+    attach_json("Minimum-length SKU", response.json())
+
+
+@pytest.mark.api
+def test_sku_at_maximum_length_is_allowed(
+    catalog_items: CatalogApiFactory,
+) -> None:
+    sku = f"QA8-{'A' * 60}"
+    assert len(sku) == 64
+
+    response = catalog_items.create(sku=sku)
+
+    assert response.status_code == 201
+    assert response.json()["sku"] == sku
+
+
+@pytest.mark.api
+def test_name_at_minimum_length_is_allowed(
+    catalog_items: CatalogApiFactory,
+) -> None:
+    response = catalog_items.create(name="A")
+
+    assert response.status_code == 201
+    assert response.json()["name"] == "A"
+
+
+@pytest.mark.api
+def test_price_at_upper_boundary_is_allowed(
+    catalog_items: CatalogApiFactory,
+) -> None:
+    response = catalog_items.create(price_cents=100_000_000)
+
+    assert response.status_code == 201
+    assert response.json()["price_cents"] == 100_000_000
+    attach_json("Upper-boundary price", response.json())
+
+
+@pytest.mark.api
+def test_missing_name_reports_the_name_field(
+    catalog_items: CatalogApiFactory,
+) -> None:
+    response = catalog_items.auth.post(
+        items_path(catalog_items.workspace_slug),
+        json={"sku": catalog_items.new_sku("NONAME"), "price_cents": 100},
+        headers={"X-QA-Client-Id": catalog_items.client_id},
+    )
+
+    assert response.status_code == 422
+    assert _field_paths(_validation(response)) == ["$.name"]
+
+
+@pytest.mark.api
+def test_missing_price_reports_the_price_field(
+    catalog_items: CatalogApiFactory,
+) -> None:
+    response = catalog_items.auth.post(
+        items_path(catalog_items.workspace_slug),
+        json={"sku": catalog_items.new_sku("NOPRICE"), "name": "No price"},
+        headers={"X-QA-Client-Id": catalog_items.client_id},
+    )
+
+    assert response.status_code == 422
+    assert _field_paths(_validation(response)) == ["$.price_cents"]
+
+
+@pytest.mark.api
+@pytest.mark.parametrize("price_cents", ["free", None, [1000]])
+def test_non_integer_price_is_rejected(
+    catalog_items: CatalogApiFactory,
+    price_cents: object,
+) -> None:
+    response = catalog_items.auth.post(
+        items_path(catalog_items.workspace_slug),
+        json={
+            "sku": catalog_items.new_sku("BADPRICE"),
+            "name": "Bad price type",
+            "price_cents": price_cents,
+        },
+        headers={"X-QA-Client-Id": catalog_items.client_id},
+    )
+
+    assert response.status_code == 422
+    assert _field_paths(_validation(response)) == ["$.price_cents"]
+    attach_json("Non-integer price", _validation(response).model_dump(mode="json"))
+
+
+@pytest.mark.api
+def test_non_string_sku_is_rejected(
+    catalog_items: CatalogApiFactory,
+) -> None:
+    response = catalog_items.auth.post(
+        items_path(catalog_items.workspace_slug),
+        json={"sku": ["QA8", "LIST"], "name": "Bad sku type", "price_cents": 100},
+        headers={"X-QA-Client-Id": catalog_items.client_id},
+    )
+
+    assert response.status_code == 422
+    assert _field_paths(_validation(response)) == ["$.sku"]

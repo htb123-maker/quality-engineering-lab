@@ -59,9 +59,21 @@ Integration tests:
 uv run --no-sync pytest tests/integration -q `
   --alluredir=artifacts/allure-results
 
-uv run --no-sync pytest tests/api -q -m smoke `
-  --alluredir=artifacts/allure-results
+uv run --no-sync pytest tests/api -q --alluredir=artifacts/allure-results
 ```
+
+Parallel API runs use one PostgreSQL namespace per pytest worker, so the
+read-only seed workspaces stay untouched:
+
+```powershell
+.\scripts\run_api_parallel.ps1 -Workers 4
+```
+
+The script finishes by running `scripts/check_sut.py`, which reports the seed
+identity and fails when a test namespace such as `qa-ns-*` was left behind. A
+stale namespace from an interrupted run is removed automatically at the start
+of the next API session. See
+`docs/runbooks/parallel-data-isolation-failures.md` for triage.
 
 On Windows hosts where Smart App Control blocks the `psycopg` binary
 extension, run the same integration tests through the locked Linux dependency
@@ -82,7 +94,6 @@ Expected key results:
 SUT ready: True
 Day 5 database verification: PASS
 4 passed
-1 passed
 ```
 
 Run the environment-aware API, Android, and iOS smoke matrix:

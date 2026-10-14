@@ -7,9 +7,14 @@ on:
       - ".env.example"
       - "apps/compose/**"
       - "packages/qa_core/config/settings.py"
+      - "packages/qa_core/data_factories/**"
+      - "packages/qa_core/db/**"
+      - "packages/qa_core/resource_pools/**"
       - "scripts/check_sut.py"
+      - "scripts/run_api_parallel.ps1"
       - "tests/api/**"
       - "tests/integration/**"
+      - "tests/unit/**"
   push:
     branches:
       - main
@@ -18,9 +23,14 @@ on:
       - ".env.example"
       - "apps/compose/**"
       - "packages/qa_core/config/settings.py"
+      - "packages/qa_core/data_factories/**"
+      - "packages/qa_core/db/**"
+      - "packages/qa_core/resource_pools/**"
       - "scripts/check_sut.py"
+      - "scripts/run_api_parallel.ps1"
       - "tests/api/**"
       - "tests/integration/**"
+      - "tests/unit/**"
   workflow_dispatch:
 
 permissions:
@@ -72,10 +82,14 @@ jobs:
           uv run --no-sync pytest tests/integration -q \
             --alluredir=artifacts/allure-results
 
-      - name: Run API smoke
+      - name: Run API suite in parallel
         run: |
-          uv run --no-sync pytest tests/api -q -m smoke \
+          uv run --no-sync pytest tests/api -q -n 4 \
+            --basetemp=artifacts/pytest-tmp \
             --alluredir=artifacts/allure-results
+
+      - name: Verify no test namespace was left behind
+        run: uv run --no-sync python scripts/check_sut.py --wait-seconds 60
 
       - name: Capture Compose logs
         if: always()
