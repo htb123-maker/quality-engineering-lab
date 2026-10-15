@@ -49,6 +49,7 @@ select = ["E", "F", "I", "B", "UP"]
 [tool.mypy]
 python_version = "3.12"
 files = ["packages", "tests"]
+mypy_path = ["packages", "apps/compose/api"]
 plugins = ["pydantic.mypy"]
 check_untyped_defs = true
 disallow_untyped_calls = false

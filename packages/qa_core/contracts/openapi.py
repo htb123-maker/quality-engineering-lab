@@ -9,12 +9,17 @@ from pydantic import BaseModel
 from qa_core.contracts.api import (
     AdminAuditResponse,
     ApiError,
+    CacheRefreshRequest,
+    CatalogEvent,
     CatalogItem,
     CatalogItemCreate,
     CatalogItemStatusUpdate,
     CatalogResponse,
     FieldError,
     HealthLiveResponse,
+    JobAcceptedResponse,
+    JobQueueStatsResponse,
+    JobResponse,
     OAuthErrorResponse,
     OidcMetadataResponse,
     ReadinessResponse,
@@ -39,6 +44,11 @@ class _ContractBundle(BaseModel):
     catalog_item: CatalogItem
     catalog_item_create: CatalogItemCreate
     catalog_item_status_update: CatalogItemStatusUpdate
+    cache_refresh: CacheRefreshRequest
+    job_accepted: JobAcceptedResponse
+    job: JobResponse
+    job_queue_stats: JobQueueStatsResponse
+    catalog_event: CatalogEvent
     api_error: ApiError
     oauth_error: OAuthErrorResponse
     field_error: FieldError
@@ -182,9 +192,93 @@ def openapi_document() -> dict[str, Any]:
                         }
                     ],
                     "responses": {
-                        "200": _response("Catalog", CatalogResponse),
+                        "200": {
+                            **_response("Catalog", CatalogResponse),
+                            "headers": {
+                                "X-Cache": {
+                                    "description": (
+                                        "Cache state: HIT, MISS, or HIT-NEGATIVE."
+                                    ),
+                                    "schema": {
+                                        "type": "string",
+                                        "enum": ["HIT", "MISS", "HIT-NEGATIVE"],
+                                    },
+                                },
+                                "X-Cache-TTL": {
+                                    "description": (
+                                        "Remaining Redis TTL in seconds; -1 when "
+                                        "the entry has no expiry."
+                                    ),
+                                    "schema": {"type": "integer"},
+                                },
+                            },
+                        },
                         "404": _response("Workspace not found", ApiError),
                         "503": _response("Database unavailable", ApiError),
+                    },
+                }
+            },
+            "/api/v1/workspaces/{slug}/catalog/cache/refresh": {
+                "post": {
+                    "summary": "Queue an asynchronous catalog cache refresh",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [_path_parameter("slug")],
+                    "requestBody": {
+                        **_json_request_body(CacheRefreshRequest),
+                        "required": False,
+                    },
+                    "responses": {
+                        "202": _response("Queued job", JobAcceptedResponse),
+                        "400": _response("Malformed request", ApiError),
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Workspace not found", ApiError),
+                        "422": _response(
+                            "Request validation failed",
+                            ValidationErrorResponse,
+                        ),
+                    },
+                }
+            },
+            "/api/v1/workspaces/{slug}/events": {
+                "get": {
+                    "summary": "Subscribe to workspace events over WebSocket",
+                    "description": (
+                        "RFC 6455 upgrade endpoint. Frames carry the "
+                        "CatalogEvent payload. A request without the WebSocket "
+                        "upgrade headers is rejected with 426."
+                    ),
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [_path_parameter("slug")],
+                    "responses": {
+                        "101": {"description": "Switching protocols"},
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Workspace not found", ApiError),
+                        "426": _response("Upgrade required", ApiError),
+                    },
+                }
+            },
+            "/api/v1/jobs": {
+                "get": {
+                    "summary": "Read background job queue statistics",
+                    "security": [{"bearerAuth": []}],
+                    "responses": {
+                        "200": _response("Queue statistics", JobQueueStatsResponse),
+                        "401": _response("Authentication required", ApiError),
+                    },
+                }
+            },
+            "/api/v1/jobs/{job_id}": {
+                "get": {
+                    "summary": "Read one background job",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [_path_parameter("job_id")],
+                    "responses": {
+                        "200": _response("Job record", JobResponse),
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Job not found", ApiError),
                     },
                 }
             },

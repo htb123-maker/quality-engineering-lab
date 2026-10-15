@@ -17,6 +17,7 @@ from uuid import uuid4
 import allure
 import pytest
 from qa_core.auth import AuthClient
+from qa_core.cache import CatalogCacheProbe
 from qa_core.config.settings import Settings
 from qa_core.data_factories import (
     CatalogApiFactory,
@@ -25,6 +26,8 @@ from qa_core.data_factories import (
     items_path,
 )
 from qa_core.db import DatabaseClient
+from qa_core.events import WebSocketConnection, events_url
+from qa_core.jobs import JobClient
 from qa_core.resource_pools import NamespaceLease, NamespacePool
 
 ATLAS_SLUG = "atlas"
@@ -41,6 +44,7 @@ __all__ = [
     "ATLAS_VIEWER_EMAIL",
     "ORBIT_SLUG",
     "attach_json",
+    "connect_event_stream",
     "item_path",
     "items_path",
     "owner_session",
@@ -75,6 +79,22 @@ def attach_json(name: str, payload: object) -> None:
         json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True),
         name=name,
         attachment_type=allure.attachment_type.JSON,
+    )
+
+
+def connect_event_stream(
+    sut_api_url: str,
+    workspace_slug: str,
+    access_token: str,
+    *,
+    timeout: float = 5.0,
+) -> WebSocketConnection:
+    """Open an authenticated WebSocket event stream for one workspace."""
+
+    return WebSocketConnection.connect(
+        events_url(sut_api_url, workspace_slug),
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=timeout,
     )
 
 
@@ -183,3 +203,34 @@ def catalog_items(
         yield factory
     finally:
         factory.cleanup()
+
+
+@pytest.fixture
+def job_client(owner_auth: AuthClient) -> JobClient:
+    """Return a background job client bound to the leased namespace owner."""
+
+    return JobClient.from_auth(owner_auth)
+
+
+@pytest.fixture
+def owner_access_token(owner_auth: AuthClient) -> str:
+    """Return the raw access token so a WebSocket handshake can send it."""
+
+    tokens = owner_auth.tokens
+    assert tokens is not None, "owner_auth must log in before reading its token"
+    return tokens.access_token
+
+
+@pytest.fixture
+def catalog_cache(settings: Settings, namespace: NamespaceLease) -> Iterator[CatalogCacheProbe]:
+    """Return a cache probe for the leased namespace, cleaned afterwards."""
+
+    probe = CatalogCacheProbe(
+        redis_url=str(settings.redis_url),
+        workspace_slug=namespace.slug,
+    )
+    probe.purge()
+    try:
+        yield probe
+    finally:
+        probe.purge()

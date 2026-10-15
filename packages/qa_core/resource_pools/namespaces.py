@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Protocol
 
-from qa_core.cache import purge_idempotency_keys
+from qa_core.cache import purge_catalog_cache, purge_idempotency_keys
 from qa_core.data_factories import NamespaceIdentity
 
 
@@ -180,6 +180,7 @@ class NamespacePool:
         identities.extend(lease.identity for lease in self._active.values())
         self._active.clear()
         for identity in identities:
+            self._purge_redis_state(identity)
             self._provider.purge(identity)
 
     def _release(self, identity: NamespaceIdentity) -> None:
@@ -191,5 +192,16 @@ class NamespacePool:
 
     def _reset(self, identity: NamespaceIdentity) -> None:
         self._provider.reset(identity)
-        if self._redis_url is not None:
-            purge_idempotency_keys(self._redis_url, identity.workspace_id)
+        self._purge_redis_state(identity)
+
+    def _purge_redis_state(self, identity: NamespaceIdentity) -> None:
+        """Drop the Redis keys whose lifetime is tied to one namespace.
+
+        A lease promises a workspace with no state from the previous test, and
+        from Week 10 on that includes the catalog cache and its counters.
+        """
+
+        if self._redis_url is None:
+            return
+        purge_idempotency_keys(self._redis_url, identity.workspace_id)
+        purge_catalog_cache(self._redis_url, identity.slug)

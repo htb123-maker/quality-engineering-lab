@@ -9,16 +9,19 @@ import json
 import logging
 import math
 import os
+import queue
 import re
 import secrets
 import threading
 import time
 from collections import deque
+from datetime import UTC, datetime
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import parse_qs, urlparse
+from uuid import uuid4
 
 import psycopg
 import redis
@@ -27,6 +30,7 @@ from pydantic import BaseModel
 from qa_core.contracts import (
     AdminAuditResponse,
     ApiError,
+    CacheRefreshRequest,
     CatalogItem,
     CatalogItemCreate,
     CatalogItemStatusUpdate,
@@ -36,6 +40,9 @@ from qa_core.contracts import (
     FieldError,
     HealthCheck,
     HealthLiveResponse,
+    JobAcceptedResponse,
+    JobQueueStatsResponse,
+    JobResponse,
     OAuthErrorResponse,
     OidcMetadataResponse,
     ReadinessResponse,
@@ -73,6 +80,11 @@ CATALOG_ITEMS_PATH = re.compile(r"^/api/v1/workspaces/([^/]+)/catalog/items$")
 CATALOG_ITEM_PATH = re.compile(
     r"^/api/v1/workspaces/([^/]+)/catalog/items/([0-9]+)$"
 )
+CACHE_REFRESH_PATH = re.compile(
+    r"^/api/v1/workspaces/([^/]+)/catalog/cache/refresh$"
+)
+EVENTS_PATH = re.compile(r"^/api/v1/workspaces/([^/]+)/events$")
+JOB_PATH = re.compile(r"^/api/v1/jobs/([^/]+)$")
 WRITABLE_ROLES = frozenset({"owner", "admin", "member"})
 ALLOWED_STATUS_TRANSITIONS = frozenset({("active", "archived")})
 IDEMPOTENCY_TTL_SECONDS = int(os.getenv("QA_IDEMPOTENCY_TTL_SECONDS", "3600"))
@@ -80,6 +92,35 @@ RATE_LIMIT_MAX_REQUESTS = int(os.getenv("QA_RATE_LIMIT_WRITE_MAX", "20"))
 RATE_LIMIT_WINDOW_SECONDS = float(
     os.getenv("QA_RATE_LIMIT_WRITE_WINDOW_SECONDS", "60")
 )
+
+# Week 10 cache and queue configuration. The defaults keep the SUT friendly for
+# manual exploration; tests tighten the TTLs through Compose environment values.
+CATALOG_CACHE_PREFIX = "cache:catalog"
+CACHE_STATS_PREFIX = "cache:stats"
+CACHE_STATS_TTL_SECONDS = int(os.getenv("QA_CACHE_STATS_TTL_SECONDS", "3600"))
+CATALOG_CACHE_TTL_SECONDS = int(os.getenv("QA_CATALOG_CACHE_TTL_SECONDS", "60"))
+CATALOG_CACHE_NEGATIVE_TTL_SECONDS = int(
+    os.getenv("QA_CATALOG_CACHE_NEGATIVE_TTL_SECONDS", "10")
+)
+JOB_QUEUE_KEY = "jobs:queue"
+JOB_DELAYED_KEY = "jobs:delayed"
+JOB_STATS_PREFIX = "jobs:stats:"
+JOB_KEY_PREFIX = "job:"
+JOB_TTL_SECONDS = int(os.getenv("QA_JOB_TTL_SECONDS", "900"))
+JOB_WORKER_POLL_SECONDS = float(os.getenv("QA_JOB_WORKER_POLL_SECONDS", "0.25"))
+JOB_WORKER_ENABLED = os.getenv("QA_JOB_WORKER_ENABLED", "1").strip().lower() not in {
+    "0",
+    "false",
+    "no",
+}
+WS_SUBSCRIBER_QUEUE_SIZE = int(os.getenv("QA_WS_SUBSCRIBER_QUEUE_SIZE", "64"))
+WS_POLL_SECONDS = float(os.getenv("QA_WS_POLL_SECONDS", "0.2"))
+WS_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+WS_OPCODE_CONTINUATION = 0x0
+WS_OPCODE_TEXT = 0x1
+WS_OPCODE_CLOSE = 0x8
+WS_OPCODE_PING = 0x9
+WS_OPCODE_PONG = 0xA
 
 logging.basicConfig(
     level=LOG_LEVEL,
@@ -116,7 +157,13 @@ def _redis_check() -> dict[str, Any]:
     return {"status": "ok", "ping": bool(pong)}
 
 
-def _auth_redis_client() -> redis.Redis:
+def _redis_client() -> redis.Redis:
+    """Open one short-lived Redis connection.
+
+    Every helper closes its own client so a request thread never shares a
+    socket with the background worker.
+    """
+
     return redis.Redis.from_url(
         REDIS_URL,
         decode_responses=True,
@@ -234,7 +281,7 @@ def _refresh_key(token: str) -> str:
 
 def _create_refresh_token(user: dict[str, Any]) -> str:
     token = secrets.token_urlsafe(32)
-    client = _auth_redis_client()
+    client = _redis_client()
     try:
         client.setex(
             _refresh_key(token),
@@ -247,7 +294,7 @@ def _create_refresh_token(user: dict[str, Any]) -> str:
 
 
 def _consume_refresh_token(token: str) -> int | None:
-    client = _auth_redis_client()
+    client = _redis_client()
     try:
         user_id = client.getdel(_refresh_key(token))
     finally:
@@ -262,7 +309,7 @@ def _consume_refresh_token(token: str) -> int | None:
 
 
 def _revoke_refresh_token(token: str) -> None:
-    client = _auth_redis_client()
+    client = _redis_client()
     try:
         client.delete(_refresh_key(token))
     finally:
@@ -306,7 +353,7 @@ def _user_payload(user: dict[str, Any]) -> UserResponse:
     )
 
 
-def _catalog_payload(slug: str) -> tuple[int, CatalogResponse | ApiError]:
+def _catalog_payload(slug: str) -> tuple[HTTPStatus, CatalogResponse | ApiError]:
     with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
         with connection.cursor(row_factory=dict_row) as cursor:
             cursor.execute(
@@ -375,7 +422,7 @@ def _body_fingerprint(payload: dict[str, Any]) -> str:
 
 
 def _read_idempotent_response(store_key: str) -> dict[str, Any] | None:
-    client = _auth_redis_client()
+    client = _redis_client()
     try:
         raw = client.get(store_key)
     finally:
@@ -396,7 +443,7 @@ def _store_idempotent_response(
     status_code: int,
     payload: dict[str, Any],
 ) -> None:
-    client = _auth_redis_client()
+    client = _redis_client()
     try:
         client.setex(
             store_key,
@@ -510,6 +557,547 @@ def _validation_error_payload(exc: ContractValidationError) -> ValidationErrorRe
     )
 
 
+def catalog_cache_key(slug: str) -> str:
+    """Return the Redis key that caches one workspace catalog."""
+
+    return f"{CATALOG_CACHE_PREFIX}:{slug}"
+
+
+def catalog_absent_cache_key(slug: str) -> str:
+    """Return the Redis key that caches the "workspace not found" answer."""
+
+    return f"{CATALOG_CACHE_PREFIX}:{slug}:absent"
+
+
+def cache_stats_key(slug: str, name: str) -> str:
+    """Return the Redis key that counts one cache outcome for a workspace."""
+
+    return f"{CACHE_STATS_PREFIX}:{slug}:{name}"
+
+
+def _utc_now() -> str:
+    """Return an ISO-8601 UTC timestamp used by job and event records."""
+
+    return datetime.now(UTC).isoformat(timespec="seconds")
+
+
+def _record_cache_stat(
+    client: redis.Redis,
+    slug: str,
+    name: str,
+    amount: int = 1,
+) -> None:
+    """Count one cache outcome; the counter expires so a test run leaks nothing."""
+
+    key = cache_stats_key(slug, name)
+    with client.pipeline() as pipe:
+        pipe.incrby(key, amount)
+        pipe.expire(key, CACHE_STATS_TTL_SECONDS)
+        pipe.execute()
+
+
+def _decode_cached_json(raw: bytes | str | None) -> dict[str, Any] | None:
+    """Return a cached JSON object, or ``None`` when the entry is unusable."""
+
+    if raw is None:
+        return None
+    text = raw.decode("utf-8") if isinstance(raw, bytes) else raw
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _store_catalog_cache(
+    slug: str,
+    payload: CatalogResponse,
+    *,
+    ttl_seconds: int | None = None,
+) -> int:
+    """Write a catalog payload into Redis and drop a stale negative entry."""
+
+    resolved_ttl = int(ttl_seconds or CATALOG_CACHE_TTL_SECONDS)
+    body = json.dumps(payload.model_dump(mode="json"), sort_keys=True)
+    client = _redis_client()
+    try:
+        client.setex(catalog_cache_key(slug), resolved_ttl, body)
+        client.delete(catalog_absent_cache_key(slug))
+    finally:
+        client.close()
+    return resolved_ttl
+
+
+def _invalidate_catalog_cache(slug: str) -> int:
+    """Drop the cached catalog so the next read observes the write."""
+
+    client = _redis_client()
+    try:
+        removed = int(client.delete(catalog_cache_key(slug)))
+        _record_cache_stat(client, slug, "invalidations", removed)
+        return removed
+    finally:
+        client.close()
+
+
+def _catalog_cache_aside(
+    slug: str,
+) -> tuple[HTTPStatus, CatalogResponse | ApiError, dict[str, str]]:
+    """Serve the catalog from Redis, falling back to PostgreSQL on a miss.
+
+    A miss stores the answer with a TTL: a positive entry for a real catalog and
+    a short negative entry for an unknown workspace, which is what keeps a
+    repeated request for a missing slug from reaching the database every time.
+    """
+
+    client = _redis_client()
+    try:
+        hit_key = catalog_cache_key(slug)
+        cached = _decode_cached_json(client.get(hit_key))
+        if cached is not None:
+            _record_cache_stat(client, slug, "hit")
+            return HTTPStatus.OK, CatalogResponse.model_validate(cached), {
+                "X-Cache": "HIT",
+                "X-Cache-TTL": str(int(client.ttl(hit_key))),
+            }
+
+        absent_key = catalog_absent_cache_key(slug)
+        cached_absent = _decode_cached_json(client.get(absent_key))
+        if cached_absent is not None:
+            _record_cache_stat(client, slug, "hit_negative")
+            return HTTPStatus.NOT_FOUND, ApiError.model_validate(cached_absent), {
+                "X-Cache": "HIT-NEGATIVE",
+                "X-Cache-TTL": str(int(client.ttl(absent_key))),
+            }
+
+        _record_cache_stat(client, slug, "miss")
+        _record_cache_stat(client, slug, "db_reads")
+        status, payload = _catalog_payload(slug)
+        body = json.dumps(payload.model_dump(mode="json"), sort_keys=True)
+        if status == HTTPStatus.OK:
+            client.setex(hit_key, CATALOG_CACHE_TTL_SECONDS, body)
+            written_ttl = CATALOG_CACHE_TTL_SECONDS
+        else:
+            client.setex(absent_key, CATALOG_CACHE_NEGATIVE_TTL_SECONDS, body)
+            written_ttl = CATALOG_CACHE_NEGATIVE_TTL_SECONDS
+        return status, payload, {
+            "X-Cache": "MISS",
+            "X-Cache-TTL": str(written_ttl),
+        }
+    finally:
+        client.close()
+
+
+def _catalog_with_cache(
+    slug: str,
+) -> tuple[HTTPStatus, CatalogResponse | ApiError, dict[str, str]]:
+    """Read the catalog through the cache, degrading to PostgreSQL when it fails."""
+
+    try:
+        return _catalog_cache_aside(slug)
+    except redis.RedisError as exc:
+        LOGGER.warning("Catalog cache unavailable, reading PostgreSQL: %s", exc)
+        status, payload = _catalog_payload(slug)
+        return status, payload, {"X-Cache": "BYPASS", "X-Cache-TTL": "-1"}
+
+
+class EventBroker:
+    """Fan workspace events out to WebSocket subscribers without blocking writers.
+
+    Subscribers get a bounded queue, so one client that stops reading loses the
+    oldest events instead of stalling the request thread that produced them.
+    """
+
+    def __init__(self, *, queue_size: int = WS_SUBSCRIBER_QUEUE_SIZE) -> None:
+        self._queue_size = queue_size
+        self._lock = threading.Lock()
+        self._subscribers: dict[str, set[queue.Queue[dict[str, Any]]]] = {}
+        self._sequences: dict[str, int] = {}
+        self._dropped = 0
+
+    @property
+    def subscriber_count(self) -> int:
+        """Return how many subscribers are attached across all workspaces."""
+
+        with self._lock:
+            return sum(len(entries) for entries in self._subscribers.values())
+
+    @property
+    def dropped_events(self) -> int:
+        """Return how many events were dropped for subscribers that stopped reading."""
+
+        with self._lock:
+            return self._dropped
+
+    def subscribe(self, slug: str) -> queue.Queue[dict[str, Any]]:
+        """Attach one bounded queue to a workspace event stream."""
+
+        channel: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=self._queue_size)
+        with self._lock:
+            self._subscribers.setdefault(slug, set()).add(channel)
+        return channel
+
+    def unsubscribe(self, slug: str, channel: queue.Queue[dict[str, Any]]) -> None:
+        """Detach a queue; an already detached queue is ignored."""
+
+        with self._lock:
+            entries = self._subscribers.get(slug)
+            if entries is None:
+                return
+            entries.discard(channel)
+            if not entries:
+                self._subscribers.pop(slug, None)
+
+    def publish(
+        self,
+        slug: str,
+        event_type: str,
+        data: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Number one event and hand it to every current subscriber."""
+
+        with self._lock:
+            sequence = self._sequences.get(slug, 0) + 1
+            self._sequences[slug] = sequence
+            event = {
+                "type": event_type,
+                "workspace": slug,
+                "sequence": sequence,
+                "occurred_at": time.time(),
+                "data": data,
+            }
+            for channel in list(self._subscribers.get(slug, ())):
+                try:
+                    channel.put_nowait(event)
+                except queue.Full:
+                    self._dropped += 1
+                    LOGGER.warning(
+                        "Dropped %s for a subscriber that stopped reading %s",
+                        event_type,
+                        slug,
+                    )
+        return event
+
+
+EVENT_BROKER = EventBroker()
+
+
+def job_key(job_id: str) -> str:
+    """Return the Redis key that stores one job record."""
+
+    return f"{JOB_KEY_PREFIX}{job_id}"
+
+
+def _save_job(record: dict[str, Any]) -> None:
+    """Persist one job record with a TTL so finished jobs do not pile up."""
+
+    client = _redis_client()
+    try:
+        client.setex(
+            job_key(str(record["job_id"])),
+            JOB_TTL_SECONDS,
+            json.dumps(record, sort_keys=True),
+        )
+    finally:
+        client.close()
+
+
+def _load_job(job_id: str) -> dict[str, Any] | None:
+    """Return one job record, or ``None`` when it expired or never existed."""
+
+    client = _redis_client()
+    try:
+        raw = client.get(job_key(job_id))
+    finally:
+        client.close()
+    return _decode_cached_json(raw)
+
+
+def _update_job(job_id: str, **changes: Any) -> dict[str, Any] | None:
+    """Patch one job record in place and return the stored record."""
+
+    record = _load_job(job_id)
+    if record is None:
+        return None
+    record.update(changes)
+    _save_job(record)
+    return record
+
+
+def _job_response(record: dict[str, Any]) -> JobResponse:
+    """Project the stored record onto the documented response contract."""
+
+    fields = (
+        "job_id",
+        "type",
+        "workspace_slug",
+        "status",
+        "queued_at",
+        "started_at",
+        "finished_at",
+        "result",
+        "error",
+    )
+    return JobResponse.model_validate({name: record.get(name) for name in fields})
+
+
+def _enqueue_job(
+    *,
+    job_type: str,
+    workspace_slug: str,
+    payload: dict[str, Any],
+    delay_seconds: float = 0.0,
+) -> dict[str, Any]:
+    """Store a queued job and put it on the immediate or delayed queue."""
+
+    job_id = uuid4().hex
+    record: dict[str, Any] = {
+        "job_id": job_id,
+        "type": job_type,
+        "workspace_slug": workspace_slug,
+        "status": "queued",
+        "queued_at": _utc_now(),
+        "started_at": None,
+        "finished_at": None,
+        "result": None,
+        "error": None,
+        "payload": payload,
+    }
+    _save_job(record)
+    client = _redis_client()
+    try:
+        if delay_seconds > 0:
+            client.zadd(JOB_DELAYED_KEY, {job_id: time.time() + delay_seconds})
+        else:
+            client.lpush(JOB_QUEUE_KEY, job_id)
+    finally:
+        client.close()
+    return record
+
+
+def _bump_job_counter(name: str) -> None:
+    """Count one finished job outcome."""
+
+    client = _redis_client()
+    try:
+        client.incr(f"{JOB_STATS_PREFIX}{name}")
+    finally:
+        client.close()
+
+
+def _job_queue_stats() -> JobQueueStatsResponse:
+    """Read queue depth and worker counters."""
+
+    client = _redis_client()
+    try:
+        return JobQueueStatsResponse(
+            queued=int(client.llen(JOB_QUEUE_KEY)),
+            delayed=int(client.zcard(JOB_DELAYED_KEY)),
+            processed=int(client.get(f"{JOB_STATS_PREFIX}processed") or 0),
+            failed=int(client.get(f"{JOB_STATS_PREFIX}failed") or 0),
+            worker_enabled=JOB_WORKER_ENABLED,
+        )
+    finally:
+        client.close()
+
+
+class JobWorker(threading.Thread):
+    """Run queued jobs in a daemon thread next to the API process.
+
+    One process owns both roles here, which keeps the Compose stack small while
+    still moving the work out of the request that asked for it: the caller gets
+    a job id, and the cache is only warm once the worker has run.
+    """
+
+    def __init__(
+        self,
+        broker: EventBroker,
+        *,
+        poll_seconds: float = JOB_WORKER_POLL_SECONDS,
+    ) -> None:
+        super().__init__(name="sut-job-worker", daemon=True)
+        self._broker = broker
+        self._poll_seconds = poll_seconds
+        self._stop = threading.Event()
+
+    def stop(self) -> None:
+        """Ask the worker loop to exit after the current job."""
+
+        self._stop.set()
+
+    def run(self) -> None:
+        LOGGER.info("Job worker started")
+        while not self._stop.is_set():
+            try:
+                self._promote_delayed_jobs()
+                job_id = self._pop_job()
+                if job_id is None:
+                    continue
+                self._process(job_id)
+            except Exception:  # noqa: BLE001
+                LOGGER.exception("Job worker loop failed")
+                self._stop.wait(self._poll_seconds)
+        LOGGER.info("Job worker stopped")
+
+    def _pop_job(self) -> str | None:
+        """Block briefly for the next job id."""
+
+        client = _redis_client()
+        try:
+            item = client.brpop(JOB_QUEUE_KEY, timeout=self._poll_seconds)
+        finally:
+            client.close()
+        if item is None:
+            return None
+        _, raw = item
+        return raw.decode("utf-8") if isinstance(raw, bytes) else str(raw)
+
+    def _promote_delayed_jobs(self) -> None:
+        """Move delayed jobs whose not-before time has passed onto the queue."""
+
+        client = _redis_client()
+        try:
+            due = client.zrangebyscore(JOB_DELAYED_KEY, 0, time.time())
+            for raw_id in due:
+                job_id = str(raw_id)
+                if client.zrem(JOB_DELAYED_KEY, job_id):
+                    client.lpush(JOB_QUEUE_KEY, job_id)
+        finally:
+            client.close()
+
+    def _process(self, job_id: str) -> None:
+        """Run one job and record its outcome."""
+
+        record = _load_job(job_id)
+        if record is None:
+            LOGGER.warning("Ignoring job %s because its record expired", job_id)
+            return
+        slug = str(record.get("workspace_slug", ""))
+        _update_job(job_id, status="running", started_at=_utc_now())
+        try:
+            result = self._dispatch(record)
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning("Job %s failed: %s", job_id, exc)
+            _update_job(
+                job_id,
+                status="failed",
+                finished_at=_utc_now(),
+                error=f"{type(exc).__name__}: {exc}",
+            )
+            _bump_job_counter("failed")
+            self._broker.publish(
+                slug,
+                "job.failed",
+                {"job_id": job_id, "type": record.get("type"), "error": str(exc)},
+            )
+            return
+
+        _update_job(job_id, status="succeeded", finished_at=_utc_now(), result=result)
+        _bump_job_counter("processed")
+        self._broker.publish(
+            slug,
+            "job.succeeded",
+            {"job_id": job_id, "type": record.get("type"), "result": result},
+        )
+
+    def _dispatch(self, record: dict[str, Any]) -> dict[str, Any]:
+        """Run the job handler that matches the job type."""
+
+        job_type = record.get("type")
+        if job_type == "catalog.cache_refresh":
+            return self._refresh_catalog_cache(record)
+        raise ValueError(f"unsupported job type: {job_type}")
+
+    def _refresh_catalog_cache(self, record: dict[str, Any]) -> dict[str, Any]:
+        """Read PostgreSQL and warm the cache the next read will hit."""
+
+        slug = str(record["workspace_slug"])
+        payload = record.get("payload")
+        requested_ttl = None
+        if isinstance(payload, dict):
+            requested_ttl = payload.get("ttl_seconds")
+        status, result = _catalog_payload(slug)
+        if status != HTTPStatus.OK or not isinstance(result, CatalogResponse):
+            raise ValueError(f"workspace_not_found: {slug}")
+        ttl_seconds = _store_catalog_cache(
+            slug,
+            result,
+            ttl_seconds=int(requested_ttl) if requested_ttl else None,
+        )
+        return {
+            "workspace_slug": slug,
+            "items": result.count,
+            "ttl_seconds": ttl_seconds,
+        }
+
+
+def _append_ws_length(header: bytearray, length: int) -> None:
+    """Append the payload length of a WebSocket frame, masked or not."""
+
+    if length < 126:
+        header.append(length)
+    elif length < 65_536:
+        header.append(126)
+        header.extend(length.to_bytes(2, "big"))
+    else:
+        header.append(127)
+        header.extend(length.to_bytes(8, "big"))
+
+
+def encode_ws_frame(payload: bytes, *, opcode: int = WS_OPCODE_TEXT) -> bytes:
+    """Encode one unmasked server-to-client WebSocket frame."""
+
+    header = bytearray([0x80 | opcode])
+    _append_ws_length(header, len(payload))
+    return bytes(header) + payload
+
+
+def encode_ws_text(payload: str) -> bytes:
+    """Encode one JSON text frame."""
+
+    return encode_ws_frame(payload.encode("utf-8"))
+
+
+def read_ws_frame(rfile: Any) -> tuple[int, bytes] | None:
+    """Read one client frame; return ``None`` when the stream ended."""
+
+    header = rfile.read(2)
+    if not header or len(header) < 2:
+        return None
+    opcode = header[0] & 0x0F
+    masked = bool(header[1] & 0x80)
+    length = header[1] & 0x7F
+    if length == 126:
+        extended = rfile.read(2)
+        if not extended or len(extended) < 2:
+            return None
+        length = int.from_bytes(extended, "big")
+    elif length == 127:
+        extended = rfile.read(8)
+        if not extended or len(extended) < 8:
+            return None
+        length = int.from_bytes(extended, "big")
+
+    mask = b""
+    if masked:
+        mask = rfile.read(4)
+        if not mask or len(mask) < 4:
+            return None
+    payload = rfile.read(length) if length else b""
+    if payload is None or len(payload) < length:
+        return None
+    if masked:
+        payload = bytes(byte ^ mask[index % 4] for index, byte in enumerate(payload))
+    return opcode, payload
+
+
+def websocket_accept(key: str) -> str:
+    """Return the Sec-WebSocket-Accept value for one client key."""
+
+    digest = hashlib.sha1((key + WS_GUID).encode("utf-8")).digest()
+    return base64.b64encode(digest).decode("ascii")
+
+
 class SutRequestHandler(BaseHTTPRequestHandler):
     """Serve health, read-only catalog, and local authentication endpoints."""
 
@@ -536,6 +1124,10 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                         "/api/v1/workspaces/{slug}/catalog",
                         "/api/v1/workspaces/{slug}/catalog/items",
                         "/api/v1/workspaces/{slug}/catalog/items/{item_id}",
+                        "/api/v1/workspaces/{slug}/catalog/cache/refresh",
+                        "/api/v1/workspaces/{slug}/events",
+                        "/api/v1/jobs",
+                        "/api/v1/jobs/{job_id}",
                     ],
                 ),
             )
@@ -577,6 +1169,20 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             self._handle_admin_audit()
             return
 
+        if path == "/api/v1/jobs":
+            self._handle_job_queue_stats()
+            return
+
+        events_match = EVENTS_PATH.fullmatch(path)
+        if events_match:
+            self._handle_events(events_match.group(1))
+            return
+
+        job_match = JOB_PATH.fullmatch(path)
+        if job_match:
+            self._handle_job(job_match.group(1))
+            return
+
         catalog_match = CATALOG_PATH.fullmatch(path)
         if catalog_match:
             self._handle_catalog(catalog_match.group(1))
@@ -604,6 +1210,11 @@ class SutRequestHandler(BaseHTTPRequestHandler):
         items_match = CATALOG_ITEMS_PATH.fullmatch(path)
         if items_match:
             self._handle_catalog_item_create(items_match.group(1))
+            return
+
+        refresh_match = CACHE_REFRESH_PATH.fullmatch(path)
+        if refresh_match:
+            self._handle_cache_refresh(refresh_match.group(1))
             return
 
         self._send_json(
@@ -680,7 +1291,7 @@ class SutRequestHandler(BaseHTTPRequestHandler):
 
     def _handle_catalog(self, slug: str) -> None:
         try:
-            status, payload = _catalog_payload(slug)
+            status, payload, headers = _catalog_with_cache(slug)
         except Exception as exc:  # noqa: BLE001
             LOGGER.exception("Catalog query failed")
             self._send_json(
@@ -692,7 +1303,258 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             )
             return
 
-        self._send_json(status, payload)
+        self._send_json(status, payload, headers=headers)
+
+    def _handle_cache_refresh(self, slug: str) -> None:
+        """Queue an asynchronous cache refresh and answer with the job id."""
+
+        user = self._authorize_catalog_write(slug)
+        if user is None:
+            return
+
+        try:
+            payload = self._read_request_payload()
+        except (UnicodeDecodeError, ValueError) as exc:
+            self._send_json(
+                HTTPStatus.BAD_REQUEST,
+                ApiError(error="invalid_request", message=str(exc)),
+            )
+            return
+
+        client_id = self.headers.get("X-QA-Client-Id") or self.client_address[0]
+        retry_after = _rate_limit_retry_after(client_id, now=time.monotonic())
+        if retry_after is not None:
+            self._send_json(
+                HTTPStatus.TOO_MANY_REQUESTS,
+                ApiError(
+                    error="rate_limited",
+                    message="Too many catalog writes for this client.",
+                ),
+                headers={"Retry-After": str(max(1, math.ceil(retry_after)))},
+            )
+            return
+
+        try:
+            request = validate_contract(CacheRefreshRequest, payload)
+        except ContractValidationError as exc:
+            self._send_json(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                _validation_error_payload(exc),
+            )
+            return
+
+        try:
+            record = _enqueue_job(
+                job_type="catalog.cache_refresh",
+                workspace_slug=slug,
+                payload={"ttl_seconds": request.ttl_seconds},
+                delay_seconds=request.delay_seconds,
+            )
+        except redis.RedisError as exc:
+            LOGGER.warning("Queueing the cache refresh failed: %s", exc)
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="queue_unavailable", message=type(exc).__name__),
+            )
+            return
+
+        job_id = str(record["job_id"])
+        self._send_json(
+            HTTPStatus.ACCEPTED,
+            JobAcceptedResponse(
+                job_id=job_id,
+                type=str(record["type"]),
+                workspace_slug=slug,
+                status="queued",
+                queued_at=str(record["queued_at"]),
+            ),
+            headers={"Location": f"/api/v1/jobs/{job_id}"},
+        )
+
+    def _handle_job_queue_stats(self) -> None:
+        user = self._authenticated_user()
+        if user is None:
+            return
+        try:
+            stats = _job_queue_stats()
+        except redis.RedisError as exc:
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="queue_unavailable", message=type(exc).__name__),
+            )
+            return
+        self._send_json(HTTPStatus.OK, stats)
+
+    def _handle_job(self, job_id: str) -> None:
+        """Return one job, but only to the workspace that queued it."""
+
+        user = self._authenticated_user()
+        if user is None:
+            return
+
+        try:
+            record = _load_job(job_id)
+        except redis.RedisError as exc:
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="queue_unavailable", message=type(exc).__name__),
+            )
+            return
+        if record is None:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(
+                    error="job_not_found",
+                    message=f"Job '{job_id}' was not found.",
+                ),
+            )
+            return
+
+        try:
+            workspace = _workspace_by_slug(str(record["workspace_slug"]))
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Job workspace lookup failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="database_unavailable", message=type(exc).__name__),
+            )
+            return
+        if workspace is None or workspace["id"] != user["workspace_id"]:
+            self._send_json(
+                HTTPStatus.FORBIDDEN,
+                ApiError(
+                    error="permission_denied",
+                    message="The authenticated user cannot read this job.",
+                ),
+            )
+            return
+        self._send_json(HTTPStatus.OK, _job_response(record))
+
+    def _handle_events(self, slug: str) -> None:
+        """Upgrade to WebSocket and stream this workspace's events."""
+
+        user = self._authenticated_user()
+        if user is None:
+            return
+
+        if self.headers.get("Upgrade", "").strip().lower() != "websocket":
+            self._send_json(
+                HTTPStatus.UPGRADE_REQUIRED,
+                ApiError(
+                    error="websocket_upgrade_required",
+                    message="This endpoint only answers a WebSocket upgrade.",
+                ),
+            )
+            return
+
+        key = self.headers.get("Sec-WebSocket-Key", "")
+        version = self.headers.get("Sec-WebSocket-Version", "")
+        if not key or version != "13":
+            self._send_json(
+                HTTPStatus.BAD_REQUEST,
+                ApiError(
+                    error="invalid_websocket_handshake",
+                    message="Sec-WebSocket-Key and Sec-WebSocket-Version: 13 are required.",
+                ),
+            )
+            return
+
+        try:
+            workspace = _workspace_by_slug(slug)
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Event stream workspace lookup failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="database_unavailable", message=type(exc).__name__),
+            )
+            return
+        if workspace is None:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(
+                    error="workspace_not_found",
+                    message=f"Workspace '{slug}' was not found.",
+                ),
+            )
+            return
+        if workspace["id"] != user["workspace_id"]:
+            self._send_json(
+                HTTPStatus.FORBIDDEN,
+                ApiError(
+                    error="permission_denied",
+                    message="The authenticated user cannot read another workspace's events.",
+                ),
+            )
+            return
+
+        self._send_switching_protocols(key)
+        self._stream_events(slug)
+
+    def _send_switching_protocols(self, key: str) -> None:
+        """Answer the WebSocket handshake with 101 and stop using HTTP framing."""
+
+        self.send_response(HTTPStatus.SWITCHING_PROTOCOLS.value)
+        self.send_header("Upgrade", "websocket")
+        self.send_header("Connection", "Upgrade")
+        self.send_header("Sec-WebSocket-Accept", websocket_accept(key))
+        self.end_headers()
+        self.wfile.flush()
+        self.close_connection = True
+
+    def _stream_events(self, slug: str) -> None:
+        """Push queued events until the client closes the stream."""
+
+        channel = EVENT_BROKER.subscribe(slug)
+        stop = threading.Event()
+        write_lock = threading.Lock()
+
+        def read_until_closed() -> None:
+            try:
+                while not stop.is_set():
+                    frame = read_ws_frame(self.rfile)
+                    if frame is None:
+                        break
+                    opcode, payload = frame
+                    if opcode == WS_OPCODE_CLOSE:
+                        break
+                    if opcode == WS_OPCODE_PING:
+                        with write_lock:
+                            self.wfile.write(encode_ws_frame(payload, opcode=WS_OPCODE_PONG))
+                            self.wfile.flush()
+            except (OSError, ValueError):
+                pass
+            finally:
+                stop.set()
+
+        reader = threading.Thread(
+            target=read_until_closed,
+            name=f"ws-reader-{slug}",
+            daemon=True,
+        )
+        reader.start()
+        LOGGER.info("Event subscriber attached to %s", slug)
+
+        delivered = 0
+        try:
+            while not stop.is_set():
+                try:
+                    event = channel.get(timeout=WS_POLL_SECONDS)
+                except queue.Empty:
+                    continue
+                with write_lock:
+                    self.wfile.write(encode_ws_text(json.dumps(event, sort_keys=True)))
+                    self.wfile.flush()
+                delivered += 1
+        except OSError:
+            pass
+        finally:
+            stop.set()
+            EVENT_BROKER.unsubscribe(slug, channel)
+            LOGGER.info(
+                "Event subscriber detached from %s after %s events",
+                slug,
+                delivered,
+            )
 
     def _authorize_catalog_write(self, slug: str) -> dict[str, Any] | None:
         user = self._authenticated_user()
@@ -837,6 +1699,12 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                 status_code=HTTPStatus.CREATED.value,
                 payload=item.model_dump(mode="json"),
             )
+        _invalidate_catalog_cache(slug)
+        EVENT_BROKER.publish(
+            slug,
+            "catalog.item.created",
+            {"item": item.model_dump(mode="json"), "cache_invalidated": True},
+        )
         self._send_json(
             HTTPStatus.CREATED,
             item,
@@ -932,6 +1800,12 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                 ),
             )
             return
+        _invalidate_catalog_cache(slug)
+        EVENT_BROKER.publish(
+            slug,
+            "catalog.item.updated",
+            {"item": updated.model_dump(mode="json"), "cache_invalidated": True},
+        )
         self._send_json(HTTPStatus.OK, updated)
 
     def _handle_catalog_item_delete(self, slug: str, item_id: int) -> None:
@@ -961,6 +1835,12 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                 ),
             )
             return
+        _invalidate_catalog_cache(slug)
+        EVENT_BROKER.publish(
+            slug,
+            "catalog.item.deleted",
+            {"item_id": item_id, "cache_invalidated": True},
+        )
         self._send_empty(HTTPStatus.NO_CONTENT)
 
     def _handle_token(self) -> None:
@@ -1214,6 +2094,13 @@ def main() -> None:
     """Start the HTTP server."""
 
     port = int(os.getenv("PORT", "8000"))
+    worker: JobWorker | None = None
+    if JOB_WORKER_ENABLED:
+        worker = JobWorker(EVENT_BROKER)
+        worker.start()
+    else:
+        LOGGER.warning("Job worker is disabled; queued jobs stay queued")
+
     server = ThreadingHTTPServer(("0.0.0.0", port), SutRequestHandler)
     LOGGER.info("SUT API listening on port %s", port)
 
@@ -1222,6 +2109,8 @@ def main() -> None:
     except KeyboardInterrupt:
         LOGGER.info("SUT API interrupted")
     finally:
+        if worker is not None:
+            worker.stop()
         server.server_close()
 
 
