@@ -4,7 +4,7 @@
 - 日期范围 / Date Range: 2026-10-15
 - 分支 / Branch: study/week-10-redis-cache-and-consistency
 - 基线提交 / Base Commit: 1c6afd2（week-09 分支）
-- 计划提交 / Plan Commit: 待提交（本次工作提交）
+- 计划提交 / Plan Commit: 47b1b53
 - Pull Request: 待创建（等待人工确认后推送）
 
 ## 计划目标 / Plan Goal
