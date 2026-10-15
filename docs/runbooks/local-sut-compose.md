@@ -53,6 +53,21 @@ Read-only schema and seed verification through `psql`:
 .\scripts\verify_sut_database.ps1
 ```
 
+Read-only schema contract check. The init scripts only run on an empty volume,
+so this is what catches a database that has drifted from
+`apps/compose/postgres/init/001_schema.sql`:
+
+```powershell
+uv run --no-sync python scripts/check_schema.py
+```
+
+```text
+PASS Schema tables: tables=3, expected=3, names=catalog_items,users,workspaces
+PASS Schema views: views=1, expected=1, names=workspace_catalog_summary
+PASS Schema contract: tables=3, views=1, violations=0
+Schema check: PASS
+```
+
 Integration tests:
 
 ```powershell
@@ -93,8 +108,15 @@ Expected key results:
 ```text
 SUT ready: True
 Day 5 database verification: PASS
-4 passed
+Schema check: PASS
+35 passed
 ```
+
+`tests/integration` covers the read-only schema contract, transaction and
+savepoint semantics, isolation-level visibility, a real row-lock wait with
+`pg_locks` evidence, a real deadlock (`40P01`), and `EXPLAIN (ANALYZE, BUFFERS)`
+index evidence. Lock-wait and deadlock triage lives in
+`docs/runbooks/database-lock-and-deadlock-triage.md`.
 
 Run the environment-aware API, Android, and iOS smoke matrix:
 
