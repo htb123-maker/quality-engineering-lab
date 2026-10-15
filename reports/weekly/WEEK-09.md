@@ -4,7 +4,7 @@
 - 日期范围 / Date Range: 2026-10-15
 - 分支 / Branch: study/week-09-db-transactions-isolation-locks
 - 基线提交 / Base Commit: b8b1712（week-08 分支）
-- 计划提交 / Plan Commit: 待提交（本次工作提交）
+- 计划提交 / Plan Commit: ce6d79d
 - Pull Request: 待创建（等待人工确认后推送）
 
 ## 计划目标 / Plan Goal
