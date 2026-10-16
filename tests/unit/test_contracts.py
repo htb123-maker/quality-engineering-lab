@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 from qa_core.contracts import (
+    CatalogItemCreate,
     ContractValidationError,
     HealthLiveResponse,
     TokenResponse,
@@ -80,6 +81,55 @@ def test_openapi_document_exports_paths_and_shared_components() -> None:
         "OAuthErrorResponse",
     }.issubset(schemas)
     assert schemas["TokenResponse"]["additionalProperties"] is False
+
+
+def test_openapi_document_exposes_catalog_write_contracts() -> None:
+    document = openapi_document()
+
+    items_path = "/api/v1/workspaces/{slug}/catalog/items"
+    item_path = "/api/v1/workspaces/{slug}/catalog/items/{item_id}"
+    assert set(document["paths"][items_path]) == {"post"}
+    assert set(document["paths"][item_path]) == {"patch", "delete"}
+    assert "422" in document["paths"][items_path]["post"]["responses"]
+
+    schemas = document["components"]["schemas"]
+    assert {
+        "CatalogItemCreate",
+        "CatalogItemStatusUpdate",
+        "FieldError",
+        "ValidationErrorResponse",
+    }.issubset(schemas)
+    assert schemas["CatalogItemCreate"]["additionalProperties"] is False
+
+
+def test_catalog_item_create_contract_rejects_negative_price() -> None:
+    with pytest.raises(ContractValidationError) as exc_info:
+        validate_contract(
+            CatalogItemCreate,
+            {"sku": "QA7W-UNIT-001", "name": "valid", "price_cents": -1},
+        )
+
+    assert exc_info.value.model_name == "CatalogItemCreate"
+    assert [violation.path for violation in exc_info.value.violations] == [
+        "$.price_cents"
+    ]
+
+
+def test_catalog_item_create_contract_rejects_extra_field() -> None:
+    with pytest.raises(ContractValidationError) as exc_info:
+        validate_contract(
+            CatalogItemCreate,
+            {
+                "sku": "QA7W-UNIT-002",
+                "name": "valid",
+                "price_cents": 100,
+                "unexpected": True,
+            },
+        )
+
+    assert [violation.path for violation in exc_info.value.violations] == [
+        "$.unexpected"
+    ]
 
 
 def test_optional_response_field_addition_is_compatible() -> None:

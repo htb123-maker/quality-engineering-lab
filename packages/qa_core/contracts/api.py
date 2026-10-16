@@ -10,6 +10,7 @@ Role = Literal["owner", "admin", "member", "viewer"]
 UserStatus = Literal["active", "disabled"]
 CatalogStatus = Literal["active", "archived"]
 GrantType = Literal["password", "refresh_token"]
+SkuPattern = r"^[A-Z0-9][A-Z0-9-]*$"
 
 
 class ContractModel(BaseModel):
@@ -112,12 +113,42 @@ class CatalogItem(ContractModel):
     status: CatalogStatus
 
 
+class CatalogItemCreate(ContractModel):
+    """Request body for creating one catalog item."""
+
+    sku: str = Field(min_length=3, max_length=64, pattern=SkuPattern)
+    name: str = Field(min_length=1, max_length=120)
+    price_cents: int = Field(ge=0, le=100_000_000)
+
+
+class CatalogItemStatusUpdate(ContractModel):
+    """Request body for a catalog item state transition."""
+
+    status: CatalogStatus
+
+
 class CatalogResponse(ContractModel):
     """Workspace catalog response."""
 
     workspace: CatalogWorkspace
     items: list[CatalogItem]
     count: int = Field(ge=0)
+
+
+class FieldError(ContractModel):
+    """One field-level validation failure in a request body."""
+
+    field: str = Field(min_length=1)
+    message: str = Field(min_length=1)
+    type: str = Field(min_length=1)
+
+
+class ValidationErrorResponse(ContractModel):
+    """422 response describing which request fields were rejected."""
+
+    error: Literal["validation_failed"]
+    message: str = Field(min_length=1)
+    fields: list[FieldError]
 
 
 class ApiError(ContractModel):

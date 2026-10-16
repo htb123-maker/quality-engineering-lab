@@ -7,10 +7,13 @@ import hashlib
 import hmac
 import json
 import logging
+import math
 import os
 import re
 import secrets
+import threading
 import time
+from collections import deque
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -25,8 +28,12 @@ from qa_core.contracts import (
     AdminAuditResponse,
     ApiError,
     CatalogItem,
+    CatalogItemCreate,
+    CatalogItemStatusUpdate,
     CatalogResponse,
     CatalogWorkspace,
+    ContractValidationError,
+    FieldError,
     HealthCheck,
     HealthLiveResponse,
     OAuthErrorResponse,
@@ -36,7 +43,9 @@ from qa_core.contracts import (
     RootResponse,
     TokenResponse,
     UserResponse,
+    ValidationErrorResponse,
     openapi_document,
+    validate_contract,
 )
 
 ResponsePayload = BaseModel | dict[str, Any]
@@ -60,6 +69,17 @@ AUTH_REFRESH_TOKEN_TTL_SECONDS = int(
     os.getenv("QA_AUTH_REFRESH_TOKEN_TTL_SECONDS", "3600")
 )
 CATALOG_PATH = re.compile(r"^/api/v1/workspaces/([^/]+)/catalog$")
+CATALOG_ITEMS_PATH = re.compile(r"^/api/v1/workspaces/([^/]+)/catalog/items$")
+CATALOG_ITEM_PATH = re.compile(
+    r"^/api/v1/workspaces/([^/]+)/catalog/items/([0-9]+)$"
+)
+WRITABLE_ROLES = frozenset({"owner", "admin", "member"})
+ALLOWED_STATUS_TRANSITIONS = frozenset({("active", "archived")})
+IDEMPOTENCY_TTL_SECONDS = int(os.getenv("QA_IDEMPOTENCY_TTL_SECONDS", "3600"))
+RATE_LIMIT_MAX_REQUESTS = int(os.getenv("QA_RATE_LIMIT_WRITE_MAX", "20"))
+RATE_LIMIT_WINDOW_SECONDS = float(
+    os.getenv("QA_RATE_LIMIT_WRITE_WINDOW_SECONDS", "60")
+)
 
 logging.basicConfig(
     level=LOG_LEVEL,
@@ -325,6 +345,171 @@ def _catalog_payload(slug: str) -> tuple[int, CatalogResponse | ApiError]:
     )
 
 
+_RATE_LOCK = threading.Lock()
+_RATE_HISTORY: dict[str, deque[float]] = {}
+
+
+def _rate_limit_retry_after(client_id: str, *, now: float) -> float | None:
+    """Return seconds to wait when the client is over budget, else None."""
+
+    if RATE_LIMIT_MAX_REQUESTS <= 0:
+        return None
+    with _RATE_LOCK:
+        history = _RATE_HISTORY.setdefault(client_id, deque())
+        while history and now - history[0] > RATE_LIMIT_WINDOW_SECONDS:
+            history.popleft()
+        if len(history) >= RATE_LIMIT_MAX_REQUESTS:
+            return RATE_LIMIT_WINDOW_SECONDS - (now - history[0])
+        history.append(now)
+        return None
+
+
+def _idempotency_store_key(workspace_id: int, key: str) -> str:
+    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()
+    return f"idem:{workspace_id}:{digest}"
+
+
+def _body_fingerprint(payload: dict[str, Any]) -> str:
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _read_idempotent_response(store_key: str) -> dict[str, Any] | None:
+    client = _auth_redis_client()
+    try:
+        raw = client.get(store_key)
+    finally:
+        client.close()
+    if raw is None:
+        return None
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _store_idempotent_response(
+    store_key: str,
+    *,
+    fingerprint: str,
+    status_code: int,
+    payload: dict[str, Any],
+) -> None:
+    client = _auth_redis_client()
+    try:
+        client.setex(
+            store_key,
+            IDEMPOTENCY_TTL_SECONDS,
+            json.dumps(
+                {
+                    "fingerprint": fingerprint,
+                    "status_code": status_code,
+                    "payload": payload,
+                },
+                sort_keys=True,
+            ),
+        )
+    finally:
+        client.close()
+
+
+def _workspace_by_slug(slug: str) -> dict[str, Any] | None:
+    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                "SELECT id, slug, name FROM workspaces WHERE slug = %s",
+                (slug,),
+            )
+            return cursor.fetchone()
+
+
+def _catalog_item_by_id(workspace_id: int, item_id: int) -> dict[str, Any] | None:
+    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                """
+                SELECT id, sku, name, price_cents, status
+                FROM catalog_items
+                WHERE workspace_id = %s AND id = %s
+                """,
+                (workspace_id, item_id),
+            )
+            return cursor.fetchone()
+
+
+def _create_catalog_item(
+    workspace_id: int,
+    request: CatalogItemCreate,
+) -> CatalogItem:
+    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                """
+                INSERT INTO catalog_items (workspace_id, sku, name, price_cents, status)
+                VALUES (%s, %s, %s, %s, 'active')
+                RETURNING id, sku, name, price_cents, status
+                """,
+                (
+                    workspace_id,
+                    request.sku,
+                    request.name,
+                    request.price_cents,
+                ),
+            )
+            row = cursor.fetchone()
+
+    if row is None:
+        raise RuntimeError("catalog item insert returned no row")
+    return CatalogItem.model_validate(row)
+
+
+def _update_catalog_item_status(
+    workspace_id: int,
+    item_id: int,
+    status: str,
+) -> CatalogItem | None:
+    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                """
+                UPDATE catalog_items
+                SET status = %s
+                WHERE workspace_id = %s AND id = %s
+                RETURNING id, sku, name, price_cents, status
+                """,
+                (status, workspace_id, item_id),
+            )
+            row = cursor.fetchone()
+
+    return CatalogItem.model_validate(row) if row is not None else None
+
+
+def _delete_catalog_item(workspace_id: int, item_id: int) -> bool:
+    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM catalog_items WHERE workspace_id = %s AND id = %s",
+                (workspace_id, item_id),
+            )
+            return cursor.rowcount > 0
+
+
+def _validation_error_payload(exc: ContractValidationError) -> ValidationErrorResponse:
+    return ValidationErrorResponse(
+        error="validation_failed",
+        message=f"Request does not satisfy {exc.model_name}.",
+        fields=[
+            FieldError(
+                field=violation.path,
+                message=violation.message,
+                type=violation.error_type,
+            )
+            for violation in exc.violations
+        ],
+    )
+
+
 class SutRequestHandler(BaseHTTPRequestHandler):
     """Serve health, read-only catalog, and local authentication endpoints."""
 
@@ -349,6 +534,8 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                         "/api/v1/auth/me",
                         "/api/v1/admin/audit",
                         "/api/v1/workspaces/{slug}/catalog",
+                        "/api/v1/workspaces/{slug}/catalog/items",
+                        "/api/v1/workspaces/{slug}/catalog/items/{item_id}",
                     ],
                 ),
             )
@@ -414,11 +601,54 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             self._handle_revoke()
             return
 
+        items_match = CATALOG_ITEMS_PATH.fullmatch(path)
+        if items_match:
+            self._handle_catalog_item_create(items_match.group(1))
+            return
+
         self._send_json(
             HTTPStatus.NOT_FOUND,
             ApiError(
                 error="not_found",
                 message=f"No route matches POST {path}.",
+            ),
+        )
+
+    def do_PATCH(self) -> None:  # noqa: N802
+        path = urlparse(self.path).path
+
+        item_match = CATALOG_ITEM_PATH.fullmatch(path)
+        if item_match:
+            self._handle_catalog_item_update(
+                item_match.group(1),
+                int(item_match.group(2)),
+            )
+            return
+
+        self._send_json(
+            HTTPStatus.NOT_FOUND,
+            ApiError(
+                error="not_found",
+                message=f"No route matches PATCH {path}.",
+            ),
+        )
+
+    def do_DELETE(self) -> None:  # noqa: N802
+        path = urlparse(self.path).path
+
+        item_match = CATALOG_ITEM_PATH.fullmatch(path)
+        if item_match:
+            self._handle_catalog_item_delete(
+                item_match.group(1),
+                int(item_match.group(2)),
+            )
+            return
+
+        self._send_json(
+            HTTPStatus.NOT_FOUND,
+            ApiError(
+                error="not_found",
+                message=f"No route matches DELETE {path}.",
             ),
         )
 
@@ -463,6 +693,275 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             return
 
         self._send_json(status, payload)
+
+    def _authorize_catalog_write(self, slug: str) -> dict[str, Any] | None:
+        user = self._authenticated_user()
+        if user is None:
+            return None
+        if user["role"] not in WRITABLE_ROLES:
+            self._send_json(
+                HTTPStatus.FORBIDDEN,
+                ApiError(
+                    error="permission_denied",
+                    message="The authenticated role cannot modify the catalog.",
+                ),
+            )
+            return None
+        try:
+            workspace = _workspace_by_slug(slug)
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Workspace lookup failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(
+                    error="database_unavailable",
+                    message=type(exc).__name__,
+                ),
+            )
+            return None
+        if workspace is None:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(
+                    error="workspace_not_found",
+                    message=f"Workspace '{slug}' was not found.",
+                ),
+            )
+            return None
+        if workspace["id"] != user["workspace_id"]:
+            self._send_json(
+                HTTPStatus.FORBIDDEN,
+                ApiError(
+                    error="permission_denied",
+                    message="The authenticated user cannot modify another workspace.",
+                ),
+            )
+            return None
+        return user
+
+    def _handle_catalog_item_create(self, slug: str) -> None:
+        user = self._authorize_catalog_write(slug)
+        if user is None:
+            return
+
+        try:
+            payload = self._read_request_payload()
+        except (UnicodeDecodeError, ValueError) as exc:
+            self._send_json(
+                HTTPStatus.BAD_REQUEST,
+                ApiError(error="invalid_request", message=str(exc)),
+            )
+            return
+
+        client_id = self.headers.get("X-QA-Client-Id") or self.client_address[0]
+        retry_after = _rate_limit_retry_after(client_id, now=time.monotonic())
+        if retry_after is not None:
+            self._send_json(
+                HTTPStatus.TOO_MANY_REQUESTS,
+                ApiError(
+                    error="rate_limited",
+                    message="Too many catalog writes for this client.",
+                ),
+                headers={"Retry-After": str(max(1, math.ceil(retry_after)))},
+            )
+            return
+
+        try:
+            request = validate_contract(CatalogItemCreate, payload)
+        except ContractValidationError as exc:
+            self._send_json(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                _validation_error_payload(exc),
+            )
+            return
+
+        idempotency_key = self.headers.get("Idempotency-Key")
+        store_key = (
+            _idempotency_store_key(user["workspace_id"], idempotency_key)
+            if idempotency_key
+            else None
+        )
+        fingerprint = _body_fingerprint(request.model_dump(mode="json"))
+        if store_key is not None:
+            cached = _read_idempotent_response(store_key)
+            if cached is not None:
+                if cached.get("fingerprint") != fingerprint:
+                    self._send_json(
+                        HTTPStatus.CONFLICT,
+                        ApiError(
+                            error="idempotency_conflict",
+                            message=(
+                                "The Idempotency-Key was already used with a "
+                                "different request body."
+                            ),
+                        ),
+                    )
+                    return
+                raw_status = cached.get("status_code", HTTPStatus.OK.value)
+                cached_payload = cached.get("payload")
+                self._send_json(
+                    HTTPStatus(int(raw_status)),
+                    cached_payload if isinstance(cached_payload, dict) else {},
+                    headers={"Idempotent-Replay": "true"},
+                )
+                return
+
+        try:
+            item = _create_catalog_item(user["workspace_id"], request)
+        except psycopg.errors.UniqueViolation:
+            self._send_json(
+                HTTPStatus.CONFLICT,
+                ApiError(
+                    error="sku_conflict",
+                    message=(
+                        f"SKU '{request.sku}' already exists in this workspace."
+                    ),
+                ),
+            )
+            return
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Catalog item create failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(
+                    error="database_unavailable",
+                    message=type(exc).__name__,
+                ),
+            )
+            return
+
+        if store_key is not None:
+            _store_idempotent_response(
+                store_key,
+                fingerprint=fingerprint,
+                status_code=HTTPStatus.CREATED.value,
+                payload=item.model_dump(mode="json"),
+            )
+        self._send_json(
+            HTTPStatus.CREATED,
+            item,
+            headers={
+                "Location": f"/api/v1/workspaces/{slug}/catalog/items/{item.id}"
+            },
+        )
+
+    def _handle_catalog_item_update(self, slug: str, item_id: int) -> None:
+        user = self._authorize_catalog_write(slug)
+        if user is None:
+            return
+
+        try:
+            payload = self._read_request_payload()
+        except (UnicodeDecodeError, ValueError) as exc:
+            self._send_json(
+                HTTPStatus.BAD_REQUEST,
+                ApiError(error="invalid_request", message=str(exc)),
+            )
+            return
+
+        try:
+            request = validate_contract(CatalogItemStatusUpdate, payload)
+        except ContractValidationError as exc:
+            self._send_json(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                _validation_error_payload(exc),
+            )
+            return
+
+        try:
+            current = _catalog_item_by_id(user["workspace_id"], item_id)
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Catalog item lookup failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(
+                    error="database_unavailable",
+                    message=type(exc).__name__,
+                ),
+            )
+            return
+
+        if current is None:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(
+                    error="item_not_found",
+                    message=f"Catalog item {item_id} was not found in '{slug}'.",
+                ),
+            )
+            return
+
+        current_status = current["status"]
+        target_status = request.status
+        if (current_status, target_status) not in ALLOWED_STATUS_TRANSITIONS:
+            self._send_json(
+                HTTPStatus.CONFLICT,
+                ApiError(
+                    error="invalid_state_transition",
+                    message=(
+                        f"Cannot move catalog item {item_id} from "
+                        f"'{current_status}' to '{target_status}'."
+                    ),
+                ),
+            )
+            return
+
+        try:
+            updated = _update_catalog_item_status(
+                user["workspace_id"],
+                item_id,
+                target_status,
+            )
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Catalog item update failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(
+                    error="database_unavailable",
+                    message=type(exc).__name__,
+                ),
+            )
+            return
+
+        if updated is None:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(
+                    error="item_not_found",
+                    message=f"Catalog item {item_id} was not found in '{slug}'.",
+                ),
+            )
+            return
+        self._send_json(HTTPStatus.OK, updated)
+
+    def _handle_catalog_item_delete(self, slug: str, item_id: int) -> None:
+        user = self._authorize_catalog_write(slug)
+        if user is None:
+            return
+
+        try:
+            deleted = _delete_catalog_item(user["workspace_id"], item_id)
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Catalog item delete failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(
+                    error="database_unavailable",
+                    message=type(exc).__name__,
+                ),
+            )
+            return
+
+        if not deleted:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(
+                    error="item_not_found",
+                    message=f"Catalog item {item_id} was not found in '{slug}'.",
+                ),
+            )
+            return
+        self._send_empty(HTTPStatus.NO_CONTENT)
 
     def _handle_token(self) -> None:
         try:
@@ -674,6 +1173,12 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                 error_description=description,
             ),
         )
+
+    def _send_empty(self, status: HTTPStatus) -> None:
+        self.send_response(status.value)
+        self.send_header("Content-Length", "0")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
 
     def _send_json(
         self,

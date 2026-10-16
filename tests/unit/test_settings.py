@@ -37,7 +37,7 @@ def test_default_settings_are_local_and_safe() -> None:
     assert settings.ios_wda_startup_retries == 2
     assert settings.ios_wda_startup_retry_interval_ms == 10_000
     assert str(settings.postgres_dsn) == "postgresql://qa:qa@127.0.0.1:15432/qa"
-    assert str(settings.redis_url) == "redis://127.0.0.1:16379/0"
+    assert str(settings.redis_url) == "redis://127.0.0.1:26379/0"
     assert settings.artifacts_dir == Path("artifacts")
     assert settings.log_level == "INFO"
 

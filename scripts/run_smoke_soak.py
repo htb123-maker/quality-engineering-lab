@@ -32,7 +32,7 @@ from qa_core.reporting import (  # noqa: E402
 MATRIX_SCRIPT = Path(__file__).resolve().parent / "run_smoke_matrix.py"
 
 DEFAULT_SESSIONS_URL = "http://127.0.0.1:4723/sessions"
-DEFAULT_WATCH_PORTS = (4723, 5554, 5555, 18000, 15432, 16379)
+DEFAULT_WATCH_PORTS = (4723, 5554, 5555, 18000, 15432, 26379)
 DEFAULT_PROCESS_PATTERNS = ("appium", "emulator", "qemu-system", "adb")
 
 _CHILD_ENV = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}

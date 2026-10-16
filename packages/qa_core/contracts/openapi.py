@@ -9,7 +9,11 @@ from pydantic import BaseModel
 from qa_core.contracts.api import (
     AdminAuditResponse,
     ApiError,
+    CatalogItem,
+    CatalogItemCreate,
+    CatalogItemStatusUpdate,
     CatalogResponse,
+    FieldError,
     HealthLiveResponse,
     OAuthErrorResponse,
     OidcMetadataResponse,
@@ -18,6 +22,7 @@ from qa_core.contracts.api import (
     RootResponse,
     TokenResponse,
     UserResponse,
+    ValidationErrorResponse,
 )
 
 
@@ -31,8 +36,13 @@ class _ContractBundle(BaseModel):
     admin_audit: AdminAuditResponse
     revoke: RevokeResponse
     catalog: CatalogResponse
+    catalog_item: CatalogItem
+    catalog_item_create: CatalogItemCreate
+    catalog_item_status_update: CatalogItemStatusUpdate
     api_error: ApiError
     oauth_error: OAuthErrorResponse
+    field_error: FieldError
+    validation_error: ValidationErrorResponse
 
 
 def openapi_document() -> dict[str, Any]:
@@ -178,6 +188,80 @@ def openapi_document() -> dict[str, Any]:
                     },
                 }
             },
+            "/api/v1/workspaces/{slug}/catalog/items": {
+                "post": {
+                    "summary": "Create a catalog item",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        _path_parameter("slug"),
+                        {
+                            "name": "Idempotency-Key",
+                            "in": "header",
+                            "required": False,
+                            "schema": {"type": "string", "minLength": 1},
+                        },
+                        {
+                            "name": "X-QA-Client-Id",
+                            "in": "header",
+                            "required": False,
+                            "schema": {"type": "string", "minLength": 1},
+                        },
+                    ],
+                    "requestBody": _json_request_body(CatalogItemCreate),
+                    "responses": {
+                        "201": _response("Created catalog item", CatalogItem),
+                        "400": _response("Malformed request", ApiError),
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Workspace not found", ApiError),
+                        "409": _response("Idempotency or SKU conflict", ApiError),
+                        "422": _response(
+                            "Request validation failed",
+                            ValidationErrorResponse,
+                        ),
+                        "429": _response("Rate limited", ApiError),
+                    },
+                }
+            },
+            "/api/v1/workspaces/{slug}/catalog/items/{item_id}": {
+                "patch": {
+                    "summary": "Transition a catalog item status",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        _path_parameter("slug"),
+                        _path_parameter("item_id", schema={"type": "integer"}),
+                    ],
+                    "requestBody": _json_request_body(
+                        CatalogItemStatusUpdate,
+                    ),
+                    "responses": {
+                        "200": _response("Updated catalog item", CatalogItem),
+                        "400": _response("Malformed request", ApiError),
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Item not found", ApiError),
+                        "409": _response("Invalid state transition", ApiError),
+                        "422": _response(
+                            "Request validation failed",
+                            ValidationErrorResponse,
+                        ),
+                    },
+                },
+                "delete": {
+                    "summary": "Delete a catalog item",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        _path_parameter("slug"),
+                        _path_parameter("item_id", schema={"type": "integer"}),
+                    ],
+                    "responses": {
+                        "204": {"description": "Deleted catalog item"},
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Item not found", ApiError),
+                    },
+                },
+            },
         },
         "components": {
             "schemas": components,
@@ -219,4 +303,30 @@ def _response(description: str, model: type[BaseModel]) -> dict[str, Any]:
                 }
             }
         },
+    }
+
+
+def _json_request_body(model: type[BaseModel]) -> dict[str, Any]:
+    return {
+        "required": True,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "$ref": f"#/components/schemas/{model.__name__}",
+                }
+            }
+        },
+    }
+
+
+def _path_parameter(
+    name: str,
+    *,
+    schema: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {
+        "name": name,
+        "in": "path",
+        "required": True,
+        "schema": schema or {"type": "string"},
     }
