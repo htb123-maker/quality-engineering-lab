@@ -11,6 +11,7 @@ on:
       - "packages/qa_core/db/**"
       - "packages/qa_core/resource_pools/**"
       - "scripts/check_sut.py"
+      - "scripts/check_schema.py"
       - "scripts/run_api_parallel.ps1"
       - "tests/api/**"
       - "tests/integration/**"
@@ -27,6 +28,7 @@ on:
       - "packages/qa_core/db/**"
       - "packages/qa_core/resource_pools/**"
       - "scripts/check_sut.py"
+      - "scripts/check_schema.py"
       - "scripts/run_api_parallel.ps1"
       - "tests/api/**"
       - "tests/integration/**"
@@ -75,6 +77,9 @@ jobs:
           docker compose -f apps/compose/compose.yaml exec -T postgres \
             psql -U qa -d qa -v ON_ERROR_STOP=1 \
             -f /opt/qa/verify_day05.sql
+
+      - name: Check the read-only schema contract
+        run: uv run --no-sync python scripts/check_schema.py
 
       - name: Run integration tests
         run: |
