@@ -4,7 +4,7 @@
 - 日期范围 / Date Range: 2026-10-16
 - 分支 / Branch: study/week-11-rbac-rate-limit-input-security
 - 基线提交 / Base Commit: 8c45794（week-10 分支）
-- 计划提交 / Plan Commit: 待提交
+- 计划提交 / Plan Commit: 269a036
 - Pull Request: 待创建（等待人工确认后推送）
 
 ## 计划目标 / Plan Goal
