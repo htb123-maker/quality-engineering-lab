@@ -9,7 +9,7 @@ The local stack contains:
 
 - A read-only Python HTTP API on `http://127.0.0.1:18000`.
 - PostgreSQL 16 on `127.0.0.1:15432`.
-- Redis 7 on `127.0.0.1:16379`.
+- Redis 7 on `127.0.0.1:26379`.
 
 The credentials in `.env.example` and Compose defaults are local development
 values. They must never be reused for a shared or production environment.
@@ -147,7 +147,7 @@ Set alternate host ports in `.env`, then restart:
 ```dotenv
 QA_API_PORT=28000
 QA_POSTGRES_PORT=25432
-QA_REDIS_PORT=26379
+QA_REDIS_PORT=36379
 ```
 
 Update the matching host-side URLs or run the check script with explicit

@@ -10,6 +10,8 @@ RUN pip install --no-cache-dir --requirement requirements.txt
 
 RUN useradd --create-home --uid 10001 appuser
 
+COPY --chown=appuser:appuser packages/qa_core/__init__.py ./qa_core/__init__.py
+COPY --chown=appuser:appuser packages/qa_core/contracts ./qa_core/contracts
 COPY --chown=appuser:appuser apps/compose/api/app.py .
 
 USER appuser

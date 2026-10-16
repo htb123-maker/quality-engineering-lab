@@ -15,7 +15,7 @@ from psycopg.rows import dict_row
 
 DEFAULT_API_BASE_URL = "http://127.0.0.1:18000"
 DEFAULT_POSTGRES_DSN = "postgresql://qa:qa@127.0.0.1:15432/qa"
-DEFAULT_REDIS_URL = "redis://127.0.0.1:16379/0"
+DEFAULT_REDIS_URL = "redis://127.0.0.1:26379/0"
 
 
 @dataclass(frozen=True)
@@ -78,26 +78,42 @@ def wait_for_http_checks(
             try:
                 live = client.get("/health/live")
                 ready = client.get("/health/ready")
+                openapi = client.get("/openapi.json")
                 catalog = client.get("/api/v1/workspaces/atlas/catalog")
                 last_detail = (
                     f"live={live.status_code}, ready={ready.status_code}, "
+                    f"openapi={openapi.status_code}, "
                     f"catalog={catalog.status_code}"
                 )
 
                 if (
                     live.status_code == 200
                     and ready.status_code == 200
+                    and openapi.status_code == 200
                     and catalog.status_code == 200
                 ):
+                    openapi_payload = openapi.json()
                     catalog_payload = catalog.json()
                     skus = {item["sku"] for item in catalog_payload.get("items", [])}
-                    if {"LAB-001", "LAB-002"}.issubset(skus):
+                    paths = openapi_payload.get("paths", {})
+                    if (
+                        {"LAB-001", "LAB-002"}.issubset(skus)
+                        and "/oauth/token" in paths
+                        and "/api/v1/workspaces/{slug}/catalog" in paths
+                        and "/api/v1/workspaces/{slug}/catalog/items" in paths
+                    ):
                         return [
                             CheckResult("API live", True, "HTTP 200"),
                             CheckResult(
                                 "API ready",
                                 True,
                                 json.dumps(ready.json(), sort_keys=True),
+                            ),
+                            CheckResult(
+                                "OpenAPI contract",
+                                True,
+                                f"openapi={openapi_payload.get('openapi')}, "
+                                f"paths={len(paths)}",
                             ),
                             CheckResult(
                                 "Seeded catalog",
