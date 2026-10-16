@@ -1,5 +1,26 @@
 """Redis helpers for test-owned cache state."""
 
+from qa_core.cache.catalog import (
+    CACHE_STATS_PREFIX,
+    CATALOG_CACHE_PREFIX,
+    DEFAULT_NEGATIVE_TTL_SECONDS,
+    DEFAULT_TTL_SECONDS,
+    STAT_NAMES,
+    CacheEntry,
+    CatalogCacheProbe,
+    cache_keys,
+    cache_stats_key,
+    catalog_absent_cache_key,
+    catalog_cache_key,
+    catalog_cache_pattern,
+    open_redis,
+    purge_catalog_cache,
+    read_absent_cache,
+    read_cache_entry,
+    read_cache_stats,
+    read_catalog_cache,
+    ttl_seconds_remaining,
+)
 from qa_core.cache.idempotency import (
     IDEMPOTENCY_KEY_PREFIX,
     idempotency_key_pattern,
@@ -7,7 +28,26 @@ from qa_core.cache.idempotency import (
 )
 
 __all__ = [
+    "CACHE_STATS_PREFIX",
+    "CATALOG_CACHE_PREFIX",
+    "DEFAULT_NEGATIVE_TTL_SECONDS",
+    "DEFAULT_TTL_SECONDS",
     "IDEMPOTENCY_KEY_PREFIX",
+    "STAT_NAMES",
+    "CacheEntry",
+    "CatalogCacheProbe",
+    "cache_keys",
+    "cache_stats_key",
+    "catalog_absent_cache_key",
+    "catalog_cache_key",
+    "catalog_cache_pattern",
     "idempotency_key_pattern",
+    "open_redis",
+    "purge_catalog_cache",
     "purge_idempotency_keys",
+    "read_absent_cache",
+    "read_cache_entry",
+    "read_cache_stats",
+    "read_catalog_cache",
+    "ttl_seconds_remaining",
 ]

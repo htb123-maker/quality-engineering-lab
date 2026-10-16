@@ -7,9 +7,16 @@ and later mobile end-to-end tests.
 
 The local stack contains:
 
-- A read-only Python HTTP API on `http://127.0.0.1:18000`.
+- A Python HTTP API on `http://127.0.0.1:18000` that serves read-only business
+  data, local authentication, cached catalog reads, background jobs, and a
+  WebSocket event stream.
 - PostgreSQL 16 on `127.0.0.1:15432`.
 - Redis 7 on `127.0.0.1:26379`.
+
+Since Week 10 Redis carries more than auth state: the catalog cache
+(`cache:catalog:*`), its counters, the background job queue (`jobs:queue`,
+`jobs:delayed`), and one record per job (`job:*`). Triage lives in
+`docs/runbooks/redis-cache-and-consistency-triage.md`.
 
 The credentials in `.env.example` and Compose defaults are local development
 values. They must never be reused for a shared or production environment.
@@ -109,14 +116,37 @@ Expected key results:
 SUT ready: True
 Day 5 database verification: PASS
 Schema check: PASS
-35 passed
+40 passed
 ```
 
 `tests/integration` covers the read-only schema contract, transaction and
 savepoint semantics, isolation-level visibility, a real row-lock wait with
-`pg_locks` evidence, a real deadlock (`40P01`), and `EXPLAIN (ANALYZE, BUFFERS)`
-index evidence. Lock-wait and deadlock triage lives in
-`docs/runbooks/database-lock-and-deadlock-triage.md`.
+`pg_locks` evidence, a real deadlock (`40P01`), `EXPLAIN (ANALYZE, BUFFERS)`
+index evidence, cache-versus-database staleness, TTL-driven refresh,
+negative caching, and the background job lifecycle. Lock-wait and deadlock
+triage lives in `docs/runbooks/database-lock-and-deadlock-triage.md`.
+
+Week 10 added these routes to the SUT:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/v1/workspaces/{slug}/catalog` | Cached read; answers `X-Cache` and `X-Cache-TTL` |
+| `POST` | `/api/v1/workspaces/{slug}/catalog/cache/refresh` | Queue a background cache refresh (202 + job id) |
+| `GET` | `/api/v1/workspaces/{slug}/events` | WebSocket upgrade; pushes workspace events |
+| `GET` | `/api/v1/jobs` | Queue depth and worker counters |
+| `GET` | `/api/v1/jobs/{job_id}` | One job record, scoped to its workspace |
+
+Cache and queue knobs come from the Compose environment:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `QA_CATALOG_CACHE_TTL_SECONDS` | `60` | Positive cache entry lifetime |
+| `QA_CATALOG_CACHE_NEGATIVE_TTL_SECONDS` | `10` | Negative entry lifetime for unknown slugs |
+| `QA_JOB_TTL_SECONDS` | `900` | Job record lifetime |
+| `QA_JOB_WORKER_ENABLED` | `1` | Start the in-process worker thread |
+| `QA_JOB_WORKER_POLL_SECONDS` | `0.25` | Queue poll interval |
+| `QA_WS_SUBSCRIBER_QUEUE_SIZE` | `64` | Per-subscriber event backlog before events are dropped |
+| `QA_WS_POLL_SECONDS` | `0.2` | Event stream poll interval |
 
 Run the environment-aware API, Android, and iOS smoke matrix:
 

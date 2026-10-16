@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -10,6 +10,7 @@ Role = Literal["owner", "admin", "member", "viewer"]
 UserStatus = Literal["active", "disabled"]
 CatalogStatus = Literal["active", "archived"]
 GrantType = Literal["password", "refresh_token"]
+JobStatus = Literal["queued", "running", "succeeded", "failed"]
 SkuPattern = r"^[A-Z0-9][A-Z0-9-]*$"
 
 
@@ -133,6 +134,57 @@ class CatalogResponse(ContractModel):
     workspace: CatalogWorkspace
     items: list[CatalogItem]
     count: int = Field(ge=0)
+
+
+class CacheRefreshRequest(ContractModel):
+    """Request body for an asynchronous catalog cache refresh."""
+
+    delay_seconds: float = Field(default=0.0, ge=0.0, le=30.0)
+    ttl_seconds: int | None = Field(default=None, ge=1, le=3600)
+
+
+class JobAcceptedResponse(ContractModel):
+    """202 response returned when a background job is queued."""
+
+    job_id: str = Field(min_length=1)
+    type: str = Field(min_length=1)
+    workspace_slug: str = Field(min_length=1)
+    status: Literal["queued"]
+    queued_at: str = Field(min_length=1)
+
+
+class JobResponse(ContractModel):
+    """One background job record."""
+
+    job_id: str = Field(min_length=1)
+    type: str = Field(min_length=1)
+    workspace_slug: str = Field(min_length=1)
+    status: JobStatus
+    queued_at: str = Field(min_length=1)
+    started_at: str | None = None
+    finished_at: str | None = None
+    result: dict[str, Any] | None = None
+    error: str | None = None
+
+
+class JobQueueStatsResponse(ContractModel):
+    """Queue depth and worker counters used as asynchronous evidence."""
+
+    queued: int = Field(ge=0)
+    delayed: int = Field(ge=0)
+    processed: int = Field(ge=0)
+    failed: int = Field(ge=0)
+    worker_enabled: bool
+
+
+class CatalogEvent(ContractModel):
+    """One pushed workspace event, as delivered on the WebSocket stream."""
+
+    type: str = Field(min_length=1)
+    workspace: str = Field(min_length=1)
+    sequence: int = Field(ge=1)
+    occurred_at: float = Field(gt=0)
+    data: dict[str, Any]
 
 
 class FieldError(ContractModel):

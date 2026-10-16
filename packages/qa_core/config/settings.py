@@ -91,6 +91,12 @@ class Settings(BaseSettings):
     redis_url: RedisDsn = Field(
         default_factory=lambda: RedisDsn("redis://127.0.0.1:26379/0")
     )
+    catalog_cache_ttl_seconds: int = Field(default=60, ge=1, le=3600)
+    catalog_cache_negative_ttl_seconds: int = Field(default=10, ge=1, le=3600)
+    job_ttl_seconds: int = Field(default=900, ge=10, le=86_400)
+    job_worker_poll_seconds: float = Field(default=0.25, gt=0.0, le=30.0)
+    job_worker_enabled: bool = True
+    ws_subscriber_queue_size: int = Field(default=64, ge=1, le=10_000)
     artifacts_dir: Path = Field(default=Path("artifacts"))
     log_level: LogLevel = Field(default="INFO")
 
