@@ -1,38 +1,71 @@
-"""Fixtures for Week 7 catalog write, boundary, and state tests."""
+"""Fixtures for namespace-isolated API tests.
+
+Every test that writes receives its own workspace through
+:class:`qa_core.resource_pools.NamespacePool`. The pool reuses one namespace per
+pytest worker and wipes it between leases, so ``xdist`` workers cannot collide
+and the canonical ``atlas``/``orbit`` seed rows stay read-only.
+"""
 
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Iterator
-from dataclasses import dataclass, field
+from contextlib import contextmanager
 from uuid import uuid4
 
 import allure
-import httpx
 import pytest
 from qa_core.auth import AuthClient
 from qa_core.config.settings import Settings
+from qa_core.data_factories import (
+    CatalogApiFactory,
+    NamespaceFactory,
+    item_path,
+    items_path,
+)
+from qa_core.db import DatabaseClient
+from qa_core.resource_pools import NamespaceLease, NamespacePool
 
 ATLAS_SLUG = "atlas"
-WEEK7_SKU_PREFIX = "QA7W"
+ORBIT_SLUG = "orbit"
+ATLAS_VIEWER_EMAIL = "viewer@atlas.example"
+
+# One run id per pytest process. Under xdist every worker inherits the same
+# PYTEST_XDIST_TESTRUNUID, so workers share a run prefix and can clean up
+# leftovers from the run without touching a peer's live namespaces.
+_RUN_ID = (os.environ.get("PYTEST_XDIST_TESTRUNUID") or uuid4().hex)[:8]
+
+__all__ = [
+    "ATLAS_SLUG",
+    "ATLAS_VIEWER_EMAIL",
+    "ORBIT_SLUG",
+    "attach_json",
+    "item_path",
+    "items_path",
+    "owner_session",
+    "run_id",
+    "unique_client_id",
+    "worker_id",
+]
 
 
-def items_path(slug: str = ATLAS_SLUG) -> str:
-    """Return the catalog items collection path for one workspace."""
+def worker_id() -> str:
+    """Return the pytest-xdist worker name, or ``local`` without xdist."""
 
-    return f"/api/v1/workspaces/{slug}/catalog/items"
+    return os.environ.get("PYTEST_XDIST_WORKER", "local")
 
 
-def item_path(item_id: int, slug: str = ATLAS_SLUG) -> str:
-    """Return the catalog item path for one workspace item."""
+def run_id() -> str:
+    """Return the short id that every worker of one run shares."""
 
-    return f"{items_path(slug)}/{item_id}"
+    return _RUN_ID
 
 
 def unique_client_id(tag: str) -> str:
     """Return a per-test client id so the SUT rate limiter stays isolated."""
 
-    return f"week7-{tag}-{uuid4().hex[:12]}"
+    return f"qa8-{worker_id()}-{tag}-{uuid4().hex[:12]}"
 
 
 def attach_json(name: str, payload: object) -> None:
@@ -45,127 +78,105 @@ def attach_json(name: str, payload: object) -> None:
     )
 
 
-@dataclass
-class CatalogItemFactory:
-    """Create catalog items and delete them again during teardown."""
+@contextmanager
+def owner_session(email: str, settings: Settings) -> Iterator[AuthClient]:
+    """Open an authenticated session for any seeded owner email."""
 
-    auth: AuthClient
-    client_id: str
-    created: list[int] = field(default_factory=list)
-    slug: str = ATLAS_SLUG
-
-    def new_sku(self, tag: str = "ITEM") -> str:
-        """Return a unique, contract-valid SKU."""
-
-        return f"{WEEK7_SKU_PREFIX}-{tag}-{uuid4().hex[:8].upper()}"
-
-    def create(
-        self,
-        *,
-        sku: str | None = None,
-        name: str = "Week 7 item",
-        price_cents: int = 1500,
-        idempotency_key: str | None = None,
-    ) -> httpx.Response:
-        """Create one catalog item and track the id when it succeeds."""
-
-        headers = {"X-QA-Client-Id": self.client_id}
-        if idempotency_key is not None:
-            headers["Idempotency-Key"] = idempotency_key
-        response = self.auth.post(
-            items_path(self.slug),
-            json={
-                "sku": sku if sku is not None else self.new_sku(),
-                "name": name,
-                "price_cents": price_cents,
-            },
-            headers=headers,
-        )
-        if response.status_code == 201:
-            created_id = int(response.json()["id"])
-            if created_id not in self.created:
-                self.created.append(created_id)
-        return response
-
-    def set_status(self, item_id: int, status: str) -> httpx.Response:
-        """Request one catalog item state transition."""
-
-        return self.auth.request(
-            "PATCH",
-            item_path(item_id, self.slug),
-            json={"status": status},
-            headers={"X-QA-Client-Id": self.client_id},
-        )
-
-    def delete(self, item_id: int) -> httpx.Response:
-        """Delete one catalog item by id."""
-
-        return self.auth.request(
-            "DELETE",
-            item_path(item_id, self.slug),
-            headers={"X-QA-Client-Id": self.client_id},
-        )
-
-    def catalog_items(self) -> list[dict[str, object]]:
-        """Return the current catalog items for the workspace."""
-
-        response = self.auth.get(f"/api/v1/workspaces/{self.slug}/catalog")
-        response.raise_for_status()
-        items = response.json()["items"]
-        return [item for item in items if isinstance(item, dict)]
-
-    def cleanup(self) -> None:
-        """Delete every tracked item, tolerating items already removed."""
-
-        while self.created:
-            item_id = self.created.pop()
-            try:
-                self.delete(item_id)
-            except httpx.HTTPError:
-                continue
-
-
-def _purge_leftover_items(auth: AuthClient) -> None:
-    response = auth.get(f"/api/v1/workspaces/{ATLAS_SLUG}/catalog")
-    if response.status_code != 200:
-        return
-    for item in response.json().get("items", []):
-        if not isinstance(item, dict):
-            continue
-        sku = item.get("sku")
-        if isinstance(sku, str) and sku.startswith(WEEK7_SKU_PREFIX):
-            auth.request(
-                "DELETE",
-                item_path(int(item["id"])),
-                headers={"X-QA-Client-Id": unique_client_id("purge")},
-            )
+    with AuthClient.from_settings(settings) as auth:
+        auth.login(email, settings.auth_test_password)
+        yield auth
 
 
 @pytest.fixture(scope="session")
-def owner_auth(sut_api_url: str, settings: Settings) -> Iterator[AuthClient]:
-    """Return an authenticated atlas owner session for write tests."""
+def database(settings: Settings) -> Iterator[DatabaseClient]:
+    """Return a PostgreSQL client used to seed and clean test data."""
 
-    del sut_api_url
+    with DatabaseClient.from_settings(settings) as client:
+        yield client
+
+
+@pytest.fixture(scope="session")
+def namespace_factory(database: DatabaseClient) -> NamespaceFactory:
+    """Return the factory that seeds isolated test workspaces."""
+
+    return NamespaceFactory(database, run_token=run_id())
+
+
+@pytest.fixture(scope="session")
+def namespace_pool(
+    namespace_factory: NamespaceFactory,
+    settings: Settings,
+) -> Iterator[NamespacePool]:
+    """Return this worker's namespace pool and clean up leftovers afterwards."""
+
+    pool = NamespacePool(
+        namespace_factory,
+        worker_id=worker_id(),
+        run_id=namespace_factory.run_token,
+        redis_url=str(settings.redis_url),
+    )
+    pool.purge_stale()
+    try:
+        yield pool
+    finally:
+        pool.close()
+
+
+@pytest.fixture
+def namespace(namespace_pool: NamespacePool) -> Iterator[NamespaceLease]:
+    """Yield this test's exclusive, empty namespace."""
+
+    with namespace_pool.lease("case") as lease:
+        yield lease
+
+
+@pytest.fixture
+def peer_namespace(namespace_pool: NamespacePool) -> Iterator[NamespaceLease]:
+    """Yield a second, independent namespace for cross-workspace assertions."""
+
+    with namespace_pool.lease("peer") as lease:
+        yield lease
+
+
+@pytest.fixture
+def owner_auth(namespace: NamespaceLease, settings: Settings) -> Iterator[AuthClient]:
+    """Return an owner session scoped to the leased namespace."""
+
+    with AuthClient.from_settings(settings) as auth:
+        auth.login(namespace.owner_email, settings.auth_test_password)
+        yield auth
+
+
+@pytest.fixture
+def viewer_auth(namespace: NamespaceLease, settings: Settings) -> Iterator[AuthClient]:
+    """Return a viewer session scoped to the leased namespace."""
+
+    viewer_email = namespace.viewer_email
+    assert viewer_email is not None, "lease must be created with a viewer"
+    with AuthClient.from_settings(settings) as auth:
+        auth.login(viewer_email, settings.auth_test_password)
+        yield auth
+
+
+@pytest.fixture
+def atlas_owner_auth(settings: Settings) -> Iterator[AuthClient]:
+    """Return an authenticated atlas owner for cross-workspace checks."""
+
     with AuthClient.from_settings(settings) as auth:
         auth.login(settings.auth_test_username, settings.auth_test_password)
         yield auth
 
 
-@pytest.fixture(scope="session", autouse=True)
-def purge_week7_leftovers(owner_auth: AuthClient) -> Iterator[None]:
-    """Remove Week 7 leftovers before and after the API session."""
-
-    _purge_leftover_items(owner_auth)
-    yield
-    _purge_leftover_items(owner_auth)
-
-
 @pytest.fixture
-def catalog_items(owner_auth: AuthClient) -> Iterator[CatalogItemFactory]:
-    """Return a catalog item factory that cleans up after each test."""
+def catalog_items(
+    owner_auth: AuthClient,
+    namespace: NamespaceLease,
+) -> Iterator[CatalogApiFactory]:
+    """Return a catalog factory bound to the leased namespace."""
 
-    factory = CatalogItemFactory(
+    factory = CatalogApiFactory(
         auth=owner_auth,
+        workspace_slug=namespace.slug,
         client_id=unique_client_id("factory"),
     )
     try:

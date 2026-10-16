@@ -16,6 +16,18 @@ from psycopg.rows import dict_row
 DEFAULT_API_BASE_URL = "http://127.0.0.1:18000"
 DEFAULT_POSTGRES_DSN = "postgresql://qa:qa@127.0.0.1:15432/qa"
 DEFAULT_REDIS_URL = "redis://127.0.0.1:26379/0"
+DEFAULT_NAMESPACE_PREFIX = "qa-ns-"
+
+# Canonical seed identity from apps/compose/postgres/init/002_seed.sql. Test
+# namespaces are counted separately so a leaked workspace is reported as a
+# leftover instead of looking like a broken seed.
+SEED_WORKSPACE_SLUGS = ("atlas", "orbit")
+SEED_USER_EMAILS = (
+    "owner@atlas.example",
+    "viewer@atlas.example",
+    "admin@orbit.example",
+)
+SEED_ITEM_SKUS = ("LAB-001", "LAB-002", "LAB-003", "ORB-001")
 
 
 @dataclass(frozen=True)
@@ -131,8 +143,8 @@ def wait_for_http_checks(
     ]
 
 
-def check_postgres(postgres_dsn: str) -> CheckResult:
-    """Verify the test schema and expected seed rows through a read-only query."""
+def check_postgres(postgres_dsn: str) -> list[CheckResult]:
+    """Verify the seed identity and report any leaked test namespace."""
 
     try:
         with psycopg.connect(postgres_dsn, connect_timeout=3) as connection:
@@ -142,14 +154,41 @@ def check_postgres(postgres_dsn: str) -> CheckResult:
                 cursor.execute(
                     """
                     SELECT
-                        (SELECT COUNT(*) FROM workspaces) AS workspaces,
-                        (SELECT COUNT(*) FROM users) AS users,
-                        (SELECT COUNT(*) FROM catalog_items) AS items
-                    """
+                        (SELECT COUNT(*) FROM workspaces
+                         WHERE slug = ANY(%s)) AS workspaces,
+                        (SELECT COUNT(*) FROM users u
+                         JOIN workspaces w ON w.id = u.workspace_id
+                         WHERE u.email = ANY(%s)) AS users,
+                        (SELECT COUNT(*) FROM catalog_items i
+                         JOIN workspaces w ON w.id = i.workspace_id
+                         WHERE i.sku = ANY(%s)) AS items
+                    """,
+                    (
+                        list(SEED_WORKSPACE_SLUGS),
+                        list(SEED_USER_EMAILS),
+                        list(SEED_ITEM_SKUS),
+                    ),
                 )
                 counts = cursor.fetchone()
+                cursor.execute(
+                    """
+                    SELECT
+                        COUNT(*) AS namespaces,
+                        COALESCE(SUM(item_count), 0) AS items
+                    FROM (
+                        SELECT
+                            w.id,
+                            (SELECT COUNT(*) FROM catalog_items i
+                             WHERE i.workspace_id = w.id) AS item_count
+                        FROM workspaces w
+                        WHERE starts_with(w.slug, %s)
+                    ) AS leftovers
+                    """,
+                    (DEFAULT_NAMESPACE_PREFIX,),
+                )
+                leftovers = cursor.fetchone()
     except Exception as exc:  # noqa: BLE001
-        return CheckResult("PostgreSQL", False, f"{type(exc).__name__}: {exc}")
+        return [CheckResult("PostgreSQL", False, f"{type(exc).__name__}: {exc}")]
 
     expected = {"workspaces": 2, "users": 3, "items": 4}
     passed = counts == expected
@@ -157,7 +196,15 @@ def check_postgres(postgres_dsn: str) -> CheckResult:
         f"database={database['database'] if database else None}, "
         f"counts={counts}, expected={expected}"
     )
-    return CheckResult("PostgreSQL", passed, detail)
+    leftover_count = int(leftovers["namespaces"]) if leftovers else -1
+    return [
+        CheckResult("PostgreSQL seed", passed, detail),
+        CheckResult(
+            "Namespace leftovers",
+            leftover_count == 0,
+            f"test_namespaces={leftover_count}, prefix={DEFAULT_NAMESPACE_PREFIX!r}",
+        ),
+    ]
 
 
 def check_redis(redis_url: str) -> CheckResult:
@@ -193,7 +240,7 @@ def main() -> int:
         wait_seconds=args.wait_seconds,
         request_timeout=args.request_timeout,
     )
-    checks.append(check_postgres(args.postgres_dsn))
+    checks.extend(check_postgres(args.postgres_dsn))
     checks.append(check_redis(args.redis_url))
     passed = all(check.passed for check in checks)
 

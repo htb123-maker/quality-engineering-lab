@@ -10,6 +10,7 @@ from qa_core.api_errors import classify_response
 from qa_core.auth import AuthClient
 from qa_core.config.settings import Settings
 from qa_core.http import HttpClient
+from qa_core.resource_pools import NamespaceLease
 
 from tests.api.conftest import attach_json, items_path, unique_client_id
 
@@ -164,11 +165,12 @@ def test_unknown_route_is_not_found(
 )
 def test_create_item_with_broken_body_is_invalid_request(
     owner_auth: AuthClient,
+    namespace: NamespaceLease,
     content: bytes,
     content_type: str,
 ) -> None:
     response = owner_auth.post(
-        items_path(),
+        items_path(namespace.slug),
         content=content,
         headers={
             "Content-Type": content_type,
@@ -179,3 +181,135 @@ def test_create_item_with_broken_body_is_invalid_request(
     assert response.status_code == 400
     assert _error_code(response) == "invalid_request"
     attach_json("Broken create body", response.json())
+
+
+@pytest.mark.api
+@pytest.mark.parametrize(
+    ("authorization", "expected_status", "expected_error"),
+    [
+        (None, 401, "authentication_required"),
+        ("Basic YmFkOmJhZA==", 401, "authentication_required"),
+        ("Bearer not-a-jwt", 401, "invalid_token"),
+    ],
+)
+def test_catalog_write_requires_valid_authentication(
+    sut_api_url: str,
+    settings: Settings,
+    namespace: NamespaceLease,
+    authorization: str | None,
+    expected_status: int,
+    expected_error: str,
+) -> None:
+    del sut_api_url
+
+    headers = {"X-QA-Client-Id": unique_client_id("anon")}
+    if authorization is not None:
+        headers["Authorization"] = authorization
+    with HttpClient.from_settings(settings) as client:
+        response = client.post(
+            items_path(namespace.slug),
+            json={"sku": "QA8-ANON-001", "name": "anon", "price_cents": 100},
+            headers=headers,
+        )
+
+    assert response.status_code == expected_status
+    assert _error_code(response) == expected_error
+    assert classify_response(response).category == "auth"
+    attach_json(
+        "Unauthenticated write",
+        {"authorization": authorization, "body": response.json()},
+    )
+
+
+@pytest.mark.api
+def test_read_on_the_item_path_has_no_route(
+    sut_api_url: str,
+    settings: Settings,
+    namespace: NamespaceLease,
+) -> None:
+    del sut_api_url
+
+    with HttpClient.from_settings(settings) as client:
+        response = client.get(f"{items_path(namespace.slug)}/1")
+
+    assert response.status_code == 404
+    assert _error_code(response) == "not_found"
+    attach_json("Item read route missing", response.json())
+
+
+@pytest.mark.api
+def test_create_in_unknown_workspace_is_not_found(
+    owner_auth: AuthClient,
+) -> None:
+    response = owner_auth.post(
+        items_path("does-not-exist"),
+        json={"sku": "QA8-GHOST-001", "name": "ghost", "price_cents": 100},
+        headers={"X-QA-Client-Id": unique_client_id("ghost")},
+    )
+
+    assert response.status_code == 404
+    assert _error_code(response) == "workspace_not_found"
+    assert classify_response(response).category == "product"
+    attach_json("Unknown workspace write", response.json())
+
+
+@pytest.mark.api
+def test_delete_of_unknown_item_is_not_found(
+    owner_auth: AuthClient,
+    namespace: NamespaceLease,
+) -> None:
+    response = owner_auth.request(
+        "DELETE",
+        f"{items_path(namespace.slug)}/2000000000",
+        headers={"X-QA-Client-Id": unique_client_id("missing")},
+    )
+
+    assert response.status_code == 404
+    assert _error_code(response) == "item_not_found"
+    attach_json("Missing item delete", response.json())
+
+
+@pytest.mark.api
+def test_patch_with_broken_body_is_invalid_request(
+    owner_auth: AuthClient,
+    namespace: NamespaceLease,
+) -> None:
+    response = owner_auth.request(
+        "PATCH",
+        f"{items_path(namespace.slug)}/1",
+        content=b"{not-json",
+        headers={
+            "Content-Type": "application/json",
+            "X-QA-Client-Id": unique_client_id("patch"),
+        },
+    )
+
+    assert response.status_code == 400
+    assert _error_code(response) == "invalid_request"
+    attach_json("Broken patch body", response.json())
+
+
+@pytest.mark.api
+@pytest.mark.xfail(
+    reason=(
+        "The SUT falls through to BaseHTTPRequestHandler's HTML 501 page "
+        "instead of the shared JSON error contract for unsupported methods."
+    ),
+    strict=True,
+)
+def test_unsupported_method_returns_the_json_error_contract(
+    sut_api_url: str,
+    settings: Settings,
+    namespace: NamespaceLease,
+) -> None:
+    del sut_api_url
+
+    with HttpClient.from_settings(settings) as client:
+        response = client.request(
+            "PUT",
+            items_path(namespace.slug),
+            json={"sku": "QA8-PUT-001", "name": "put", "price_cents": 100},
+        )
+
+    assert response.status_code in {404, 405, 501}
+    assert _error_code(response) in {"not_found", "method_not_allowed"}
