@@ -5,7 +5,8 @@
 - 分支 / Branch: study/week-11-rbac-rate-limit-input-security
 - 基线提交 / Base Commit: 8c45794（week-10 分支）
 - 计划提交 / Plan Commit: 269a036
-- Pull Request: 待创建（等待人工确认后推送）
+- Pull Request: https://github.com/htb123-maker/quality-engineering-lab/pull/6
+  （堆叠在 Week 10 分支上）
 
 ## 计划目标 / Plan Goal
 
@@ -371,14 +372,14 @@ Week 11 有意改动了三处既有行为，并同步更新了旧用例：
   验证（Linux 容器门禁跑的是完整 integration + api 套件，包含这些用例）。
 - 限流预算现在是每次写两次 Redis 往返，未测量其对写延迟的影响（属于性能专题）。
 - `tests/integration` 仍为串行执行；并发用例与 xdist 的连接数预算属于 Week 12。
-- 工作区里还有一份未提交的文档索引/语雀同步改动（`README.md`、`docs/README.md`、
-  `reports/README.md`、`scripts/doc_index.py`、`scripts/build_doc_index.py`、
-  `scripts/sync_yuque.py`、`tests/unit/test_doc_index.py`、
-  `tests/unit/test_sync_yuque.py`、`docs/runbooks/yuque-project-hub.md`、
-  `docs/architecture/project-overview.md`）。本计划只重新生成了索引页以便它们包含
-  Week 11，未把这些改动纳入本次提交。
-- 已提交到本地 `study/week-11-rbac-rate-limit-input-security`，尚未推送远程，
-  也尚未创建堆叠 Pull Request，等待人工确认后再执行。
+- 文档索引与语雀同步工具（`README.md`、`docs/README.md`、`reports/README.md`、
+  `scripts/doc_index.py`、`scripts/build_doc_index.py`、`scripts/sync_yuque.py`、
+  `tests/unit/test_doc_index.py`、`tests/unit/test_sync_yuque.py`、
+  `docs/runbooks/yuque-project-hub.md`、`docs/architecture/project-overview.md`）
+  从 Week 10 之前一直未提交。已在本计划收口后单独提交为 `8b68296` 并推送，
+  GitHub 现在有了根 `README.md` 首页；语雀同步本身仍未对真实空间执行过。
+- 四个堆叠分支（Week 08 到 Week 11）在收口后补推送，并分别创建了 PR #3、#4、#5、
+  #6；PR 正文使用各自的周报内容。
 
 ## 变更文件 / Files Changed
 

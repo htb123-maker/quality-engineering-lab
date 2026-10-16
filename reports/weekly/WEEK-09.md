@@ -5,7 +5,8 @@
 - 分支 / Branch: study/week-09-db-transactions-isolation-locks
 - 基线提交 / Base Commit: b8b1712（week-08 分支）
 - 计划提交 / Plan Commit: ce6d79d
-- Pull Request: 待创建（等待人工确认后推送）
+- Pull Request: https://github.com/htb123-maker/quality-engineering-lab/pull/4
+  （堆叠在 Week 8 分支上）
 
 ## 计划目标 / Plan Goal
 
@@ -231,8 +232,9 @@ DETAIL:  Process 3288 waits for ShareLock on transaction 4049; blocked by proces
   或小内存 runner 上验证。
 - `.github/workflows/sut-integration.yml` 的 schema 检查步骤只在本机等价命令
   上验证，未在 GitHub Actions 上实际执行。
-- 已提交到本地 `study/week-09-db-transactions-isolation-locks`，尚未推送远程，
-  也尚未创建堆叠 Pull Request，等待人工确认后再执行。
+- Week 11 记录补正：`ce6d79d`（计划提交）与 `1c6afd2` 已推送到
+  `origin/study/week-09-db-transactions-isolation-locks`，堆叠 Pull Request 为
+  https://github.com/htb123-maker/quality-engineering-lab/pull/4。
 
 ## 变更文件 / Files Changed
 
