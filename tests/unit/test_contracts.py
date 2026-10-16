@@ -89,8 +89,9 @@ def test_openapi_document_exposes_catalog_write_contracts() -> None:
     items_path = "/api/v1/workspaces/{slug}/catalog/items"
     item_path = "/api/v1/workspaces/{slug}/catalog/items/{item_id}"
     assert set(document["paths"][items_path]) == {"post"}
-    assert set(document["paths"][item_path]) == {"patch", "delete"}
+    assert set(document["paths"][item_path]) == {"get", "patch", "delete"}
     assert "422" in document["paths"][items_path]["post"]["responses"]
+    assert "429" in document["paths"][items_path]["post"]["responses"]
 
     schemas = document["components"]["schemas"]
     assert {

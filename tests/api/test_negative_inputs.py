@@ -157,10 +157,12 @@ def test_unknown_route_is_not_found(
 
 @pytest.mark.api
 @pytest.mark.parametrize(
-    ("content", "content_type"),
+    ("content", "content_type", "expected_status", "expected_error"),
     [
-        (b"{not-json", "application/json"),
-        (b"plain text", "text/plain"),
+        (b"{not-json", "application/json", 400, "invalid_request"),
+        # Week 11 split "malformed body" (400) from "media type this endpoint
+        # does not read" (415).
+        (b"plain text", "text/plain", 415, "unsupported_media_type"),
     ],
 )
 def test_create_item_with_broken_body_is_invalid_request(
@@ -168,6 +170,8 @@ def test_create_item_with_broken_body_is_invalid_request(
     namespace: NamespaceLease,
     content: bytes,
     content_type: str,
+    expected_status: int,
+    expected_error: str,
 ) -> None:
     response = owner_auth.post(
         items_path(namespace.slug),
@@ -178,8 +182,8 @@ def test_create_item_with_broken_body_is_invalid_request(
         },
     )
 
-    assert response.status_code == 400
-    assert _error_code(response) == "invalid_request"
+    assert response.status_code == expected_status
+    assert _error_code(response) == expected_error
     attach_json("Broken create body", response.json())
 
 
@@ -222,19 +226,21 @@ def test_catalog_write_requires_valid_authentication(
 
 
 @pytest.mark.api
-def test_read_on_the_item_path_has_no_route(
+def test_read_on_the_item_path_requires_authentication(
     sut_api_url: str,
     settings: Settings,
     namespace: NamespaceLease,
 ) -> None:
+    """Week 11 added GET on the item path, replacing Week 7's "no route"."""
+
     del sut_api_url
 
     with HttpClient.from_settings(settings) as client:
         response = client.get(f"{items_path(namespace.slug)}/1")
 
-    assert response.status_code == 404
-    assert _error_code(response) == "not_found"
-    attach_json("Item read route missing", response.json())
+    assert response.status_code == 401
+    assert _error_code(response) == "authentication_required"
+    attach_json("Item read without credentials", response.json())
 
 
 @pytest.mark.api

@@ -9,6 +9,7 @@ from typing import Protocol
 
 from qa_core.cache import purge_catalog_cache, purge_idempotency_keys
 from qa_core.data_factories import NamespaceIdentity
+from qa_core.security import purge_write_budget
 
 
 class NamespaceProvider(Protocol):
@@ -198,10 +199,17 @@ class NamespacePool:
         """Drop the Redis keys whose lifetime is tied to one namespace.
 
         A lease promises a workspace with no state from the previous test, and
-        from Week 10 on that includes the catalog cache and its counters.
+        from Week 10 on that includes the catalog cache and its counters. Week
+        11 adds the write budgets of the workspace's users: the pool hands the
+        same owner row to the next test, so a spent budget would otherwise leak
+        into an unrelated test.
         """
 
         if self._redis_url is None:
             return
         purge_idempotency_keys(self._redis_url, identity.workspace_id)
         purge_catalog_cache(self._redis_url, identity.slug)
+        user_ids = [identity.owner.user_id]
+        if identity.viewer is not None:
+            user_ids.append(identity.viewer.user_id)
+        purge_write_budget(self._redis_url, user_ids)

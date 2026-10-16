@@ -14,7 +14,7 @@ import re
 import secrets
 import threading
 import time
-from collections import deque
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from http import HTTPStatus
 from http.cookies import SimpleCookie
@@ -43,8 +43,13 @@ from qa_core.contracts import (
     JobAcceptedResponse,
     JobQueueStatsResponse,
     JobResponse,
+    MemberCreate,
+    MemberResponse,
+    MemberRoleUpdate,
+    MembersResponse,
     OAuthErrorResponse,
     OidcMetadataResponse,
+    PermissionsResponse,
     ReadinessResponse,
     RevokeResponse,
     RootResponse,
@@ -84,14 +89,99 @@ CACHE_REFRESH_PATH = re.compile(
     r"^/api/v1/workspaces/([^/]+)/catalog/cache/refresh$"
 )
 EVENTS_PATH = re.compile(r"^/api/v1/workspaces/([^/]+)/events$")
+MEMBERS_PATH = re.compile(r"^/api/v1/workspaces/([^/]+)/members$")
+MEMBER_PATH = re.compile(r"^/api/v1/workspaces/([^/]+)/members/([0-9]+)$")
+PERMISSIONS_PATH = "/api/v1/auth/permissions"
 JOB_PATH = re.compile(r"^/api/v1/jobs/([^/]+)$")
-WRITABLE_ROLES = frozenset({"owner", "admin", "member"})
+# Workspace slugs are the only user-supplied path segment that reaches the
+# database, so they are validated before any query runs. Anything outside this
+# alphabet (``..``, ``%2f``, uppercase, NUL) is rejected as a bad identifier
+# instead of being handed to PostgreSQL as a lookup key.
+WORKSPACE_SLUG_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$")
 ALLOWED_STATUS_TRANSITIONS = frozenset({("active", "archived")})
 IDEMPOTENCY_TTL_SECONDS = int(os.getenv("QA_IDEMPOTENCY_TTL_SECONDS", "3600"))
 RATE_LIMIT_MAX_REQUESTS = int(os.getenv("QA_RATE_LIMIT_WRITE_MAX", "20"))
 RATE_LIMIT_WINDOW_SECONDS = float(
     os.getenv("QA_RATE_LIMIT_WRITE_WINDOW_SECONDS", "60")
 )
+# The client-supplied ``X-QA-Client-Id`` header is easy to rotate, so the same
+# requests are also counted against the authenticated principal. The principal
+# bucket is deliberately roomier: it is a backstop against header rotation, not
+# the primary pacing mechanism.
+RATE_LIMIT_PRINCIPAL_MAX_REQUESTS = int(
+    os.getenv("QA_RATE_LIMIT_PRINCIPAL_MAX", str(RATE_LIMIT_MAX_REQUESTS * 2))
+)
+# Both buckets live in Redis so the budget is shared by API replicas and can be
+# cleared by the test-side namespace pool when a workspace is handed back.
+RATE_LIMIT_CLIENT_PREFIX = "ratelimit:write:client:"
+RATE_LIMIT_PRINCIPAL_PREFIX = "ratelimit:write:principal:"
+AUTH_SIGNIN_FAILURE_MAX = int(os.getenv("QA_AUTH_SIGNIN_FAILURE_MAX", "10"))
+AUTH_SIGNIN_FAILURE_WINDOW_SECONDS = float(
+    os.getenv("QA_AUTH_SIGNIN_FAILURE_WINDOW_SECONDS", "60")
+)
+AUTH_SIGNIN_FAILURE_PREFIX = "auth:signin-failures:"
+MAX_REQUEST_BYTES = int(os.getenv("QA_MAX_REQUEST_BYTES", "65536"))
+
+# Capability registry: one place decides what a role may do, and every handler
+# asks for a capability instead of comparing role strings. Roles are ordered by
+# privilege, and ``owner`` is the only role that can hand out ``admin``.
+ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
+    "owner": frozenset(
+        {
+            "audit:read",
+            "catalog:read",
+            "catalog:refresh",
+            "catalog:write",
+            "events:read",
+            "jobs:read",
+            "members:read",
+            "members:write",
+        }
+    ),
+    "admin": frozenset(
+        {
+            "audit:read",
+            "catalog:read",
+            "catalog:refresh",
+            "catalog:write",
+            "events:read",
+            "jobs:read",
+            "members:read",
+            "members:write",
+        }
+    ),
+    "member": frozenset(
+        {
+            "catalog:read",
+            "catalog:refresh",
+            "catalog:write",
+            "events:read",
+            "jobs:read",
+            "members:read",
+        }
+    ),
+    "viewer": frozenset(
+        {
+            "catalog:read",
+            "events:read",
+            "jobs:read",
+        }
+    ),
+}
+ASSIGNABLE_ROLES = frozenset({"admin", "member", "viewer"})
+ADMIN_ASSIGNABLE_ROLES = frozenset({"member", "viewer"})
+
+
+def capabilities_for(role: str) -> list[str]:
+    """Return the sorted capabilities of one role."""
+
+    return sorted(ROLE_CAPABILITIES.get(role, frozenset()))
+
+
+def has_capability(role: str, capability: str) -> bool:
+    """Return whether one role carries one capability."""
+
+    return capability in ROLE_CAPABILITIES.get(role, frozenset())
 
 # Week 10 cache and queue configuration. The defaults keep the SUT friendly for
 # manual exploration; tests tighten the TTLs through Compose environment values.
@@ -152,7 +242,7 @@ def _redis_check() -> dict[str, Any]:
     try:
         pong = client.ping()
     finally:
-        client.close()
+        _close_quietly(client)
 
     return {"status": "ok", "ping": bool(pong)}
 
@@ -170,6 +260,19 @@ def _redis_client() -> redis.Redis:
         socket_connect_timeout=2,
         socket_timeout=2,
     )
+
+
+def _close_quietly(client: Any) -> None:
+    """Close a Redis client without masking the result of the operation.
+
+    A connection that is already broken raises on ``close`` too; that must not
+    turn a clean "Redis is unavailable, degrade" path into a 500.
+    """
+
+    try:
+        client.close()
+    except (redis.RedisError, OSError):
+        pass
 
 
 def _find_user_by_email(email: str) -> dict[str, Any] | None:
@@ -289,7 +392,7 @@ def _create_refresh_token(user: dict[str, Any]) -> str:
             str(user["id"]),
         )
     finally:
-        client.close()
+        _close_quietly(client)
     return token
 
 
@@ -298,7 +401,7 @@ def _consume_refresh_token(token: str) -> int | None:
     try:
         user_id = client.getdel(_refresh_key(token))
     finally:
-        client.close()
+        _close_quietly(client)
 
     if user_id is None:
         return None
@@ -313,7 +416,7 @@ def _revoke_refresh_token(token: str) -> None:
     try:
         client.delete(_refresh_key(token))
     finally:
-        client.close()
+        _close_quietly(client)
 
 
 def _authenticate_password(username: str, password: str) -> dict[str, Any] | None:
@@ -392,23 +495,259 @@ def _catalog_payload(slug: str) -> tuple[HTTPStatus, CatalogResponse | ApiError]
     )
 
 
-_RATE_LOCK = threading.Lock()
-_RATE_HISTORY: dict[str, deque[float]] = {}
+class RequestBodyError(Exception):
+    """A request body problem that maps to one HTTP status and error code."""
+
+    def __init__(self, status: HTTPStatus, error: str, message: str) -> None:
+        super().__init__(message)
+        self.status = status
+        self.error = error
+        self.message = message
 
 
-def _rate_limit_retry_after(client_id: str, *, now: float) -> float | None:
-    """Return seconds to wait when the client is over budget, else None."""
+@dataclass(frozen=True)
+class RateLimitSnapshot:
+    """The state of one fixed-window bucket after a request was counted."""
 
-    if RATE_LIMIT_MAX_REQUESTS <= 0:
+    scope: str
+    limit: int
+    remaining: int
+    reset_after: float
+    allowed: bool = True
+
+    @property
+    def limited(self) -> bool:
+        """Return whether this bucket refused the request.
+
+        ``remaining == 0`` on its own is not a refusal: the request that spends
+        the last unit of budget is still allowed, so the two facts are tracked
+        separately.
+        """
+
+        return not self.allowed
+
+    @property
+    def utilization(self) -> float:
+        """Return how full the bucket is, used to pick the binding one."""
+
+        if self.limit <= 0:
+            return 0.0
+        return (self.limit - self.remaining) / self.limit
+
+
+class RedisFixedWindowBudget:
+    """Count requests per key inside a fixed Redis window.
+
+    Redis, not process memory, owns the counter: the budget therefore survives
+    a restart and is shared by every API replica, and the test suite can clear
+    one principal's counter when it hands a namespace back to the pool.
+    """
+
+    def __init__(
+        self,
+        *,
+        limit: int,
+        window_seconds: float,
+        scope: str,
+        prefix: str,
+        client_factory: Any = None,
+    ) -> None:
+        self._limit = limit
+        self._window_seconds = window_seconds
+        self._scope = scope
+        self._prefix = prefix
+        self._client_factory = client_factory or _redis_client
+
+    @property
+    def prefix(self) -> str:
+        """Return the Redis key prefix this bucket owns."""
+
+        return self._prefix
+
+    @property
+    def window_seconds(self) -> int:
+        """Return the window as whole seconds, which is what Redis stores."""
+
+        return max(1, math.ceil(self._window_seconds))
+
+    def consume(self, key: str) -> RateLimitSnapshot:
+        """Count one request for ``key`` and report the resulting state.
+
+        A Redis outage fails open: the local SUT stays writable and logs the
+        degradation instead of turning a cache outage into an API outage.
+        """
+
+        if self._limit <= 0:
+            return RateLimitSnapshot(
+                scope=self._scope,
+                limit=0,
+                remaining=0,
+                reset_after=0.0,
+            )
+
+        redis_key = f"{self._prefix}{key}"
+        client = self._client_factory()
+        try:
+            counted = int(client.incr(redis_key))
+            if counted == 1:
+                client.expire(redis_key, self.window_seconds)
+            ttl = client.ttl(redis_key)
+            reset_after = float(ttl) if int(ttl) > 0 else float(self.window_seconds)
+        except (redis.RedisError, TypeError, ValueError) as exc:
+            LOGGER.warning("Rate-limit bucket %s unavailable: %s", self._scope, exc)
+            return RateLimitSnapshot(
+                scope=self._scope,
+                limit=self._limit,
+                remaining=self._limit,
+                reset_after=0.0,
+            )
+        finally:
+            _close_quietly(client)
+
+        if counted > self._limit:
+            return RateLimitSnapshot(
+                scope=self._scope,
+                limit=self._limit,
+                remaining=0,
+                reset_after=reset_after,
+                allowed=False,
+            )
+        return RateLimitSnapshot(
+            scope=self._scope,
+            limit=self._limit,
+            remaining=self._limit - counted,
+            reset_after=reset_after,
+        )
+
+    def clear(self, key: str) -> None:
+        """Drop one key's counter, used when a test releases a namespace."""
+
+        client = self._client_factory()
+        try:
+            client.delete(f"{self._prefix}{key}")
+        except redis.RedisError as exc:
+            LOGGER.warning("Rate-limit bucket %s reset failed: %s", self._scope, exc)
+        finally:
+            _close_quietly(client)
+
+
+def client_budget_key(client_id: str) -> str:
+    """Hash the caller-controlled client id before it becomes a Redis key."""
+
+    return hashlib.sha256(client_id.encode("utf-8")).hexdigest()[:32]
+
+
+def principal_budget_key(user_id: int) -> str:
+    """Return the bucket key for one authenticated principal."""
+
+    return f"user:{user_id}"
+
+
+_CLIENT_BUDGET = RedisFixedWindowBudget(
+    limit=RATE_LIMIT_MAX_REQUESTS,
+    window_seconds=RATE_LIMIT_WINDOW_SECONDS,
+    scope="client",
+    prefix=RATE_LIMIT_CLIENT_PREFIX,
+)
+_PRINCIPAL_BUDGET = RedisFixedWindowBudget(
+    limit=RATE_LIMIT_PRINCIPAL_MAX_REQUESTS,
+    window_seconds=RATE_LIMIT_WINDOW_SECONDS,
+    scope="principal",
+    prefix=RATE_LIMIT_PRINCIPAL_PREFIX,
+)
+
+
+def _consume_write_budget(
+    client_id: str,
+    user_id: int,
+) -> RateLimitSnapshot:
+    """Count one write against both buckets and report the binding one.
+
+    The client bucket is checked first because it is the primary pacer. When it
+    still has room the principal bucket decides the reported numbers, so a test
+    client that rotates ``X-QA-Client-Id`` still sees the budget shrink.
+    """
+
+    client_state = _CLIENT_BUDGET.consume(client_budget_key(client_id))
+    if client_state.limited:
+        return client_state
+    principal_state = _PRINCIPAL_BUDGET.consume(principal_budget_key(user_id))
+    if principal_state.limited:
+        return principal_state
+    if principal_state.utilization > client_state.utilization:
+        return principal_state
+    return client_state
+
+
+def _rate_limit_headers(state: RateLimitSnapshot) -> dict[str, str]:
+    """Return the budget headers echoed with a limited response."""
+
+    headers = {
+        "X-RateLimit-Limit": str(state.limit),
+        "X-RateLimit-Remaining": str(state.remaining),
+        "X-RateLimit-Reset": str(max(1, math.ceil(state.reset_after))),
+        "X-RateLimit-Scope": state.scope,
+    }
+    if state.limited:
+        headers["Retry-After"] = str(max(1, math.ceil(state.reset_after)))
+    return headers
+
+
+def _signin_failure_key(client_id: str, email: str) -> str:
+    digest = hashlib.sha256(f"{client_id}|{email.lower()}".encode()).hexdigest()
+    return f"{AUTH_SIGNIN_FAILURE_PREFIX}{digest[:32]}"
+
+
+def _signin_retry_after(key: str) -> float | None:
+    """Return seconds left before a locked account may retry, else None.
+
+    Redis failures fail open: the local SUT must stay usable when the cache is
+    down, and the lockout protects convenience, not production data.
+    """
+
+    if AUTH_SIGNIN_FAILURE_MAX <= 0:
         return None
-    with _RATE_LOCK:
-        history = _RATE_HISTORY.setdefault(client_id, deque())
-        while history and now - history[0] > RATE_LIMIT_WINDOW_SECONDS:
-            history.popleft()
-        if len(history) >= RATE_LIMIT_MAX_REQUESTS:
-            return RATE_LIMIT_WINDOW_SECONDS - (now - history[0])
-        history.append(now)
+    client = _redis_client()
+    try:
+        failures = client.get(key)
+        if failures is None or int(failures) < AUTH_SIGNIN_FAILURE_MAX:
+            return None
+        ttl = client.ttl(key)
+    except (redis.RedisError, TypeError, ValueError) as exc:
+        LOGGER.warning("Sign-in throttle read failed: %s", exc)
         return None
+    finally:
+        _close_quietly(client)
+    return float(ttl) if ttl and ttl > 0 else AUTH_SIGNIN_FAILURE_WINDOW_SECONDS
+
+
+def _record_signin_failure(key: str) -> None:
+    """Count one failed password grant inside the throttle window."""
+
+    if AUTH_SIGNIN_FAILURE_MAX <= 0:
+        return
+    window = max(1, math.ceil(AUTH_SIGNIN_FAILURE_WINDOW_SECONDS))
+    client = _redis_client()
+    try:
+        failures = client.incr(key)
+        if int(failures) == 1:
+            client.expire(key, window)
+    except (redis.RedisError, TypeError, ValueError) as exc:
+        LOGGER.warning("Sign-in throttle write failed: %s", exc)
+    finally:
+        _close_quietly(client)
+
+
+def _clear_signin_failures(key: str) -> None:
+    """Drop the failure counter after a successful authentication."""
+
+    client = _redis_client()
+    try:
+        client.delete(key)
+    except redis.RedisError as exc:
+        LOGGER.warning("Sign-in throttle reset failed: %s", exc)
+    finally:
+        _close_quietly(client)
 
 
 def _idempotency_store_key(workspace_id: int, key: str) -> str:
@@ -426,7 +765,7 @@ def _read_idempotent_response(store_key: str) -> dict[str, Any] | None:
     try:
         raw = client.get(store_key)
     finally:
-        client.close()
+        _close_quietly(client)
     if raw is None:
         return None
     try:
@@ -458,7 +797,7 @@ def _store_idempotent_response(
             ),
         )
     finally:
-        client.close()
+        _close_quietly(client)
 
 
 def _workspace_by_slug(slug: str) -> dict[str, Any] | None:
@@ -483,6 +822,116 @@ def _catalog_item_by_id(workspace_id: int, item_id: int) -> dict[str, Any] | Non
                 (workspace_id, item_id),
             )
             return cursor.fetchone()
+
+
+def _member_payload(row: dict[str, Any]) -> MemberResponse:
+    """Convert one ``users`` row into the members API representation."""
+
+    return MemberResponse(
+        id=int(row["id"]),
+        workspace_id=int(row["workspace_id"]),
+        email=str(row["email"]),
+        display_name=str(row["display_name"]),
+        role=str(row["role"]),
+        status=str(row["status"]),
+    )
+
+
+def _workspace_members(workspace_id: int) -> list[dict[str, Any]]:
+    """Return every member of one workspace, oldest first."""
+
+    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                """
+                SELECT id, workspace_id, email, display_name, role, status
+                FROM users
+                WHERE workspace_id = %s
+                ORDER BY id
+                """,
+                (workspace_id,),
+            )
+            return list(cursor.fetchall())
+
+
+def _workspace_member(workspace_id: int, user_id: int) -> dict[str, Any] | None:
+    """Return one member row, scoped to its workspace so ids cannot cross."""
+
+    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                """
+                SELECT id, workspace_id, email, display_name, role, status
+                FROM users
+                WHERE workspace_id = %s AND id = %s
+                """,
+                (workspace_id, user_id),
+            )
+            return cursor.fetchone()
+
+
+def _insert_workspace_member(
+    workspace_id: int,
+    request: MemberCreate,
+) -> MemberResponse:
+    """Invite one member and return the stored row."""
+
+    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                """
+                INSERT INTO users
+                    (workspace_id, email, display_name, role, status)
+                VALUES (%s, %s, %s, %s, 'active')
+                RETURNING id, workspace_id, email, display_name, role, status
+                """,
+                (
+                    workspace_id,
+                    request.email,
+                    request.display_name,
+                    request.role,
+                ),
+            )
+            row = cursor.fetchone()
+
+    if row is None:
+        raise RuntimeError("member insert returned no row")
+    return _member_payload(row)
+
+
+def _update_member_role(
+    workspace_id: int,
+    user_id: int,
+    role: str,
+) -> MemberResponse | None:
+    """Change one member's role inside its workspace."""
+
+    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                """
+                UPDATE users
+                SET role = %s
+                WHERE workspace_id = %s AND id = %s
+                RETURNING id, workspace_id, email, display_name, role, status
+                """,
+                (role, workspace_id, user_id),
+            )
+            row = cursor.fetchone()
+
+    return None if row is None else _member_payload(row)
+
+
+def _delete_workspace_member(workspace_id: int, user_id: int) -> bool:
+    """Delete one member row; the workspace itself is untouched."""
+
+    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "DELETE FROM users WHERE workspace_id = %s AND id = %s",
+                (workspace_id, user_id),
+            )
+            return cursor.rowcount == 1
 
 
 def _create_catalog_item(
@@ -624,7 +1073,7 @@ def _store_catalog_cache(
         client.setex(catalog_cache_key(slug), resolved_ttl, body)
         client.delete(catalog_absent_cache_key(slug))
     finally:
-        client.close()
+        _close_quietly(client)
     return resolved_ttl
 
 
@@ -637,7 +1086,7 @@ def _invalidate_catalog_cache(slug: str) -> int:
         _record_cache_stat(client, slug, "invalidations", removed)
         return removed
     finally:
-        client.close()
+        _close_quietly(client)
 
 
 def _catalog_cache_aside(
@@ -685,7 +1134,7 @@ def _catalog_cache_aside(
             "X-Cache-TTL": str(written_ttl),
         }
     finally:
-        client.close()
+        _close_quietly(client)
 
 
 def _catalog_with_cache(
@@ -799,7 +1248,7 @@ def _save_job(record: dict[str, Any]) -> None:
             json.dumps(record, sort_keys=True),
         )
     finally:
-        client.close()
+        _close_quietly(client)
 
 
 def _load_job(job_id: str) -> dict[str, Any] | None:
@@ -809,7 +1258,7 @@ def _load_job(job_id: str) -> dict[str, Any] | None:
     try:
         raw = client.get(job_key(job_id))
     finally:
-        client.close()
+        _close_quietly(client)
     return _decode_cached_json(raw)
 
 
@@ -871,7 +1320,7 @@ def _enqueue_job(
         else:
             client.lpush(JOB_QUEUE_KEY, job_id)
     finally:
-        client.close()
+        _close_quietly(client)
     return record
 
 
@@ -882,7 +1331,7 @@ def _bump_job_counter(name: str) -> None:
     try:
         client.incr(f"{JOB_STATS_PREFIX}{name}")
     finally:
-        client.close()
+        _close_quietly(client)
 
 
 def _job_queue_stats() -> JobQueueStatsResponse:
@@ -898,7 +1347,7 @@ def _job_queue_stats() -> JobQueueStatsResponse:
             worker_enabled=JOB_WORKER_ENABLED,
         )
     finally:
-        client.close()
+        _close_quietly(client)
 
 
 class JobWorker(threading.Thread):
@@ -946,7 +1395,7 @@ class JobWorker(threading.Thread):
         try:
             item = client.brpop(JOB_QUEUE_KEY, timeout=self._poll_seconds)
         finally:
-            client.close()
+            _close_quietly(client)
         if item is None:
             return None
         _, raw = item
@@ -963,7 +1412,7 @@ class JobWorker(threading.Thread):
                 if client.zrem(JOB_DELAYED_KEY, job_id):
                     client.lpush(JOB_QUEUE_KEY, job_id)
         finally:
-            client.close()
+            _close_quietly(client)
 
     def _process(self, job_id: str) -> None:
         """Run one job and record its outcome."""
@@ -1120,11 +1569,14 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                         "/oauth/token",
                         "/oauth/revoke",
                         "/api/v1/auth/me",
+                        "/api/v1/auth/permissions",
                         "/api/v1/admin/audit",
                         "/api/v1/workspaces/{slug}/catalog",
                         "/api/v1/workspaces/{slug}/catalog/items",
                         "/api/v1/workspaces/{slug}/catalog/items/{item_id}",
                         "/api/v1/workspaces/{slug}/catalog/cache/refresh",
+                        "/api/v1/workspaces/{slug}/members",
+                        "/api/v1/workspaces/{slug}/members/{user_id}",
                         "/api/v1/workspaces/{slug}/events",
                         "/api/v1/jobs",
                         "/api/v1/jobs/{job_id}",
@@ -1169,8 +1621,17 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             self._handle_admin_audit()
             return
 
+        if path == PERMISSIONS_PATH:
+            self._handle_permissions()
+            return
+
         if path == "/api/v1/jobs":
             self._handle_job_queue_stats()
+            return
+
+        members_match = MEMBERS_PATH.fullmatch(path)
+        if members_match:
+            self._handle_members_list(members_match.group(1))
             return
 
         events_match = EVENTS_PATH.fullmatch(path)
@@ -1181,6 +1642,14 @@ class SutRequestHandler(BaseHTTPRequestHandler):
         job_match = JOB_PATH.fullmatch(path)
         if job_match:
             self._handle_job(job_match.group(1))
+            return
+
+        item_match = CATALOG_ITEM_PATH.fullmatch(path)
+        if item_match:
+            self._handle_catalog_item_read(
+                item_match.group(1),
+                int(item_match.group(2)),
+            )
             return
 
         catalog_match = CATALOG_PATH.fullmatch(path)
@@ -1217,6 +1686,11 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             self._handle_cache_refresh(refresh_match.group(1))
             return
 
+        members_match = MEMBERS_PATH.fullmatch(path)
+        if members_match:
+            self._handle_member_create(members_match.group(1))
+            return
+
         self._send_json(
             HTTPStatus.NOT_FOUND,
             ApiError(
@@ -1227,6 +1701,14 @@ class SutRequestHandler(BaseHTTPRequestHandler):
 
     def do_PATCH(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
+
+        member_match = MEMBER_PATH.fullmatch(path)
+        if member_match:
+            self._handle_member_update(
+                member_match.group(1),
+                int(member_match.group(2)),
+            )
+            return
 
         item_match = CATALOG_ITEM_PATH.fullmatch(path)
         if item_match:
@@ -1246,6 +1728,14 @@ class SutRequestHandler(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
+
+        member_match = MEMBER_PATH.fullmatch(path)
+        if member_match:
+            self._handle_member_delete(
+                member_match.group(1),
+                int(member_match.group(2)),
+            )
+            return
 
         item_match = CATALOG_ITEM_PATH.fullmatch(path)
         if item_match:
@@ -1312,25 +1802,26 @@ class SutRequestHandler(BaseHTTPRequestHandler):
         if user is None:
             return
 
-        try:
-            payload = self._read_request_payload()
-        except (UnicodeDecodeError, ValueError) as exc:
-            self._send_json(
-                HTTPStatus.BAD_REQUEST,
-                ApiError(error="invalid_request", message=str(exc)),
-            )
+        payload = self._read_json_payload()
+        if payload is None:
             return
 
         client_id = self.headers.get("X-QA-Client-Id") or self.client_address[0]
-        retry_after = _rate_limit_retry_after(client_id, now=time.monotonic())
-        if retry_after is not None:
+        budget = _consume_write_budget(
+            client_id,
+            int(user["id"]),
+        )
+        # Every response on a budgeted endpoint echoes the budget, not just the
+        # 201 and the 429: a client should be able to pace itself from any reply.
+        budget_headers = _rate_limit_headers(budget)
+        if budget.limited:
             self._send_json(
                 HTTPStatus.TOO_MANY_REQUESTS,
                 ApiError(
                     error="rate_limited",
-                    message="Too many catalog writes for this client.",
+                    message=f"Too many catalog writes for this {budget.scope}.",
                 ),
-                headers={"Retry-After": str(max(1, math.ceil(retry_after)))},
+                headers=budget_headers,
             )
             return
 
@@ -1340,6 +1831,7 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             self._send_json(
                 HTTPStatus.UNPROCESSABLE_ENTITY,
                 _validation_error_payload(exc),
+                headers=budget_headers,
             )
             return
 
@@ -1355,6 +1847,7 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             self._send_json(
                 HTTPStatus.SERVICE_UNAVAILABLE,
                 ApiError(error="queue_unavailable", message=type(exc).__name__),
+                headers=budget_headers,
             )
             return
 
@@ -1368,7 +1861,10 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                 status="queued",
                 queued_at=str(record["queued_at"]),
             ),
-            headers={"Location": f"/api/v1/jobs/{job_id}"},
+            headers={
+                "Location": f"/api/v1/jobs/{job_id}",
+                **budget_headers,
+            },
         )
 
     def _handle_job_queue_stats(self) -> None:
@@ -1556,16 +2052,44 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                 delivered,
             )
 
-    def _authorize_catalog_write(self, slug: str) -> dict[str, Any] | None:
+    def _workspace_scope(
+        self,
+        slug: str,
+        capability: str,
+        *,
+        denied_message: str,
+        cross_tenant_message: str,
+    ) -> dict[str, Any] | None:
+        """Authenticate, authorize, and tenant-check one workspace request.
+
+        The order matters and is part of the contract: an unknown but
+        syntactically valid object is 404, a role that lacks the capability is
+        403, and an object that belongs to another tenant is also 403 because
+        workspace slugs are already public through the read catalog endpoint.
+        """
+
+        if not WORKSPACE_SLUG_PATTERN.match(slug):
+            self._send_json(
+                HTTPStatus.BAD_REQUEST,
+                ApiError(
+                    error="invalid_workspace_slug",
+                    message=(
+                        "A workspace slug must be 1-60 lowercase letters, "
+                        "digits, or hyphens, and may not start or end with a "
+                        "hyphen."
+                    ),
+                ),
+            )
+            return None
         user = self._authenticated_user()
         if user is None:
             return None
-        if user["role"] not in WRITABLE_ROLES:
+        if not has_capability(str(user["role"]), capability):
             self._send_json(
                 HTTPStatus.FORBIDDEN,
                 ApiError(
                     error="permission_denied",
-                    message="The authenticated role cannot modify the catalog.",
+                    message=denied_message,
                 ),
             )
             return None
@@ -1595,36 +2119,386 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                 HTTPStatus.FORBIDDEN,
                 ApiError(
                     error="permission_denied",
-                    message="The authenticated user cannot modify another workspace.",
+                    message=cross_tenant_message,
                 ),
             )
             return None
-        return user
+        return {"user": user, "workspace": workspace}
+
+    def _authorize_catalog_write(self, slug: str) -> dict[str, Any] | None:
+        scope = self._workspace_scope(
+            slug,
+            "catalog:write",
+            denied_message="The authenticated role cannot modify the catalog.",
+            cross_tenant_message=(
+                "The authenticated user cannot modify another workspace."
+            ),
+        )
+        return None if scope is None else scope["user"]
+
+    def _handle_permissions(self) -> None:
+        """Describe the caller's role as capabilities instead of a role name."""
+
+        user = self._authenticated_user()
+        if user is None:
+            return
+        self._send_json(
+            HTTPStatus.OK,
+            PermissionsResponse(
+                user_id=int(user["id"]),
+                workspace_slug=str(user["workspace_slug"]),
+                role=str(user["role"]),
+                capabilities=capabilities_for(str(user["role"])),
+            ),
+        )
+
+    def _handle_members_list(self, slug: str) -> None:
+        scope = self._workspace_scope(
+            slug,
+            "members:read",
+            denied_message="The authenticated role cannot read workspace members.",
+            cross_tenant_message=(
+                "The authenticated user cannot read another workspace's members."
+            ),
+        )
+        if scope is None:
+            return
+
+        try:
+            rows = _workspace_members(int(scope["workspace"]["id"]))
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Member list failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="database_unavailable", message=type(exc).__name__),
+            )
+            return
+
+        members = [_member_payload(row) for row in rows]
+        self._send_json(
+            HTTPStatus.OK,
+            MembersResponse(
+                workspace_slug=str(scope["workspace"]["slug"]),
+                count=len(members),
+                members=members,
+            ),
+        )
+
+    def _handle_member_create(self, slug: str) -> None:
+        scope = self._workspace_scope(
+            slug,
+            "members:write",
+            denied_message="The authenticated role cannot add workspace members.",
+            cross_tenant_message=(
+                "The authenticated user cannot add members to another workspace."
+            ),
+        )
+        if scope is None:
+            return
+
+        payload = self._read_json_payload()
+        if payload is None:
+            return
+
+        try:
+            request = validate_contract(MemberCreate, payload)
+        except ContractValidationError as exc:
+            self._send_json(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                _validation_error_payload(exc),
+            )
+            return
+
+        user = scope["user"]
+        if request.role == "admin" and user["role"] != "owner":
+            self._send_json(
+                HTTPStatus.FORBIDDEN,
+                ApiError(
+                    error="role_escalation_forbidden",
+                    message="Only an owner can grant the admin role.",
+                ),
+            )
+            return
+
+        try:
+            member = _insert_workspace_member(
+                int(scope["workspace"]["id"]),
+                request,
+            )
+        except psycopg.errors.UniqueViolation:
+            self._send_json(
+                HTTPStatus.CONFLICT,
+                ApiError(
+                    error="member_conflict",
+                    message=(
+                        f"'{request.email}' already belongs to this workspace."
+                    ),
+                ),
+            )
+            return
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Member invite failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="database_unavailable", message=type(exc).__name__),
+            )
+            return
+
+        self._send_json(
+            HTTPStatus.CREATED,
+            member,
+            headers={
+                "Location": (
+                    f"/api/v1/workspaces/{scope['workspace']['slug']}"
+                    f"/members/{member.id}"
+                )
+            },
+        )
+
+    def _handle_member_update(self, slug: str, user_id: int) -> None:
+        scope = self._workspace_scope(
+            slug,
+            "members:write",
+            denied_message="The authenticated role cannot change member roles.",
+            cross_tenant_message=(
+                "The authenticated user cannot change another workspace's members."
+            ),
+        )
+        if scope is None:
+            return
+
+        payload = self._read_json_payload()
+        if payload is None:
+            return
+
+        try:
+            request = validate_contract(MemberRoleUpdate, payload)
+        except ContractValidationError as exc:
+            self._send_json(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                _validation_error_payload(exc),
+            )
+            return
+
+        guard = self._guard_member_mutation(scope, user_id, request.role)
+        if guard is None:
+            return
+
+        try:
+            member = _update_member_role(
+                int(scope["workspace"]["id"]),
+                user_id,
+                request.role,
+            )
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Member role update failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="database_unavailable", message=type(exc).__name__),
+            )
+            return
+
+        if member is None:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(
+                    error="member_not_found",
+                    message=f"Member {user_id} was not found in '{slug}'.",
+                ),
+            )
+            return
+
+        self._send_json(HTTPStatus.OK, member)
+
+    def _handle_member_delete(self, slug: str, user_id: int) -> None:
+        scope = self._workspace_scope(
+            slug,
+            "members:write",
+            denied_message="The authenticated role cannot remove workspace members.",
+            cross_tenant_message=(
+                "The authenticated user cannot remove another workspace's members."
+            ),
+        )
+        if scope is None:
+            return
+
+        guard = self._guard_member_mutation(scope, user_id, target_role=None)
+        if guard is None:
+            return
+
+        try:
+            deleted = _delete_workspace_member(
+                int(scope["workspace"]["id"]),
+                user_id,
+            )
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Member removal failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="database_unavailable", message=type(exc).__name__),
+            )
+            return
+
+        if not deleted:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(
+                    error="member_not_found",
+                    message=f"Member {user_id} was not found in '{slug}'.",
+                ),
+            )
+            return
+        self._send_empty(HTTPStatus.NO_CONTENT)
+
+    def _guard_member_mutation(
+        self,
+        scope: dict[str, Any],
+        user_id: int,
+        target_role: str | None,
+    ) -> dict[str, Any] | None:
+        """Apply the owner-protection rules shared by PATCH and DELETE.
+
+        Returns the targeted member row when the mutation may proceed, and
+        answers with the documented 403/404 when it may not.
+        """
+
+        try:
+            member = _workspace_member(
+                int(scope["workspace"]["id"]),
+                user_id,
+            )
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Member lookup failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="database_unavailable", message=type(exc).__name__),
+            )
+            return None
+
+        if member is None:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(
+                    error="member_not_found",
+                    message=(
+                        f"Member {user_id} was not found in "
+                        f"'{scope['workspace']['slug']}'."
+                    ),
+                ),
+            )
+            return None
+        if str(member["role"]) == "owner":
+            self._send_json(
+                HTTPStatus.FORBIDDEN,
+                ApiError(
+                    error="owner_protected",
+                    message=(
+                        "An owner membership cannot be changed or removed "
+                        "through the members API."
+                    ),
+                ),
+            )
+            return None
+        if int(member["id"]) == int(scope["user"]["id"]):
+            self._send_json(
+                HTTPStatus.FORBIDDEN,
+                ApiError(
+                    error="self_modification_forbidden",
+                    message="A member cannot change or remove its own membership.",
+                ),
+            )
+            return None
+        if (
+            target_role == "admin"
+            and scope["user"]["role"] != "owner"
+        ):
+            self._send_json(
+                HTTPStatus.FORBIDDEN,
+                ApiError(
+                    error="role_escalation_forbidden",
+                    message="Only an owner can grant the admin role.",
+                ),
+            )
+            return None
+        return member
+
+    def _handle_catalog_item_read(self, slug: str, item_id: int) -> None:
+        """Read one catalog item inside the caller's own workspace.
+
+        Item ids are sequential across tenants, so a foreign id must be
+        indistinguishable from an unknown one: both answer 404.
+        """
+
+        scope = self._workspace_scope(
+            slug,
+            "catalog:read",
+            denied_message="The authenticated role cannot read the catalog.",
+            cross_tenant_message=(
+                "The authenticated user cannot read another workspace's catalog."
+            ),
+        )
+        if scope is None:
+            return
+
+        try:
+            item = _catalog_item_by_id(int(scope["workspace"]["id"]), item_id)
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Catalog item read failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="database_unavailable", message=type(exc).__name__),
+            )
+            return
+
+        if item is None:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(
+                    error="item_not_found",
+                    message=(
+                        f"Catalog item {item_id} was not found in "
+                        f"'{scope['workspace']['slug']}'."
+                    ),
+                ),
+            )
+            return
+        self._send_json(
+            HTTPStatus.OK,
+            CatalogItem(
+                id=int(item["id"]),
+                sku=str(item["sku"]),
+                name=str(item["name"]),
+                price_cents=int(item["price_cents"]),
+                status=str(item["status"]),
+            ),
+        )
 
     def _handle_catalog_item_create(self, slug: str) -> None:
         user = self._authorize_catalog_write(slug)
         if user is None:
             return
 
-        try:
-            payload = self._read_request_payload()
-        except (UnicodeDecodeError, ValueError) as exc:
-            self._send_json(
-                HTTPStatus.BAD_REQUEST,
-                ApiError(error="invalid_request", message=str(exc)),
-            )
+        payload = self._read_json_payload()
+        if payload is None:
             return
 
         client_id = self.headers.get("X-QA-Client-Id") or self.client_address[0]
-        retry_after = _rate_limit_retry_after(client_id, now=time.monotonic())
-        if retry_after is not None:
+        budget = _consume_write_budget(
+            client_id,
+            int(user["id"]),
+        )
+        budget_headers = _rate_limit_headers(budget)
+        if budget.limited:
             self._send_json(
                 HTTPStatus.TOO_MANY_REQUESTS,
                 ApiError(
                     error="rate_limited",
-                    message="Too many catalog writes for this client.",
+                    message=(
+                        "Too many catalog writes for this "
+                        f"{budget.scope}."
+                    ),
                 ),
-                headers={"Retry-After": str(max(1, math.ceil(retry_after)))},
+                headers=budget_headers,
             )
             return
 
@@ -1634,6 +2508,7 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             self._send_json(
                 HTTPStatus.UNPROCESSABLE_ENTITY,
                 _validation_error_payload(exc),
+                headers=budget_headers,
             )
             return
 
@@ -1657,6 +2532,7 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                                 "different request body."
                             ),
                         ),
+                        headers=budget_headers,
                     )
                     return
                 raw_status = cached.get("status_code", HTTPStatus.OK.value)
@@ -1664,7 +2540,7 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                 self._send_json(
                     HTTPStatus(int(raw_status)),
                     cached_payload if isinstance(cached_payload, dict) else {},
-                    headers={"Idempotent-Replay": "true"},
+                    headers={"Idempotent-Replay": "true", **budget_headers},
                 )
                 return
 
@@ -1679,6 +2555,7 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                         f"SKU '{request.sku}' already exists in this workspace."
                     ),
                 ),
+                headers=budget_headers,
             )
             return
         except Exception as exc:  # noqa: BLE001
@@ -1689,6 +2566,7 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                     error="database_unavailable",
                     message=type(exc).__name__,
                 ),
+                headers=budget_headers,
             )
             return
 
@@ -1709,7 +2587,8 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             HTTPStatus.CREATED,
             item,
             headers={
-                "Location": f"/api/v1/workspaces/{slug}/catalog/items/{item.id}"
+                "Location": f"/api/v1/workspaces/{slug}/catalog/items/{item.id}",
+                **budget_headers,
             },
         )
 
@@ -1718,13 +2597,8 @@ class SutRequestHandler(BaseHTTPRequestHandler):
         if user is None:
             return
 
-        try:
-            payload = self._read_request_payload()
-        except (UnicodeDecodeError, ValueError) as exc:
-            self._send_json(
-                HTTPStatus.BAD_REQUEST,
-                ApiError(error="invalid_request", message=str(exc)),
-            )
+        payload = self._read_json_payload()
+        if payload is None:
             return
 
         try:
@@ -1845,7 +2719,10 @@ class SutRequestHandler(BaseHTTPRequestHandler):
 
     def _handle_token(self) -> None:
         try:
-            payload = self._read_request_payload()
+            payload = self._read_request_payload(strict_media_type=False)
+        except RequestBodyError as exc:
+            self._send_oauth_error(exc.status, "invalid_request", exc.message)
+            return
         except (UnicodeDecodeError, ValueError) as exc:
             self._send_oauth_error(
                 HTTPStatus.BAD_REQUEST,
@@ -1865,14 +2742,34 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                     "username and password are required",
                 )
                 return
+            client_id = self.headers.get("X-QA-Client-Id") or self.client_address[0]
+            failure_key = _signin_failure_key(client_id, username)
+            retry_after = _signin_retry_after(failure_key)
+            if retry_after is not None:
+                self._send_json(
+                    HTTPStatus.TOO_MANY_REQUESTS,
+                    OAuthErrorResponse(
+                        error="rate_limited",
+                        error_description=(
+                            "Too many failed sign-in attempts for this "
+                            "account; retry after the window expires."
+                        ),
+                    ),
+                    headers={
+                        "Retry-After": str(max(1, math.ceil(retry_after))),
+                    },
+                )
+                return
             user = _authenticate_password(username, password)
             if user is None:
+                _record_signin_failure(failure_key)
                 self._send_oauth_error(
                     HTTPStatus.BAD_REQUEST,
                     "invalid_grant",
                     "username or password is invalid",
                 )
                 return
+            _clear_signin_failures(failure_key)
         elif grant_type == "refresh_token":
             refresh_token = payload.get("refresh_token")
             if not isinstance(refresh_token, str) or not refresh_token:
@@ -1914,7 +2811,10 @@ class SutRequestHandler(BaseHTTPRequestHandler):
 
     def _handle_revoke(self) -> None:
         try:
-            payload = self._read_request_payload()
+            payload = self._read_request_payload(strict_media_type=False)
+        except RequestBodyError as exc:
+            self._send_oauth_error(exc.status, "invalid_request", exc.message)
+            return
         except (UnicodeDecodeError, ValueError) as exc:
             self._send_oauth_error(
                 HTTPStatus.BAD_REQUEST,
@@ -2015,7 +2915,18 @@ class SutRequestHandler(BaseHTTPRequestHandler):
         morsel = cookie.get("qa_access_token")
         return morsel.value if morsel is not None else None
 
-    def _read_request_payload(self) -> dict[str, Any]:
+    def _read_request_payload(
+        self,
+        *,
+        strict_media_type: bool = True,
+    ) -> dict[str, Any]:
+        """Read a small JSON or form body, refusing hostile shapes early.
+
+        ``strict_media_type`` controls how an unreadable ``Content-Type`` is
+        reported: the JSON API answers 415, while the OAuth2 endpoints keep the
+        RFC 6749 habit of a 400 ``invalid_request``.
+        """
+
         raw_length = self.headers.get("Content-Length", "0")
         try:
             content_length = int(raw_length)
@@ -2023,6 +2934,19 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             raise ValueError("Content-Length must be an integer") from exc
         if content_length < 0:
             raise ValueError("Content-Length cannot be negative")
+        if content_length > MAX_REQUEST_BYTES:
+            # Drain a bounded amount so the client is not left mid-request, then
+            # close the connection: the rest of the body is never read.
+            self._drain_request_body(min(content_length, MAX_REQUEST_BYTES + 8192))
+            self.close_connection = True
+            raise RequestBodyError(
+                HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+                "payload_too_large",
+                (
+                    f"Request body must not exceed {MAX_REQUEST_BYTES} bytes; "
+                    f"received {content_length}."
+                ),
+            )
 
         raw_body = self.rfile.read(content_length) if content_length else b""
         if not raw_body:
@@ -2034,11 +2958,59 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             fields = parse_qs(raw_body.decode("utf-8"), keep_blank_values=True)
             return {name: values[-1] for name, values in fields.items()}
         if media_type == "application/json":
-            payload = json.loads(raw_body.decode("utf-8"))
+            try:
+                payload = json.loads(raw_body.decode("utf-8"))
+            except RecursionError as exc:
+                # Deeply nested JSON is a body problem, not a server crash.
+                raise ValueError("JSON request body is nested too deeply") from exc
             if not isinstance(payload, dict):
                 raise ValueError("JSON request body must be an object")
             return payload
+        if strict_media_type:
+            raise RequestBodyError(
+                HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
+                "unsupported_media_type",
+                (
+                    "This endpoint reads application/json; received "
+                    f"{media_type or '<missing>'}."
+                ),
+            )
         raise ValueError(f"unsupported Content-Type: {media_type or '<missing>'}")
+
+    def _drain_request_body(self, limit: int) -> None:
+        """Discard up to ``limit`` bytes of an oversized request body."""
+
+        remaining = limit
+        while remaining > 0:
+            chunk = self.rfile.read(min(8192, remaining))
+            if not chunk:
+                break
+            remaining -= len(chunk)
+
+    def _read_json_payload(self) -> dict[str, Any] | None:
+        """Read a JSON API body, answering 400/413/415 on the way out."""
+
+        try:
+            return self._read_request_payload()
+        except RequestBodyError as exc:
+            self._send_json(
+                exc.status,
+                ApiError(error=exc.error, message=exc.message),
+                # An oversized body is not drained in full, so the connection
+                # cannot be reused for a second request.
+                headers=(
+                    {"Connection": "close"}
+                    if exc.status == HTTPStatus.REQUEST_ENTITY_TOO_LARGE
+                    else None
+                ),
+            )
+            return None
+        except (UnicodeDecodeError, ValueError) as exc:
+            self._send_json(
+                HTTPStatus.BAD_REQUEST,
+                ApiError(error="invalid_request", message=str(exc)),
+            )
+            return None
 
     def _send_oauth_error(
         self,
