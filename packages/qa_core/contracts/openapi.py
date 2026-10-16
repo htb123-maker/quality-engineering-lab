@@ -20,8 +20,13 @@ from qa_core.contracts.api import (
     JobAcceptedResponse,
     JobQueueStatsResponse,
     JobResponse,
+    MemberCreate,
+    MemberResponse,
+    MemberRoleUpdate,
+    MembersResponse,
     OAuthErrorResponse,
     OidcMetadataResponse,
+    PermissionsResponse,
     ReadinessResponse,
     RevokeResponse,
     RootResponse,
@@ -39,6 +44,11 @@ class _ContractBundle(BaseModel):
     token: TokenResponse
     user: UserResponse
     admin_audit: AdminAuditResponse
+    permissions: PermissionsResponse
+    member: MemberResponse
+    members: MembersResponse
+    member_create: MemberCreate
+    member_role_update: MemberRoleUpdate
     revoke: RevokeResponse
     catalog: CatalogResponse
     catalog_item: CatalogItem
@@ -180,6 +190,91 @@ def openapi_document() -> dict[str, Any]:
                     "security": [{"bearerAuth": []}],
                 }
             },
+            "/api/v1/auth/permissions": {
+                "get": {
+                    **_operation(
+                        "Read the caller's role and capabilities",
+                        PermissionsResponse,
+                        error_model=ApiError,
+                    ),
+                    "security": [{"bearerAuth": []}],
+                }
+            },
+            "/api/v1/workspaces/{slug}/members": {
+                "get": {
+                    "summary": "List workspace members",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [_path_parameter("slug")],
+                    "responses": {
+                        "200": _response("Workspace members", MembersResponse),
+                        "400": _response("Invalid workspace slug", ApiError),
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Workspace not found", ApiError),
+                    },
+                },
+                "post": {
+                    "summary": "Invite a member into a workspace",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        _path_parameter("slug"),
+                        _client_id_parameter(),
+                    ],
+                    "requestBody": _json_request_body(MemberCreate),
+                    "responses": {
+                        "201": _response("Created member", MemberResponse),
+                        "400": _response("Malformed request", ApiError),
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Workspace not found", ApiError),
+                        "409": _response("Member already exists", ApiError),
+                        "413": _response("Request body too large", ApiError),
+                        "415": _response("Unsupported media type", ApiError),
+                        "422": _response(
+                            "Request validation failed",
+                            ValidationErrorResponse,
+                        ),
+                    },
+                },
+            },
+            "/api/v1/workspaces/{slug}/members/{user_id}": {
+                "patch": {
+                    "summary": "Change one member's role",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        _path_parameter("slug"),
+                        _path_parameter("user_id", schema={"type": "integer"}),
+                    ],
+                    "requestBody": _json_request_body(MemberRoleUpdate),
+                    "responses": {
+                        "200": _response("Updated member", MemberResponse),
+                        "400": _response("Malformed request", ApiError),
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Member not found", ApiError),
+                        "413": _response("Request body too large", ApiError),
+                        "415": _response("Unsupported media type", ApiError),
+                        "422": _response(
+                            "Request validation failed",
+                            ValidationErrorResponse,
+                        ),
+                    },
+                },
+                "delete": {
+                    "summary": "Remove one member from a workspace",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        _path_parameter("slug"),
+                        _path_parameter("user_id", schema={"type": "integer"}),
+                    ],
+                    "responses": {
+                        "204": {"description": "Removed member"},
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Member not found", ApiError),
+                    },
+                },
+            },
             "/api/v1/workspaces/{slug}/catalog": {
                 "get": {
                     "summary": "Read a workspace catalog",
@@ -294,30 +389,57 @@ def openapi_document() -> dict[str, Any]:
                             "required": False,
                             "schema": {"type": "string", "minLength": 1},
                         },
-                        {
-                            "name": "X-QA-Client-Id",
-                            "in": "header",
-                            "required": False,
-                            "schema": {"type": "string", "minLength": 1},
-                        },
+                        _client_id_parameter(),
                     ],
                     "requestBody": _json_request_body(CatalogItemCreate),
                     "responses": {
-                        "201": _response("Created catalog item", CatalogItem),
+                        "201": {
+                            **_response("Created catalog item", CatalogItem),
+                            "headers": _rate_limit_headers(),
+                        },
                         "400": _response("Malformed request", ApiError),
                         "401": _response("Authentication required", ApiError),
                         "403": _response("Permission denied", ApiError),
                         "404": _response("Workspace not found", ApiError),
                         "409": _response("Idempotency or SKU conflict", ApiError),
+                        "413": _response("Request body too large", ApiError),
+                        "415": _response("Unsupported media type", ApiError),
                         "422": _response(
                             "Request validation failed",
                             ValidationErrorResponse,
                         ),
-                        "429": _response("Rate limited", ApiError),
+                        "429": {
+                            **_response("Rate limited", ApiError),
+                            "headers": {
+                                **_rate_limit_headers(),
+                                "Retry-After": {
+                                    "description": (
+                                        "Whole seconds to wait before the "
+                                        "budget refills."
+                                    ),
+                                    "schema": {"type": "integer", "minimum": 1},
+                                },
+                            },
+                        },
                     },
                 }
             },
             "/api/v1/workspaces/{slug}/catalog/items/{item_id}": {
+                "get": {
+                    "summary": "Read one catalog item",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        _path_parameter("slug"),
+                        _path_parameter("item_id", schema={"type": "integer"}),
+                    ],
+                    "responses": {
+                        "200": _response("Catalog item", CatalogItem),
+                        "400": _response("Invalid workspace slug", ApiError),
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Item not found", ApiError),
+                    },
+                },
                 "patch": {
                     "summary": "Transition a catalog item status",
                     "security": [{"bearerAuth": []}],
@@ -423,4 +545,38 @@ def _path_parameter(
         "in": "path",
         "required": True,
         "schema": schema or {"type": "string"},
+    }
+
+
+def _client_id_parameter() -> dict[str, Any]:
+    return {
+        "name": "X-QA-Client-Id",
+        "in": "header",
+        "required": False,
+        "schema": {"type": "string", "minLength": 1},
+    }
+
+
+def _rate_limit_headers() -> dict[str, Any]:
+    """Return the budget headers every limited endpoint echoes."""
+
+    return {
+        "X-RateLimit-Limit": {
+            "description": "Size of the bucket that is closest to its limit.",
+            "schema": {"type": "integer", "minimum": 0},
+        },
+        "X-RateLimit-Remaining": {
+            "description": "Requests left in that bucket for the current window.",
+            "schema": {"type": "integer", "minimum": 0},
+        },
+        "X-RateLimit-Reset": {
+            "description": "Whole seconds until that bucket refills.",
+            "schema": {"type": "integer", "minimum": 1},
+        },
+        "X-RateLimit-Scope": {
+            "description": (
+                "Which bucket reported the numbers: client or principal."
+            ),
+            "schema": {"type": "string", "enum": ["client", "principal"]},
+        },
     }

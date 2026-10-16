@@ -3,7 +3,7 @@
 - 日期 / Date: 2026-09-30
 - 分支 / Branch: main
 - 基线提交 / Base Commit: 4f5f297
-- 当日提交 / Day Commit: 尚未提交 / not committed
+- 当日提交 / Day Commit: f165884（Day 5 与 Day 6 一起提交；Week 11 记录补正）
 - 完成状态 / Status: 通过 / PASSED
 
 ## 完成状态 / Completion Status
@@ -251,6 +251,8 @@ uv run --no-sync python scripts/check_sut.py `
 ## 风险与限制 / Risks and Limitations
 
 - GitHub Actions workflow 尚未推送和触发。
+  （Week 11 记录补正：workflow 已随 Day 7 的提交推送到 `origin/main`，
+  并在 GitHub Actions 上运行过，见 `reports/daily/DAY-07.md`。）
 - 当前 Compose 默认凭据只允许用于本地一次性测试环境，禁止用于共享或生产环境。
 - 如果修改 init SQL，必须删除本地 volume 后重建，已有 volume 不会自动重放脚本。
 - 当前三个基础镜像来自公共镜像站并已重标记为本地标准标签；镜像清理后需要重新拉取。

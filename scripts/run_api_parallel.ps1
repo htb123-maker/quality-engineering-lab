@@ -9,7 +9,10 @@ $ErrorActionPreference = "Stop"
 
 $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $python = Join-Path $root ".venv\Scripts\python.exe"
-$baseTemp = Join-Path $root "artifacts\pytest-tmp"
+# Keep the xdist base temp inside the workspace and out of ``artifacts``: the
+# repository ignores ``.tmp-*``, and reusing one fixed directory makes the run
+# fail when a previous session left it with unusable permissions.
+$baseTemp = Join-Path $root ".tmp-pytest\api-parallel"
 
 Push-Location $root
 

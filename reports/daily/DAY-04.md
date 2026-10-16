@@ -3,7 +3,8 @@
 - 日期 / Date: 2026-09-27
 - 分支 / Branch: main
 - 基线提交 / Base Commit: cfe8018
-- 当日提交 / Day Commits: 32b97a4, dae6032, 259c37c, 1dadd38, 2e378b5
+- 当日提交 / Day Commits: 32b97a4, dae6032, 259c37c, 1dadd38, 2e378b5, b9f7ca2
+  （最后一个为 Week 11 记录补正）
 - 远程仓库 / Remote: https://github.com/htb123-maker/quality-engineering-lab
 - 完成状态 / Status: 通过 / PASSED
 
@@ -39,6 +40,7 @@ macOS 15 ARM64 runner.
 - 在 GitHub Actions `macos-15-arm64` Runner 完成真实 WDA 和 Simulator session。
 - 根据首次失败证据，将 WDA 启动预算提高到 240 秒并将测试超时提高到 600 秒。
 - 完成一次只读 Agent 分析，记录 iOS 与 Android Driver 创建差异。
+- 记录 Windows 本机质量门禁全部通过的结果（`b9f7ca2`）。
 
 English summary: added the iOS driver factory, typed settings, skip-safe session
 smoke, environment preflight, Simulator selector, runbook, call-chain analysis,

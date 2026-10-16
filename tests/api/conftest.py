@@ -29,6 +29,12 @@ from qa_core.db import DatabaseClient
 from qa_core.events import WebSocketConnection, events_url
 from qa_core.jobs import JobClient
 from qa_core.resource_pools import NamespaceLease, NamespacePool
+from qa_core.security import (
+    MemberApiFactory,
+    SignInThrottleProbe,
+    member_path,
+    members_path,
+)
 
 ATLAS_SLUG = "atlas"
 ORBIT_SLUG = "orbit"
@@ -43,10 +49,13 @@ __all__ = [
     "ATLAS_SLUG",
     "ATLAS_VIEWER_EMAIL",
     "ORBIT_SLUG",
+    "AuthClient",
     "attach_json",
     "connect_event_stream",
     "item_path",
     "items_path",
+    "member_path",
+    "members_path",
     "owner_session",
     "run_id",
     "unique_client_id",
@@ -219,6 +228,54 @@ def owner_access_token(owner_auth: AuthClient) -> str:
     tokens = owner_auth.tokens
     assert tokens is not None, "owner_auth must log in before reading its token"
     return tokens.access_token
+
+
+@pytest.fixture
+def member_api(
+    owner_auth: AuthClient,
+    namespace: NamespaceLease,
+) -> MemberApiFactory:
+    """Return a member factory bound to the leased namespace owner."""
+
+    return MemberApiFactory(owner_auth, namespace.slug)
+
+
+@pytest.fixture
+def role_sessions(
+    owner_auth: AuthClient,
+    member_api: MemberApiFactory,
+    settings: Settings,
+) -> Iterator[dict[str, AuthClient]]:
+    """Log in one member per role so RBAC tests can compare all four.
+
+    The owner session comes from ``owner_auth``; admin, member, and viewer are
+    invited through the members API and then authenticated with the shared test
+    password, which is how the SUT seeds every account.
+    """
+
+    sessions: dict[str, AuthClient] = {"owner": owner_auth}
+    try:
+        for role in ("admin", "member", "viewer"):
+            identity = member_api.invite(role)
+            auth = AuthClient.from_settings(settings)
+            auth.login(identity.email, settings.auth_test_password)
+            sessions[role] = auth
+        yield sessions
+    finally:
+        for role, session in sessions.items():
+            if role != "owner":
+                session.close()
+
+
+@pytest.fixture
+def signin_throttle(settings: Settings) -> Iterator[SignInThrottleProbe]:
+    """Return a probe for the SUT's failed sign-in counter."""
+
+    probe = SignInThrottleProbe(str(settings.redis_url))
+    try:
+        yield probe
+    finally:
+        probe.close()
 
 
 @pytest.fixture

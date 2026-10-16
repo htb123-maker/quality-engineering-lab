@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 Role = Literal["owner", "admin", "member", "viewer"]
 UserStatus = Literal["active", "disabled"]
@@ -12,6 +12,22 @@ CatalogStatus = Literal["active", "archived"]
 GrantType = Literal["password", "refresh_token"]
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
 SkuPattern = r"^[A-Z0-9][A-Z0-9-]*$"
+Capability = Literal[
+    "audit:read",
+    "catalog:read",
+    "catalog:refresh",
+    "catalog:write",
+    "events:read",
+    "jobs:read",
+    "members:read",
+    "members:write",
+]
+
+# Only these roles may be handed out through the members API. ``owner`` is
+# deliberately absent: ownership transfer is not an API operation, so a request
+# can never escalate itself or a peer straight to owner.
+AssignableRole = Literal["admin", "member", "viewer"]
+MemberEmailPattern = r"^[^@\s]+@[^@\s.]+(\.[^@\s.]+)+$"
 
 
 class ContractModel(BaseModel):
@@ -91,6 +107,48 @@ class AdminAuditResponse(ContractModel):
     events: list[str]
 
 
+class PermissionsResponse(ContractModel):
+    """The authenticated caller's role and the capabilities it unlocks."""
+
+    user_id: int = Field(gt=0)
+    workspace_slug: str = Field(min_length=1)
+    role: Role
+    capabilities: list[Capability]
+
+
+class MemberResponse(ContractModel):
+    """One workspace member row."""
+
+    id: int = Field(gt=0)
+    workspace_id: int = Field(gt=0)
+    email: str = Field(min_length=3, max_length=254)
+    display_name: str = Field(min_length=1, max_length=80)
+    role: Role
+    status: UserStatus
+
+
+class MembersResponse(ContractModel):
+    """The member list of one workspace."""
+
+    workspace_slug: str = Field(min_length=1)
+    count: int = Field(ge=0)
+    members: list[MemberResponse]
+
+
+class MemberCreate(ContractModel):
+    """Request body that invites one member into a workspace."""
+
+    email: str = Field(min_length=5, max_length=254, pattern=MemberEmailPattern)
+    display_name: str = Field(min_length=1, max_length=80)
+    role: AssignableRole
+
+
+class MemberRoleUpdate(ContractModel):
+    """Request body that changes one member's role."""
+
+    role: AssignableRole
+
+
 class RevokeResponse(ContractModel):
     """OAuth2 revocation response."""
 
@@ -120,6 +178,15 @@ class CatalogItemCreate(ContractModel):
     sku: str = Field(min_length=3, max_length=64, pattern=SkuPattern)
     name: str = Field(min_length=1, max_length=120)
     price_cents: int = Field(ge=0, le=100_000_000)
+
+    @field_validator("name")
+    @classmethod
+    def _reject_control_characters(cls, value: str) -> str:
+        """Store text, not terminal or protocol control sequences."""
+
+        if any(ord(character) < 32 or ord(character) == 127 for character in value):
+            raise ValueError("name must not contain control characters")
+        return value
 
 
 class CatalogItemStatusUpdate(ContractModel):

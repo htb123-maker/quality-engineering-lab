@@ -18,6 +18,11 @@ Since Week 10 Redis carries more than auth state: the catalog cache
 `jobs:delayed`), and one record per job (`job:*`). Triage lives in
 `docs/runbooks/redis-cache-and-consistency-triage.md`.
 
+Since Week 11 the API also enforces a capability-based role model, scopes object
+ids to their tenant, and keeps two write budgets (`ratelimit:write:*`) plus a
+per-account sign-in failure counter (`auth:signin-failures:*`) in Redis. Triage
+lives in `docs/runbooks/authorization-and-input-security-triage.md`.
+
 The credentials in `.env.example` and Compose defaults are local development
 values. They must never be reused for a shared or production environment.
 
@@ -116,15 +121,17 @@ Expected key results:
 SUT ready: True
 Day 5 database verification: PASS
 Schema check: PASS
-40 passed
+44 passed
 ```
 
 `tests/integration` covers the read-only schema contract, transaction and
 savepoint semantics, isolation-level visibility, a real row-lock wait with
 `pg_locks` evidence, a real deadlock (`40P01`), `EXPLAIN (ANALYZE, BUFFERS)`
 index evidence, cache-versus-database staleness, TTL-driven refresh,
-negative caching, and the background job lifecycle. Lock-wait and deadlock
-triage lives in `docs/runbooks/database-lock-and-deadlock-triage.md`.
+negative caching, the background job lifecycle, and membership writes that must
+land in PostgreSQL (role change, member removal, owner protection, and injection
+containment). Lock-wait and deadlock triage lives in
+`docs/runbooks/database-lock-and-deadlock-triage.md`.
 
 Week 10 added these routes to the SUT:
 
@@ -135,6 +142,17 @@ Week 10 added these routes to the SUT:
 | `GET` | `/api/v1/workspaces/{slug}/events` | WebSocket upgrade; pushes workspace events |
 | `GET` | `/api/v1/jobs` | Queue depth and worker counters |
 | `GET` | `/api/v1/jobs/{job_id}` | One job record, scoped to its workspace |
+
+Week 11 added these routes:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/v1/auth/permissions` | The caller's role and capability list |
+| `GET` | `/api/v1/workspaces/{slug}/members` | Member list (needs `members:read`) |
+| `POST` | `/api/v1/workspaces/{slug}/members` | Invite a member (needs `members:write`) |
+| `PATCH` | `/api/v1/workspaces/{slug}/members/{user_id}` | Change a role; `owner` is never assignable |
+| `DELETE` | `/api/v1/workspaces/{slug}/members/{user_id}` | Remove a member; owners are protected |
+| `GET` | `/api/v1/workspaces/{slug}/catalog/items/{item_id}` | Read one item; foreign ids answer 404 |
 
 Cache and queue knobs come from the Compose environment:
 
@@ -147,6 +165,17 @@ Cache and queue knobs come from the Compose environment:
 | `QA_JOB_WORKER_POLL_SECONDS` | `0.25` | Queue poll interval |
 | `QA_WS_SUBSCRIBER_QUEUE_SIZE` | `64` | Per-subscriber event backlog before events are dropped |
 | `QA_WS_POLL_SECONDS` | `0.2` | Event stream poll interval |
+
+Week 11 security knobs:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `QA_RATE_LIMIT_WRITE_MAX` | `20` | Writes per client id per window |
+| `QA_RATE_LIMIT_PRINCIPAL_MAX` | `40` | Writes per authenticated principal per window |
+| `QA_RATE_LIMIT_WRITE_WINDOW_SECONDS` | `60` | Window shared by both buckets |
+| `QA_AUTH_SIGNIN_FAILURE_MAX` | `10` | Failed password grants per (client, account) before 429 |
+| `QA_AUTH_SIGNIN_FAILURE_WINDOW_SECONDS` | `60` | Sign-in lockout window, stored as the Redis key TTL |
+| `QA_MAX_REQUEST_BYTES` | `65536` | Largest request body; larger bodies answer 413 |
 
 Run the environment-aware API, Android, and iOS smoke matrix:
 

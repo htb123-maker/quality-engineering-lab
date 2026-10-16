@@ -42,3 +42,6 @@ data/
 # OS
 .DS_Store
 Thumbs.db
+
+# Browser automation scratch space
+.playwright-cli/

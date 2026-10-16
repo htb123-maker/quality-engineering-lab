@@ -4,8 +4,8 @@
 - 日期范围 / Date Range: 2026-10-05
 - 分支 / Branch: main
 - 基线提交 / Base Commit: 16860b1
-- 计划提交 / Plan Commit: pending（当前工作区尚未提交）
-- Pull Request: pending
+- 计划提交 / Plan Commit: a061e4b（Week 4 与 Week 5 的代码一起落地）
+- Pull Request: 没有单独 PR；Week 4 与 Week 5 直接提交到 `main`
 
 ## 计划目标 / Plan Goal
 
@@ -262,7 +262,8 @@ ios-simulator in 8m36s
   形成计划提交后必须再触发一次远端 iOS smoke。
 - 本机 `.venv` 仍受 Smart App Control 影响，不能直接加载 `psycopg` 二进制扩展；
   集成测试通过 Linux 脚本执行。
-- 当前改动尚未提交、推送和创建 Pull Request。
+- Week 11 记录补正：本计划的改动已与 Week 5 一起提交为 `a061e4b`，并推送到
+  `origin/main`；没有单独的 Pull Request。
 - 本计划没有覆盖真实 iOS 真机、设备云或签名链路。
 
 ## 计划复盘 / Plan Retrospective

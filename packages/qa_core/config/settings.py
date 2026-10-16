@@ -58,6 +58,14 @@ class Settings(BaseSettings):
         gt=0.0,
         le=3600.0,
     )
+    rate_limit_principal_max: int = Field(default=40, ge=0, le=100_000)
+    auth_signin_failure_max: int = Field(default=10, ge=0, le=1000)
+    auth_signin_failure_window_seconds: float = Field(
+        default=60.0,
+        gt=0.0,
+        le=3600.0,
+    )
+    max_request_bytes: int = Field(default=65_536, ge=1024, le=10_485_760)
     appium_server_url: AnyHttpUrl = Field(
         default_factory=lambda: AnyHttpUrl("http://127.0.0.1:4723")
     )

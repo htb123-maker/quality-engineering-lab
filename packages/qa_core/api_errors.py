@@ -42,6 +42,11 @@ _EXACT: dict[tuple[int, str], tuple[ErrorCategory, str]] = {
         "test",
         "The test asked for a grant type the server does not implement.",
     ),
+    (400, "invalid_workspace_slug"): (
+        "test",
+        "The workspace slug is not a legal identifier, so it was never "
+        "resolved against the database.",
+    ),
     (400, "invalid_grant"): (
         "auth",
         "Credentials or the refresh token were rejected by the auth layer.",
@@ -58,6 +63,18 @@ _EXACT: dict[tuple[int, str], tuple[ErrorCategory, str]] = {
         "permission",
         "The caller is authenticated but lacks the required role or scope.",
     ),
+    (403, "owner_protected"): (
+        "permission",
+        "The request tried to modify an owner row through the members API.",
+    ),
+    (403, "role_escalation_forbidden"): (
+        "permission",
+        "The caller tried to grant a role above its own authority.",
+    ),
+    (403, "self_modification_forbidden"): (
+        "permission",
+        "The caller tried to change or remove its own membership.",
+    ),
     (404, "not_found"): (
         "product",
         "No route matches the request.",
@@ -70,6 +87,10 @@ _EXACT: dict[tuple[int, str], tuple[ErrorCategory, str]] = {
         "product",
         "The catalog item referenced by the request does not exist.",
     ),
+    (404, "member_not_found"): (
+        "product",
+        "The member referenced by the request does not exist in this workspace.",
+    ),
     (409, "sku_conflict"): (
         "product",
         "The SKU already exists in this workspace.",
@@ -81,6 +102,18 @@ _EXACT: dict[tuple[int, str], tuple[ErrorCategory, str]] = {
     (409, "invalid_state_transition"): (
         "product",
         "The requested state change is not allowed by the item's state machine.",
+    ),
+    (409, "member_conflict"): (
+        "product",
+        "The email already belongs to this workspace.",
+    ),
+    (413, "payload_too_large"): (
+        "test",
+        "The request body exceeded the configured size budget.",
+    ),
+    (415, "unsupported_media_type"): (
+        "test",
+        "The request body was sent with a media type the endpoint does not read.",
     ),
     (422, "validation_failed"): (
         "product",

@@ -5,7 +5,8 @@
 - 分支 / Branch: study/week-10-redis-cache-and-consistency
 - 基线提交 / Base Commit: 1c6afd2（week-09 分支）
 - 计划提交 / Plan Commit: 47b1b53
-- Pull Request: 待创建（等待人工确认后推送）
+- Pull Request: https://github.com/htb123-maker/quality-engineering-lab/pull/5
+  （堆叠在 Week 9 分支上）
 
 ## 计划目标 / Plan Goal
 
@@ -295,8 +296,11 @@ jobs:stats:processed 前后 +1，jobs:queue / jobs:delayed 归零
   `scripts/sync_yuque.py`、`tests/unit/test_sync_yuque.py`、
   `docs/runbooks/yuque-project-hub.md`、`docs/architecture/project-overview.md`）。
   本计划只重新生成了索引页以便它们包含 Week 10，未把这些改动纳入本次提交。
-- 已提交到本地 `study/week-10-redis-cache-and-consistency`，尚未推送远程，也尚未
-  创建堆叠 Pull Request，等待人工确认后再执行。
+  Week 11 记录补正：这批文档与工具已在 `8b68296` 提交并推送到
+  `origin/study/week-11-rbac-rate-limit-input-security`。
+- Week 11 记录补正：`47b1b53`（计划提交）与 `8c45794` 已推送到
+  `origin/study/week-10-redis-cache-and-consistency`，堆叠 Pull Request 为
+  https://github.com/htb123-maker/quality-engineering-lab/pull/5。
 
 ## 变更文件 / Files Changed
 
