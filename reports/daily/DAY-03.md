@@ -3,8 +3,9 @@
 - 日期 / Date: 2026-09-27
 - 分支 / Branch: main
 - 基线提交 / Base Commit: edb7c18
-- 当日提交 / Day Commits: 90ba602, b250abb, 808fa15
-- 远程仓库 / Remote: 未配置 / not configured
+- 当日提交 / Day Commits: 90ba602, b250abb, 808fa15, 4cda9a4, b3d7b7d, 55b1eff
+  （后三个为 Week 11 记录补正；本日收尾提交 `cfe8018` 在 DAY-04 登记为基线提交）
+- 远程仓库 / Remote: 未配置（Day 4 创建公开仓库后随当日变更补推，见 DAY-04）
 
 ## 完成状态 / Completion Status
 
@@ -23,6 +24,10 @@ English: automated quality checks and a real Android Appium session passed.
 - 建立 Android Driver Factory 和真实 Android Session Smoke Test。
 - 验证 AOSP ATD 的 launcher 为 `com.android.fakesystemapp/.launcher.EmptyHomeActivity`。
 - 修复 Appium URL 尾斜杠导致 `POST //session` 404 的问题。
+- 新增 `scripts/wait_for_android_ready.ps1`，在启动 Appium 之前等待 Android 服务就绪
+  （`b3d7b7d`）。
+- 把日报模板与 Day 2/Day 3 报告改为中英双语，并补写双语 Day 1 报告
+  （`4cda9a4`、`55b1eff`）。
 
 English summary: completed the Android Appium environment, driver factory,
 real emulator session lifecycle, Allure evidence, and PyCharm run configuration.
@@ -203,6 +208,8 @@ Report successfully generated to artifacts\allure-report
 ## 风险与未验证项 / Risks and Unverified Items
 
 - GitHub `origin` 未配置，PR 创建流程无法验证。
+  （Week 11 记录补正：Day 4 已创建公开仓库并补推本日提交，`gh auth login`
+  也已完成，PR #1 到 #6 已经创建。）
 - GitHub CLI token 无效，需要执行 `gh auth login` 后重新验证。
 - 当前网络对 PyPI/CDN 不稳定，本地可使用 `uv run --no-sync`；CI 或网络恢复后应执行 `uv sync --frozen`。
 
