@@ -3,7 +3,12 @@ param(
     [ValidateRange(10, 600)]
     [int]$WaitSeconds = 120,
 
-    [switch]$SkipBuild
+    [ValidateRange(30, 600)]
+    [int]$DockerWaitSeconds = 180,
+
+    [switch]$SkipBuild,
+
+    [switch]$FaultInjection
 )
 
 Set-StrictMode -Version Latest
@@ -22,6 +27,38 @@ if (-not (Test-Path -LiteralPath $python)) {
     throw "Project virtual environment was not found. Run 'uv sync' first."
 }
 
+function Start-DockerDesktopIfNeeded {
+    & docker info *> $null
+    if ($LASTEXITCODE -eq 0) {
+        return
+    }
+
+    $candidates = @(
+        'C:\Program Files\Docker\Docker\Docker Desktop.exe',
+        (Join-Path $env:LOCALAPPDATA 'Docker\Docker Desktop.exe')
+    )
+    $desktop = $candidates | Where-Object { Test-Path -LiteralPath $_ } |
+        Select-Object -First 1
+    if (-not $desktop) {
+        throw "Docker daemon is unavailable and Docker Desktop was not found."
+    }
+
+    Write-Host "Docker engine is unavailable; starting Docker Desktop..." `
+        -ForegroundColor Yellow
+    Start-Process -FilePath $desktop -WindowStyle Hidden
+
+    $deadline = (Get-Date).AddSeconds($DockerWaitSeconds)
+    while ((Get-Date) -lt $deadline) {
+        Start-Sleep -Seconds 5
+        & docker info *> $null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Docker engine is ready." -ForegroundColor Green
+            return
+        }
+    }
+    throw "Docker engine did not become ready within $DockerWaitSeconds seconds."
+}
+
 Push-Location $root
 
 try {
@@ -31,16 +68,16 @@ try {
         $compose += @("--env-file", $envFile)
     }
     $compose += @("-f", $composeFile)
+    if ($FaultInjection) {
+        $compose += @("--profile", "fault-injection")
+    }
 
     & docker @compose config --quiet
     if ($LASTEXITCODE -ne 0) {
         throw "Docker Compose configuration is invalid."
     }
 
-    & docker info *> $null
-    if ($LASTEXITCODE -ne 0) {
-        throw "Docker daemon is unavailable. Start Docker Desktop and retry."
-    }
+    Start-DockerDesktopIfNeeded
 
     $upArguments = @("up", "--detach", "--wait", "--wait-timeout", $WaitSeconds)
     if (-not $SkipBuild) {
