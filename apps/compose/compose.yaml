@@ -8,6 +8,8 @@ services:
       dockerfile: apps/compose/api/Dockerfile
     environment:
       QA_POSTGRES_DSN: postgresql://${QA_POSTGRES_USER:-qa}:${QA_POSTGRES_PASSWORD:-qa}@postgres:5432/${QA_POSTGRES_DB:-qa}
+      QA_POSTGRES_MAX_CONNECTIONS: ${QA_POSTGRES_MAX_CONNECTIONS:-16}
+      QA_POSTGRES_CONNECTION_TIMEOUT_SECONDS: ${QA_POSTGRES_CONNECTION_TIMEOUT_SECONDS:-2}
       QA_REDIS_URL: redis://redis:6379/0
       QA_LOG_LEVEL: ${QA_LOG_LEVEL:-INFO}
       QA_AUTH_TEST_PASSWORD: ${QA_AUTH_TEST_PASSWORD:-local-test-password}
@@ -90,6 +92,15 @@ services:
       timeout: 3s
       retries: 20
       start_period: 5s
+    restart: unless-stopped
+
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.9.0
+    profiles:
+      - fault-injection
+    ports:
+      - "${QA_TOXIPROXY_CONTROL_PORT:-18474}:8474"
+      - "18100-18103:18100-18103"
     restart: unless-stopped
 
 volumes:

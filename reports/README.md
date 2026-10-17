@@ -2,10 +2,11 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-最新进度：[WEEK-11 - RBAC、BOLA/IDOR、限流边界与输入安全](weekly/WEEK-11.md)
+最新进度：[WEEK-12 - 并行、Mock、Toxiproxy 与缺陷闭环](weekly/WEEK-12.md)
 
 ## 周报 / Weekly Reports
 
+- [WEEK-12 - 并行、Mock、Toxiproxy 与缺陷闭环](weekly/WEEK-12.md)
 - [WEEK-11 - RBAC、BOLA/IDOR、限流边界与输入安全](weekly/WEEK-11.md)
 - [WEEK-10 - Redis TTL、缓存失效与最终一致性](weekly/WEEK-10.md)
 - [WEEK-09 - 数据库 Schema、事务、隔离级别、锁与查询计划](weekly/WEEK-09.md)

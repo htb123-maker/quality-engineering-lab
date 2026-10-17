@@ -14,17 +14,20 @@ import re
 import secrets
 import threading
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from http import HTTPStatus
 from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
+from typing import Any, cast
 from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
 import psycopg
 import redis
+from psycopg import Connection
 from psycopg.rows import dict_row
 from pydantic import BaseModel
 from qa_core.contracts import (
@@ -65,6 +68,14 @@ ResponsePayload = BaseModel | dict[str, Any]
 POSTGRES_DSN = os.getenv(
     "QA_POSTGRES_DSN",
     "postgresql://qa:qa@postgres:5432/qa",
+)
+POSTGRES_MAX_CONNECTIONS = max(
+    1,
+    int(os.getenv("QA_POSTGRES_MAX_CONNECTIONS", "16")),
+)
+POSTGRES_CONNECTION_TIMEOUT_SECONDS = max(
+    0.1,
+    float(os.getenv("QA_POSTGRES_CONNECTION_TIMEOUT_SECONDS", "2")),
 )
 REDIS_URL = os.getenv("QA_REDIS_URL", "redis://redis:6379/0")
 LOG_LEVEL = os.getenv("QA_LOG_LEVEL", "INFO").upper()
@@ -219,16 +230,96 @@ logging.basicConfig(
 LOGGER = logging.getLogger("sut-api")
 
 
+class ConnectionBudgetExhausted(RuntimeError):
+    """Raised when no PostgreSQL connection slot becomes available in time."""
+
+
+@dataclass(frozen=True)
+class ConnectionBudgetSnapshot:
+    """Point-in-time usage of one bounded connection resource."""
+
+    capacity: int
+    active: int
+    peak: int
+    wait_seconds: float
+
+
+class ConnectionBudget:
+    """Bound concurrent database connections and expose high-water evidence."""
+
+    def __init__(self, *, capacity: int, wait_seconds: float) -> None:
+        if capacity < 1:
+            raise ValueError("capacity must be at least 1")
+        if wait_seconds <= 0:
+            raise ValueError("wait_seconds must be positive")
+        self._capacity = capacity
+        self._wait_seconds = wait_seconds
+        self._slots = threading.BoundedSemaphore(capacity)
+        self._state_lock = threading.Lock()
+        self._active = 0
+        self._peak = 0
+
+    @contextmanager
+    def slot(self) -> Iterator[None]:
+        """Hold one slot for the duration of a database operation."""
+
+        acquired = self._slots.acquire(timeout=self._wait_seconds)
+        if not acquired:
+            raise ConnectionBudgetExhausted(
+                "PostgreSQL connection budget is exhausted"
+            )
+        with self._state_lock:
+            self._active += 1
+            self._peak = max(self._peak, self._active)
+        try:
+            yield
+        finally:
+            with self._state_lock:
+                self._active -= 1
+            self._slots.release()
+
+    @property
+    def snapshot(self) -> ConnectionBudgetSnapshot:
+        """Return capacity, current usage, and the observed peak."""
+
+        with self._state_lock:
+            return ConnectionBudgetSnapshot(
+                capacity=self._capacity,
+                active=self._active,
+                peak=self._peak,
+                wait_seconds=self._wait_seconds,
+            )
+
+
+_POSTGRES_BUDGET = ConnectionBudget(
+    capacity=POSTGRES_MAX_CONNECTIONS,
+    wait_seconds=POSTGRES_CONNECTION_TIMEOUT_SECONDS,
+)
+
+
+@contextmanager
+def _postgres_connection() -> Iterator[Connection[dict[str, Any]]]:
+    """Open one budgeted PostgreSQL connection and close it on exit."""
+
+    with _POSTGRES_BUDGET.slot():
+        raw_connection = psycopg.connect(POSTGRES_DSN, connect_timeout=2)
+        connection = cast(Connection[dict[str, Any]], raw_connection)
+        with connection:
+            yield connection
+
+
 def _postgres_check() -> dict[str, Any]:
-    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT current_database(), current_user")
+    with _postgres_connection() as connection:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                "SELECT current_database() AS database, current_user AS user"
+            )
             row = cursor.fetchone()
 
     return {
         "status": "ok",
-        "database": row[0] if row else None,
-        "user": row[1] if row else None,
+        "database": row["database"] if row else None,
+        "user": row["user"] if row else None,
     }
 
 
@@ -276,7 +367,7 @@ def _close_quietly(client: Any) -> None:
 
 
 def _find_user_by_email(email: str) -> dict[str, Any] | None:
-    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+    with _postgres_connection() as connection:
         with connection.cursor(row_factory=dict_row) as cursor:
             cursor.execute(
                 """
@@ -298,7 +389,7 @@ def _find_user_by_email(email: str) -> dict[str, Any] | None:
 
 
 def _find_user_by_id(user_id: int) -> dict[str, Any] | None:
-    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+    with _postgres_connection() as connection:
         with connection.cursor(row_factory=dict_row) as cursor:
             cursor.execute(
                 """
@@ -457,7 +548,7 @@ def _user_payload(user: dict[str, Any]) -> UserResponse:
 
 
 def _catalog_payload(slug: str) -> tuple[HTTPStatus, CatalogResponse | ApiError]:
-    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+    with _postgres_connection() as connection:
         with connection.cursor(row_factory=dict_row) as cursor:
             cursor.execute(
                 """
@@ -801,7 +892,7 @@ def _store_idempotent_response(
 
 
 def _workspace_by_slug(slug: str) -> dict[str, Any] | None:
-    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+    with _postgres_connection() as connection:
         with connection.cursor(row_factory=dict_row) as cursor:
             cursor.execute(
                 "SELECT id, slug, name FROM workspaces WHERE slug = %s",
@@ -811,7 +902,7 @@ def _workspace_by_slug(slug: str) -> dict[str, Any] | None:
 
 
 def _catalog_item_by_id(workspace_id: int, item_id: int) -> dict[str, Any] | None:
-    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+    with _postgres_connection() as connection:
         with connection.cursor(row_factory=dict_row) as cursor:
             cursor.execute(
                 """
@@ -840,7 +931,7 @@ def _member_payload(row: dict[str, Any]) -> MemberResponse:
 def _workspace_members(workspace_id: int) -> list[dict[str, Any]]:
     """Return every member of one workspace, oldest first."""
 
-    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+    with _postgres_connection() as connection:
         with connection.cursor(row_factory=dict_row) as cursor:
             cursor.execute(
                 """
@@ -857,7 +948,7 @@ def _workspace_members(workspace_id: int) -> list[dict[str, Any]]:
 def _workspace_member(workspace_id: int, user_id: int) -> dict[str, Any] | None:
     """Return one member row, scoped to its workspace so ids cannot cross."""
 
-    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+    with _postgres_connection() as connection:
         with connection.cursor(row_factory=dict_row) as cursor:
             cursor.execute(
                 """
@@ -876,7 +967,7 @@ def _insert_workspace_member(
 ) -> MemberResponse:
     """Invite one member and return the stored row."""
 
-    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+    with _postgres_connection() as connection:
         with connection.cursor(row_factory=dict_row) as cursor:
             cursor.execute(
                 """
@@ -906,7 +997,7 @@ def _update_member_role(
 ) -> MemberResponse | None:
     """Change one member's role inside its workspace."""
 
-    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+    with _postgres_connection() as connection:
         with connection.cursor(row_factory=dict_row) as cursor:
             cursor.execute(
                 """
@@ -925,7 +1016,7 @@ def _update_member_role(
 def _delete_workspace_member(workspace_id: int, user_id: int) -> bool:
     """Delete one member row; the workspace itself is untouched."""
 
-    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+    with _postgres_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 "DELETE FROM users WHERE workspace_id = %s AND id = %s",
@@ -938,7 +1029,7 @@ def _create_catalog_item(
     workspace_id: int,
     request: CatalogItemCreate,
 ) -> CatalogItem:
-    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+    with _postgres_connection() as connection:
         with connection.cursor(row_factory=dict_row) as cursor:
             cursor.execute(
                 """
@@ -965,7 +1056,7 @@ def _update_catalog_item_status(
     item_id: int,
     status: str,
 ) -> CatalogItem | None:
-    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+    with _postgres_connection() as connection:
         with connection.cursor(row_factory=dict_row) as cursor:
             cursor.execute(
                 """
@@ -982,7 +1073,7 @@ def _update_catalog_item_status(
 
 
 def _delete_catalog_item(workspace_id: int, item_id: int) -> bool:
-    with psycopg.connect(POSTGRES_DSN, connect_timeout=2) as connection:
+    with _postgres_connection() as connection:
         with connection.cursor() as cursor:
             cursor.execute(
                 "DELETE FROM catalog_items WHERE workspace_id = %s AND id = %s",

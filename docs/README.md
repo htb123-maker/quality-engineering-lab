@@ -2,7 +2,7 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-共 25 篇设计文档，按主题分组。
+共 28 篇设计文档，按主题分组。
 
 ## 目标与计划 / Goals and Plan
 
@@ -25,6 +25,7 @@
 - [ADR-0007: 事务、隔离级别与锁测试策略](adr/0007-transaction-isolation-and-lock-testing.md)
 - [ADR-0008: 缓存旁路、TTL 与最终一致性策略](adr/0008-cache-aside-ttl-and-eventual-consistency.md)
 - [ADR-0009: RBAC 能力矩阵、BOLA 与输入加固](adr/0009-rbac-bola-and-input-hardening.md)
+- [ADR-0010: 并行连接预算、故障注入与缺陷草稿](adr/0010-parallel-budgets-fault-injection-and-defect-drafts.md)
 
 ## 测试策略 / Test Strategy
 
@@ -38,8 +39,10 @@
 - [API 契约失败排查 / API Contract Failure Triage](runbooks/contract-test-failures.md)
 - [数据库锁等待与死锁排查 / Database Lock-Wait and Deadlock Triage](runbooks/database-lock-and-deadlock-triage.md)
 - [Failed Quality Gate Triage Runbook](runbooks/failed-quality-gate.md)
+- [Fault Injection and Defect Draft Triage](runbooks/fault-injection-and-defect-drafts.md)
 - [iOS XCUITest Simulator Runbook](runbooks/ios-xcuitest-simulator.md)
 - [Local SUT Docker Compose Runbook](runbooks/local-sut-compose.md)
 - [并行数据隔离失败排查 / Parallel Data-Isolation Failure Triage](runbooks/parallel-data-isolation-failures.md)
 - [Redis Cache and Consistency Triage](runbooks/redis-cache-and-consistency-triage.md)
+- [Week 1 Environment Recovery](runbooks/week1-environment-recovery.md)
 - [Yuque Project Hub Runbook](runbooks/yuque-project-hub.md)

@@ -59,6 +59,8 @@ Collect the smallest bundle that distinguishes product, test, and environment
 failure:
 
 - pytest output with the first failing assertion or exception.
+- `artifacts/defect-drafts/defects.jsonl`, generated automatically on a
+  call-phase failure, for the stable fingerprint and reproduction evidence.
 - `artifacts/smoke-matrix.json`.
 - `artifacts/allure-results/`.
 - Relevant Compose logs:
@@ -73,6 +75,10 @@ docker compose -f apps/compose/compose.yaml logs --no-color --tail 200 redis
 - Android `adb` state and `logcat` tail for a device failure.
 - iOS Simulator state, WDA build log, and Appium debug log for an iOS failure.
 - Screenshot and page source only when an element or UI assertion is involved.
+
+The draft file is evidence, not a formal issue. Do not edit
+`requires_human_approval` or create a tracker item until a human has triaged the
+failure.
 
 Do not attach the whole user profile, browser data, `.env`, tokens, certificates,
 or production data.
