@@ -4,7 +4,7 @@
 - 日期范围 / Date Range: 2026-10-17
 - 分支 / Branch: study/week-12-parallel-mock-defect-loop
 - 基线提交 / Base Commit: 8057a4a（week-11 分支）
-- 计划提交 / Plan Commit: 未提交 / Not committed
+- 计划提交 / Plan Commit: 8481979
 - Pull Request: 未创建 / Not created
 
 ## 计划目标 / Plan Goal
