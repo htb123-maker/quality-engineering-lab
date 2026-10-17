@@ -20,13 +20,18 @@ def test_disabled_proxy_fails_fast_and_recovers_when_enabled(
     client.set_proxy_enabled(proxy_name, enabled=False)
     try:
         with httpx.Client(base_url=proxy_url, timeout=0.5) as http:
-            response = http.get("/health/live")
+            try:
+                response = http.get("/health/live")
+            except httpx.TransportError:
+                fault_observed = True
+            else:
+                fault_observed = response.status_code >= 500
     finally:
         client.set_proxy_enabled(proxy_name, enabled=True)
 
-    # Toxiproxy answers through the published Docker port with a fast 502 while
-    # its listener is disabled; success would mean the fault was not applied.
-    assert response.status_code == 502
+    # Docker publishes the listener differently by host: Windows returns 502,
+    # while Linux resets the connection. Both prove the request did not succeed.
+    assert fault_observed
 
     with httpx.Client(base_url=proxy_url, timeout=1.0) as http:
         response = http.get("/health/live")
