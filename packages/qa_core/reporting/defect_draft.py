@@ -163,15 +163,15 @@ class JsonlDefectDraftStore:
         lock_path = self._path.with_suffix(f"{self._path.suffix}.lock")
         with lock_path.open("a+b") as lock_file:
             if os.name == "nt":
-                import msvcrt
+                msvcrt_api: Any = importlib.import_module("msvcrt")
 
                 lock_file.seek(0)
-                msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+                msvcrt_api.locking(lock_file.fileno(), msvcrt_api.LK_LOCK, 1)
                 try:
                     yield
                 finally:
                     lock_file.seek(0)
-                    msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
+                    msvcrt_api.locking(lock_file.fileno(), msvcrt_api.LK_UNLCK, 1)
             else:
                 fcntl_api: Any = importlib.import_module("fcntl")
 
