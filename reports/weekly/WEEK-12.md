@@ -24,7 +24,7 @@ defect creation and closure behind explicit approval.
 
 ## 当前状态 / Current Status
 
-**本地通过，等待 PR CI / LOCAL PASS, PR CI PENDING。**
+**通过 / PASS。**
 
 已完成并验证：
 
@@ -38,7 +38,8 @@ defect creation and closure behind explicit approval.
 
 尚未完成或被环境阻塞：
 
-- PR 已创建，Linux CI 尚未完成。
+- PR [#7](https://github.com/htb123-maker/quality-engineering-lab/pull/7) 的两个 CI 检查
+  均已通过，PR 保持 draft，等待人工评审。
 - SUT 到 PostgreSQL/Redis 的依赖流量还没有串入 Toxiproxy，因此真实数据库超时和
   Redis 断连仍需后续扩展代理拓扑。
 
@@ -159,7 +160,8 @@ Week 23 的 E2E 证据链与 Week 31 的 CI 质量门禁提供结构化草稿、
 | API parallel `-n 4` | 通过 / PASS | Windows + Compose SUT | `233 passed, 1 xfailed in 17.31s` |
 | Leftover check | 通过 / PASS | Windows | `test_namespaces=0, prefix='qa-ns-'` |
 | Toxiproxy fault tests | 通过 / PASS | Windows | `2 passed in 0.39s` |
-| Linux container | 未运行 / NOT RUN | Linux container | 待 PR CI |
+| Linux container | 通过 / PASS | GitHub Actions Ubuntu | Integration `44 passed`；API parallel `233 passed, 1 xfailed` |
+| PR CI | 通过 / PASS | GitHub Actions | [Quality Gates](https://github.com/htb123-maker/quality-engineering-lab/actions/runs/39049991541)、[SUT Integration](https://github.com/htb123-maker/quality-engineering-lab/actions/runs/39049991577) |
 
 ## 验收方式 / Acceptance Method
 
@@ -219,7 +221,6 @@ PASS Schema contract: tables=3, views=1, violations=0
 
 ### 未验证项 / Unverified Items
 
-- Linux 容器和 GitHub Actions 尚未运行。
 - 多副本 SUT 下每个进程各有独立连接预算，总连接数未做压测。
 - setup/teardown 失败尚未生成缺陷草稿。
 - 正式 GitHub/GitLab Issue Adapter 尚未实现。
@@ -262,5 +263,5 @@ PASS Schema contract: tables=3, views=1, violations=0
 
 1. 在可拉取镜像的环境执行两条 Toxiproxy 用例，并记录代理清理结果。
 2. 重跑 `pytest -n 4`，确认并发写、连接预算和命名空间残留检查。
-3. 创建 Week 12 PR，等待 Linux CI 结果。
-4. 如果 CI 通过，收口周报状态；如果失败，使用本地缺陷草稿先分类再修改。
+3. Week 12 已完成本地与 PR CI 验收，等待人工决定是否合并。
+4. Week 13 进入 Android Appium 架构、UiAutomator2、ADB 与 PyCharm 调用链调试。
