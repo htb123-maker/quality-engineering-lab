@@ -156,6 +156,12 @@ Automation may:
 - Generate a defect draft.
 - Add regression evidence to an existing defect.
 
+The local pytest plugin writes drafts to
+`artifacts/defect-drafts/defects.jsonl`. A draft has a stable fingerprint,
+pytest node id, commit, environment, reproduction command, first failure, and
+Allure path. The append-only store is locked across xdist processes. This local
+artifact is a handoff to human triage, not a formal issue.
+
 Human approval is required to:
 
 - Create a formal defect.
@@ -165,6 +171,10 @@ Human approval is required to:
 
 Automation must never auto-create a defect for every failure, hide flaky
 failures with retries, or close a defect.
+
+`qa_core.integrations.defect_tracking.lifecycle.require_transition` rejects an
+empty approver and rejects a transition outside the declared state graph.
+Draft generation never calls this helper with an automatic approver.
 
 ## Metrics
 

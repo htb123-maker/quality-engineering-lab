@@ -10,6 +10,8 @@ on:
       - "packages/qa_core/data_factories/**"
       - "packages/qa_core/db/**"
       - "packages/qa_core/resource_pools/**"
+      - "packages/qa_core/resilience/**"
+      - "packages/qa_core/reporting/**"
       - "scripts/check_sut.py"
       - "scripts/check_schema.py"
       - "scripts/run_api_parallel.ps1"
@@ -27,6 +29,8 @@ on:
       - "packages/qa_core/data_factories/**"
       - "packages/qa_core/db/**"
       - "packages/qa_core/resource_pools/**"
+      - "packages/qa_core/resilience/**"
+      - "packages/qa_core/reporting/**"
       - "scripts/check_sut.py"
       - "scripts/check_schema.py"
       - "scripts/run_api_parallel.ps1"
@@ -66,7 +70,8 @@ jobs:
 
       - name: Start SUT
         run: |
-          docker compose -f apps/compose/compose.yaml up \
+          docker compose -f apps/compose/compose.yaml \
+            --profile fault-injection up \
             --detach --wait --wait-timeout 120 --build
 
       - name: Check API, PostgreSQL, and Redis
@@ -114,4 +119,6 @@ jobs:
 
       - name: Stop SUT
         if: always()
-        run: docker compose -f apps/compose/compose.yaml down --volumes --remove-orphans
+        run: |
+          docker compose -f apps/compose/compose.yaml \
+            --profile fault-injection down --volumes --remove-orphans

@@ -27,12 +27,13 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers -p qa_core.plugins.defect_drafts"
 testpaths = ["tests"]
 pythonpath = ["packages", "src"]
 markers = [
     "api: API tests requiring the local SUT",
     "android: Android Appium tests requiring an emulator or real device",
+    "fault_injection: tests that require the optional Toxiproxy service",
     "integration: tests requiring the local Docker Compose SUT",
     "ios: iOS Appium tests requiring macOS, Xcode, and an iOS simulator or device",
     "unit: fast isolated unit tests",

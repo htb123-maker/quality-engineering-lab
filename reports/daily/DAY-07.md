@@ -451,3 +451,38 @@ ios-simulator in 3m49s
 4. 视需要关闭 Smart App Control，或在 Ubuntu Runner 上继续承担集成测试职责。
 5. 把 iOS smoke 从手动 `workflow_dispatch` 改为按需定时或标签触发，
    让跨平台 smoke 有稳定的周期性证据。
+
+## 2026-10-18 复核 / Follow-up Verification
+
+Week 1 的出口条件重新实测通过，以下结果覆盖当前分支环境：
+
+| 检查项 / Check | 结果 / Status | 复核证据 / Re-check Evidence |
+| --- | --- | --- |
+| Python / psycopg / mypy | 通过 / PASS | psycopg 3.3.6、mypy 2.3.1 可导入 |
+| Local integration | 通过 / PASS | `44 passed in 9.38s` |
+| API smoke | 通过 / PASS | `1 passed` |
+| Android smoke | 通过 / PASS | `1 passed in 5.71s` |
+| iOS macOS workflow | 通过 / PASS | Run `37327396190`，最新记录为 success |
+| Smoke soak | 通过 / PASS | 10/10 轮、20 次执行、`leaked: False` |
+| Allure | 通过 / PASS | `artifacts/allure-report-week1-recheck/index.html` |
+| Docker 恢复 | 通过 / PASS | `start_sut.ps1` 自动启动 Docker Desktop 后 SUT ready |
+| Appium 启动 | 通过 / PASS | `start_appium.ps1` 选择 JAVA_HOME Java 21 并 ready |
+| PyCharm 断点 | 人工确认 / MANUAL | SDK 与三个 Run Configuration 已存在，尚未做 UI 断点实测 |
+
+对原风险的更新：
+
+- **Smart App Control 当前不再是阻塞。** 策略值仍为 `1`，但 `psycopg`、
+  `mypy` 和 `pydantic_core` 均可导入，本机集成测试也已恢复。没有关闭系统策略。
+- **Docker 空闲关闭已自动化。** `scripts/start_sut.ps1` 会启动 Docker Desktop
+  并等待 engine，不再要求人工先启动。
+- **Appium Java 环境已固定。** `java` 命令本身仍指向 Java 8，但
+  `JAVA_HOME` 和新的 `scripts/start_appium.ps1` 使用 Java 21；UiAutomator2
+  doctor 无必需修复项。
+- **`check_sut.py` 的导入失败已加固。** 新增单元测试验证缺少 psycopg 时返回
+  可执行的错误说明，而不是在模块导入阶段崩溃。
+- **iOS 本机限制仍存在。** Windows 上 iOS smoke 继续明确 skip；真实证据仍来自
+  macOS workflow。
+- **PyCharm 断点仍是唯一人工项。** 命令行测试不能替代 IDE UI 的实际断点操作。
+
+恢复步骤见
+`docs/runbooks/week1-environment-recovery.md`。

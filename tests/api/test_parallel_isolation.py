@@ -5,7 +5,10 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
+from threading import Barrier
+from uuid import uuid4
 
 import pytest
 from qa_core.auth import AuthClient
@@ -162,3 +165,40 @@ def test_isolated_writes_do_not_change_the_canonical_seed(
         assert created.status_code == 201
 
     assert namespace_factory.seed_counts() == before
+
+
+@pytest.mark.api
+def test_concurrent_writes_to_one_namespace_remain_distinct(
+    namespace: NamespaceLease,
+    owner_auth: AuthClient,
+) -> None:
+    """Exercise request threads, DB budget, and one-owner writes together."""
+
+    writers = 8
+    start = Barrier(writers)
+
+    def create_item(index: int) -> tuple[int, str]:
+        start.wait(timeout=5)
+        sku = f"QA12-CONCURRENT-{index}-{uuid4().hex[:6].upper()}"
+        response = owner_auth.post(
+            items_path(namespace.slug),
+            json={
+                "sku": sku,
+                "name": f"Concurrent item {index}",
+                "price_cents": 100 + index,
+            },
+            headers={"X-QA-Client-Id": unique_client_id(f"concurrent-{index}")},
+        )
+        return response.status_code, sku
+
+    with ThreadPoolExecutor(max_workers=writers) as executor:
+        results = list(executor.map(create_item, range(writers)))
+
+    assert [status for status, _ in results] == [201] * writers
+    catalog = owner_auth.get(f"/api/v1/workspaces/{namespace.slug}/catalog")
+    stored_skus = {item["sku"] for item in catalog.json()["items"]}
+    assert {sku for _, sku in results} <= stored_skus
+    attach_json(
+        "Concurrent write results",
+        {"created_skus": sorted(stored_skus), "requests": writers},
+    )

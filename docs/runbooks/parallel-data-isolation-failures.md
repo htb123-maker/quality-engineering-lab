@@ -77,15 +77,19 @@ counts={'workspaces': 9, 'users': 15, 'items': 21}
 跨工作区用例必须显式获取对端会话，`tests/api/conftest.py` 的
 `owner_session(peer.owner_email, settings)` 就是为此准备的。
 
-## 6. 限流相关偶发失败
+## 6. 限流与连接预算相关偶发失败
 
-限流预算按 `X-QA-Client-Id` 计数，且状态在 SUT 进程内存中：
+Week 11 起限流预算在 Redis，包含 client 与 principal 两个桶：
 
 ```text
 同一 client id 被多个测试复用 -> 预算被别的测试提前耗尽
 用固定 client id                -> 换成 unique_client_id("tag")
-预算已耗尽后想验证正向路径      -> 用新的 client id，或重启 SUT 清空计数
+principal 桶已耗尽              -> NamespacePool 释放租约时应清理该用户预算
 ```
+
+若 `503 database_unavailable` 只在 `pytest -n` 下出现，先检查 SUT 的
+`QA_POSTGRES_MAX_CONNECTIONS` 与 `QA_POSTGRES_CONNECTION_TIMEOUT_SECONDS`。
+连接预算耗尽是显式背压，不应通过无限提高上限或反复重跑掩盖。
 
 ## 7. 幂等键跨轮次回放
 
@@ -103,6 +107,7 @@ counts={'workspaces': 9, 'users': 15, 'items': 21}
 失败用例的命名空间 slug 与 worker 名
 check_sut.py 的输出（含 leftovers 行）
 workspaces 表的 slug 列表
+若涉及连接预算，附上 SUT 配置和 concurrent 用例结果
 ```
 
 并行问题不能用“重跑一次绿了”收口。需要说明是哪一类共享状态、如何被隔离、

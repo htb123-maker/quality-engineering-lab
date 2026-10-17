@@ -9,9 +9,17 @@ import time
 from dataclasses import asdict, dataclass
 
 import httpx
-import psycopg
 import redis
-from psycopg.rows import dict_row
+
+try:
+    import psycopg
+    from psycopg.rows import dict_row
+except (ImportError, OSError) as exc:
+    psycopg = None  # type: ignore[assignment]
+    dict_row = None  # type: ignore[assignment]
+    PSYCOPG_IMPORT_ERROR = f"{type(exc).__name__}: {exc}"
+else:
+    PSYCOPG_IMPORT_ERROR = ""
 
 DEFAULT_API_BASE_URL = "http://127.0.0.1:18000"
 DEFAULT_POSTGRES_DSN = "postgresql://qa:qa@127.0.0.1:15432/qa"
@@ -145,6 +153,19 @@ def wait_for_http_checks(
 
 def check_postgres(postgres_dsn: str) -> list[CheckResult]:
     """Verify the seed identity and report any leaked test namespace."""
+
+    if psycopg is None:
+        return [
+            CheckResult(
+                "PostgreSQL",
+                False,
+                (
+                    "psycopg import failed: "
+                    f"{PSYCOPG_IMPORT_ERROR}. Check Smart App Control or use "
+                    "the container-side psql verification."
+                ),
+            )
+        ]
 
     try:
         with psycopg.connect(postgres_dsn, connect_timeout=3) as connection:

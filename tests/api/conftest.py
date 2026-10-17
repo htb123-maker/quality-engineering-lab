@@ -15,6 +15,7 @@ from contextlib import contextmanager
 from uuid import uuid4
 
 import allure
+import httpx
 import pytest
 from qa_core.auth import AuthClient
 from qa_core.cache import CatalogCacheProbe
@@ -28,6 +29,7 @@ from qa_core.data_factories import (
 from qa_core.db import DatabaseClient
 from qa_core.events import WebSocketConnection, events_url
 from qa_core.jobs import JobClient
+from qa_core.resilience import ToxiproxyClient
 from qa_core.resource_pools import NamespaceLease, NamespacePool
 from qa_core.security import (
     MemberApiFactory,
@@ -291,3 +293,44 @@ def catalog_cache(settings: Settings, namespace: NamespaceLease) -> Iterator[Cat
         yield probe
     finally:
         probe.purge()
+
+
+@pytest.fixture(scope="session")
+def toxiproxy(settings: Settings) -> Iterator[ToxiproxyClient]:
+    """Return the optional fault-injection control client."""
+
+    client = ToxiproxyClient(
+        str(settings.toxiproxy_url),
+        timeout=settings.toxiproxy_timeout_seconds,
+    )
+    try:
+        client.list_proxies()
+    except (httpx.HTTPError, ValueError) as exc:
+        client.close()
+        pytest.skip(f"Toxiproxy is not running: {type(exc).__name__}: {exc}")
+    try:
+        yield client
+    finally:
+        client.close()
+
+
+@pytest.fixture
+def fault_proxy(
+    toxiproxy: ToxiproxyClient,
+    settings: Settings,
+) -> Iterator[tuple[ToxiproxyClient, str, str]]:
+    """Yield a worker-specific API proxy and its host-side base URL."""
+
+    worker = worker_id()
+    worker_index = int(worker.removeprefix("gw")) if worker.startswith("gw") else 0
+    port = settings.toxiproxy_proxy_port_base + worker_index
+    name = f"qa-week12-{worker}"
+    proxy = toxiproxy.ensure_proxy(
+        name=name,
+        listen=f"0.0.0.0:{port}",
+        upstream="api:8000",
+    )
+    try:
+        yield toxiproxy, proxy.name, f"http://127.0.0.1:{port}"
+    finally:
+        toxiproxy.delete_proxy(proxy.name)

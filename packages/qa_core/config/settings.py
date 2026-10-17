@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     api_retry_backoff_seconds: float = Field(default=0.25, ge=0.0, le=30.0)
     api_retry_max_backoff_seconds: float = Field(default=2.0, ge=0.0, le=120.0)
     api_retry_jitter_ratio: float = Field(default=0.2, ge=0.0, le=1.0)
+    toxiproxy_url: AnyHttpUrl = Field(
+        default_factory=lambda: AnyHttpUrl("http://127.0.0.1:18474")
+    )
+    toxiproxy_timeout_seconds: float = Field(default=2.0, gt=0.0, le=30.0)
+    toxiproxy_proxy_port_base: int = Field(default=18100, ge=1024, le=65531)
     auth_mode: AuthMode = "bearer"
     auth_token_path: str = Field(default="/oauth/token", pattern=r"^/")
     auth_revoke_path: str = Field(default="/oauth/revoke", pattern=r"^/")
@@ -95,6 +100,12 @@ class Settings(BaseSettings):
     )
     postgres_dsn: PostgresDsn = Field(
         default_factory=lambda: PostgresDsn("postgresql://qa:qa@127.0.0.1:15432/qa")
+    )
+    postgres_max_connections: int = Field(default=16, ge=1, le=10_000)
+    postgres_connection_timeout_seconds: float = Field(
+        default=2.0,
+        gt=0.0,
+        le=120.0,
     )
     redis_url: RedisDsn = Field(
         default_factory=lambda: RedisDsn("redis://127.0.0.1:26379/0")

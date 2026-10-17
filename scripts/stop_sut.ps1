@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param(
-    [switch]$RemoveVolumes
+    [switch]$RemoveVolumes,
+
+    [switch]$FaultInjection
 )
 
 Set-StrictMode -Version Latest
@@ -22,6 +24,9 @@ try {
         $compose += @("--env-file", $envFile)
     }
     $compose += @("-f", $composeFile)
+    if ($FaultInjection) {
+        $compose += @("--profile", "fault-injection")
+    }
 
     $downArguments = @("down", "--remove-orphans")
     if ($RemoveVolumes) {
