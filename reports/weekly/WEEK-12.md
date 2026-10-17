@@ -5,7 +5,7 @@
 - 分支 / Branch: study/week-12-parallel-mock-defect-loop
 - 基线提交 / Base Commit: 8057a4a（week-11 分支）
 - 计划提交 / Plan Commit: 8481979
-- Pull Request: 未创建 / Not created
+- Pull Request: https://github.com/htb123-maker/quality-engineering-lab/pull/7
 
 ## 计划目标 / Plan Goal
 
@@ -38,7 +38,7 @@ defect creation and closure behind explicit approval.
 
 尚未完成或被环境阻塞：
 
-- PR 尚未创建，Linux CI 尚未运行。
+- PR 已创建，Linux CI 尚未完成。
 - SUT 到 PostgreSQL/Redis 的依赖流量还没有串入 Toxiproxy，因此真实数据库超时和
   Redis 断连仍需后续扩展代理拓扑。
 
