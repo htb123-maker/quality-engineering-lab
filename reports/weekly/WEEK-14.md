@@ -4,7 +4,7 @@
 - 日期范围 / Date Range: 2026-10-18
 - 分支 / Branch: study/week-14-android-locators
 - 基线提交 / Base Commit: f349f3d（week-13 文档收口）
-- 计划提交 / Plan Commit: 待记录 / To be recorded in the follow-up docs commit
+- 计划提交 / Plan Commit: 2e8eb5f
 - Pull Request: 未创建 / Not created
 
 ## 计划目标 / Plan Goal
