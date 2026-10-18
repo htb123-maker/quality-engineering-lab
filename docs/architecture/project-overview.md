@@ -45,6 +45,8 @@ Redis 协议和 Appium 会话访问 `apps/compose` 提供的被测系统。`docs
 | 测试数据 | 数据工厂、测试命名空间隔离、资源池 | `packages/qa_core/data_factories/`、`resource_pools/` |
 | 移动端 | Appium 2 Python Client、UiAutomator2、XCUITest + WDA | `packages/qa_core/driver/` |
 | Android UI 框架 | 类型化 Locator、显式等待、Screen/Component/Flow 与手势 | `packages/qa_core/mobile/`、`packages/qa_core/platforms/android/` |
+| Android 系统交互 | 权限、Hybrid、文件、剪贴板、Intent 与前台恢复 | `packages/qa_core/platforms/android/` |
+| Android 测试夹具 | 可构建的权限弹窗、WebView、深链接与恢复 App | `apps/android-fixture/` |
 | 报告 | Allure 结果、缺陷指纹、命名空间泄漏报告 | `packages/qa_core/reporting/`、`artifacts/` |
 | 并发 | pytest-xdist（`pytest -n 4`） | `pyproject.toml` |
 | 日志 | structlog | `packages/qa_core/http/client.py` |
@@ -71,6 +73,8 @@ Redis 协议和 Appium 会话访问 `apps/compose` 提供的被测系统。`docs
 
 Android UI 分层、定位策略与显式等待边界见
 [Android Screen Framework](android-screen-framework.md)。
+权限弹窗、Hybrid、文件和恢复调用见
+[Android System Interactions](android-system-interactions.md)。
 
 ## 4. 建议阅读顺序
 

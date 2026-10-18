@@ -4,8 +4,8 @@
 
 import allure
 import pytest
+from appium.webdriver.webdriver import WebDriver
 from qa_core.config.settings import Settings
-from qa_core.driver.android import create_android_driver
 
 
 @allure.epic("Quality Engineering Lab")
@@ -18,17 +18,13 @@ from qa_core.driver.android import create_android_driver
 @allure.link("docs/runbooks/failed-quality-gate.md", name="Failure triage runbook")
 def test_android_session_starts_and_quits(
     settings: Settings,
-    require_android_smoke_prerequisites: None,
+    android_driver: WebDriver,
 ) -> None:
-    del require_android_smoke_prerequisites
-    driver = create_android_driver(settings)
+    driver = android_driver
 
-    try:
-        assert driver.session_id
-        assert driver.current_package == settings.android_app_package
+    assert driver.session_id
+    assert driver.current_package == settings.android_app_package
 
-        window_size = driver.get_window_size()
-        assert window_size["width"] > 0
-        assert window_size["height"] > 0
-    finally:
-        driver.quit()
+    window_size = driver.get_window_size()
+    assert window_size["width"] > 0
+    assert window_size["height"] > 0

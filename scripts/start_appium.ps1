@@ -96,7 +96,8 @@ $appium = $appiumCommand.Source
 $arguments = @(
     "--address", "127.0.0.1",
     "--port", $Port,
-    "--log-level", $LogLevel
+    "--log-level", $LogLevel,
+    "--allow-insecure", "chromedriver_autodownload"
 )
 
 Start-Process `
