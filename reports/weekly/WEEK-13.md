@@ -4,7 +4,7 @@
 - 日期范围 / Date Range: 2026-10-18
 - 分支 / Branch: study/week-13-android-appium-architecture
 - 基线提交 / Base Commit: c68ffd5（week-12 分支）
-- 计划提交 / Plan Commit: 待记录 / To be recorded in the follow-up docs commit
+- 计划提交 / Plan Commit: b24a3d4
 - Pull Request: 未创建 / Not created
 
 ## 计划目标 / Plan Goal
