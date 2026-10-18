@@ -4,7 +4,7 @@
 - 日期范围 / Date Range: 2026-10-18
 - 分支 / Branch: study/week-15-android-permissions-recovery
 - 基线提交 / Base Commit: c36ce05（week-14 已推送分支）
-- 计划提交 / Plan Commit: 待记录 / To be recorded in the follow-up docs commit
+- 计划提交 / Plan Commit: 601e74f
 - Pull Request: 未创建 / Not created
 
 ## 计划目标 / Plan Goal
