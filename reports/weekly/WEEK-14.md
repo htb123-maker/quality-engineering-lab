@@ -5,6 +5,8 @@
 - 分支 / Branch: study/week-14-android-locators
 - 基线提交 / Base Commit: f349f3d（week-13 文档收口）
 - 计划提交 / Plan Commit: 2e8eb5f
+- 远端分支 / Remote Branch:
+  `origin/study/week-14-android-locators`（850373e）
 - Pull Request: 未创建 / Not created
 
 ## 计划目标 / Plan Goal
@@ -36,7 +38,7 @@ business flows, validated gestures, and one real-device-path smoke test.
 
 未执行：
 
-- GitHub Actions；本分支尚未推送。
+- GitHub Actions；远端分支已推送，但尚未创建 PR，因此没有 PR CI。
 - iOS 手势适配；Week 14 只建立 Android 基线。
 - 双 AVD、真机和 60 条 Android 测试；按计划属于 Week 16。
 
@@ -199,7 +201,7 @@ Success: no issues found in 131 source files
 - 复杂滚动容器、系统手势冲突和不同屏幕密度下的 swipe 参数。
 - iOS XCUITest 的等价 wait、component 和 gesture adapter。
 - 双 AVD、真机、设备云和 60 条 Android 测试规模。
-- GitHub Actions 与远端分支/PR。
+- GitHub Actions 与 PR。
 
 ## 变更文件 / Files Changed
 
