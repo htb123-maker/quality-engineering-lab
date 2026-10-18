@@ -81,6 +81,7 @@ class Settings(BaseSettings):
     android_app_activity: str = Field(
         default=".launcher.EmptyHomeActivity"
     )
+    android_new_command_timeout_seconds: int = Field(default=300, ge=0, le=3600)
     ios_device_name: str = Field(default="iPhone 16")
     ios_platform_version: str | None = Field(default=None)
     ios_udid: str | None = Field(default=None)

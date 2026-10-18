@@ -19,6 +19,7 @@ def build_android_options(settings: Settings) -> UiAutomator2Options:
     options.app_package = settings.android_app_package
     options.app_activity = settings.android_app_activity
     options.no_reset = True
+    options.new_command_timeout = settings.android_new_command_timeout_seconds
     return options
 
 

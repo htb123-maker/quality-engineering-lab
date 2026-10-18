@@ -56,7 +56,7 @@ def require_android_smoke_prerequisites(settings: Settings) -> None:
 @allure.story("Session lifecycle")
 @pytest.mark.android
 @pytest.mark.smoke
-@pytest.mark.timeout(120)
+@pytest.mark.timeout(300)
 @allure.testcase("SMOKE-ANDROID-SESSION-001", "Android session lifecycle")
 @allure.link("docs/runbooks/failed-quality-gate.md", name="Failure triage runbook")
 def test_android_session_starts_and_quits(

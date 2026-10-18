@@ -2,7 +2,7 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-共 28 篇设计文档，按主题分组。
+共 29 篇设计文档，按主题分组。
 
 ## 目标与计划 / Goals and Plan
 
@@ -33,6 +33,7 @@
 
 ## 排障手册 / Runbooks
 
+- [Android Session Debugging](runbooks/android-session-debugging.md)
 - [负向、幂等与状态机失败排查 / API Negative, Idempotency, and State Failure Triage](runbooks/api-negative-and-state-failures.md)
 - [认证失败排查 / Authentication Failure Triage](runbooks/authentication-failures.md)
 - [Authorization and Input Security Triage](runbooks/authorization-and-input-security-triage.md)
