@@ -2,7 +2,7 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-共 29 篇设计文档，按主题分组。
+共 31 篇设计文档，按主题分组。
 
 ## 目标与计划 / Goals and Plan
 
@@ -11,6 +11,7 @@
 
 ## 架构与结构图 / Architecture
 
+- [Android Screen Framework](architecture/android-screen-framework.md)
 - [Mobile Driver Call Chain](architecture/mobile-driver-call-chain.md)
 - [项目结构与技术栈总览](architecture/project-overview.md)
 
@@ -33,6 +34,7 @@
 
 ## 排障手册 / Runbooks
 
+- [Android Locator and Wait Triage](runbooks/android-locator-and-wait-triage.md)
 - [Android Session Debugging](runbooks/android-session-debugging.md)
 - [负向、幂等与状态机失败排查 / API Negative, Idempotency, and State Failure Triage](runbooks/api-negative-and-state-failures.md)
 - [认证失败排查 / Authentication Failure Triage](runbooks/authentication-failures.md)

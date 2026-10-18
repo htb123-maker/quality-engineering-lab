@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 from qa_core.config.settings import Settings
 
 
@@ -27,6 +28,8 @@ def test_default_settings_are_local_and_safe() -> None:
     assert settings.auth_test_username == "owner@atlas.example"
     assert settings.auth_test_password == "local-test-password"
     assert str(settings.appium_server_url) == "http://127.0.0.1:4723/"
+    assert settings.android_ui_wait_timeout_seconds == 10.0
+    assert settings.android_ui_wait_poll_seconds == 0.25
     assert settings.ios_device_name == "iPhone 16"
     assert settings.ios_platform_version is None
     assert settings.ios_udid is None
@@ -49,6 +52,8 @@ def test_environment_variable_overrides_default(monkeypatch: pytest.MonkeyPatch)
     monkeypatch.setenv("QA_API_RETRY_MAX_ATTEMPTS", "4")
     monkeypatch.setenv("QA_AUTH_MODE", "cookie")
     monkeypatch.setenv("QA_AUTH_REFRESH_SKEW_SECONDS", "5")
+    monkeypatch.setenv("QA_ANDROID_UI_WAIT_TIMEOUT_SECONDS", "4.5")
+    monkeypatch.setenv("QA_ANDROID_UI_WAIT_POLL_SECONDS", "0.1")
 
     settings = Settings(_env_file=None)
 
@@ -58,3 +63,14 @@ def test_environment_variable_overrides_default(monkeypatch: pytest.MonkeyPatch)
     assert settings.api_retry_max_attempts == 4
     assert settings.auth_mode == "cookie"
     assert settings.auth_refresh_skew_seconds == 5.0
+    assert settings.android_ui_wait_timeout_seconds == 4.5
+    assert settings.android_ui_wait_poll_seconds == 0.1
+
+
+def test_android_ui_wait_poll_must_not_exceed_timeout() -> None:
+    with pytest.raises(ValidationError, match="must not exceed"):
+        Settings(
+            _env_file=None,
+            android_ui_wait_timeout_seconds=1,
+            android_ui_wait_poll_seconds=2,
+        )

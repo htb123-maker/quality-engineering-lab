@@ -44,6 +44,7 @@ Redis 协议和 Appium 会话访问 `apps/compose` 提供的被测系统。`docs
 | 缓存 | Redis 7、TTL 与幂等键 | `packages/qa_core/cache/` |
 | 测试数据 | 数据工厂、测试命名空间隔离、资源池 | `packages/qa_core/data_factories/`、`resource_pools/` |
 | 移动端 | Appium 2 Python Client、UiAutomator2、XCUITest + WDA | `packages/qa_core/driver/` |
+| Android UI 框架 | 类型化 Locator、显式等待、Screen/Component/Flow 与手势 | `packages/qa_core/mobile/`、`packages/qa_core/platforms/android/` |
 | 报告 | Allure 结果、缺陷指纹、命名空间泄漏报告 | `packages/qa_core/reporting/`、`artifacts/` |
 | 并发 | pytest-xdist（`pytest -n 4`） | `pyproject.toml` |
 | 日志 | structlog | `packages/qa_core/http/client.py` |
@@ -59,7 +60,7 @@ Redis 协议和 Appium 会话访问 `apps/compose` 提供的被测系统。`docs
 | 接口 | `qa_core.http`：httpx、超时、重试、退避 | 本地 SUT 的 HTTP 接口 |
 | 数据库 | `qa_core.db`：psycopg 3 | PostgreSQL 16 |
 | 缓存 | `qa_core.cache`：redis | Redis 7 |
-| 移动端 | `qa_core.driver`：Appium Python Client | Appium Server 2 到 UiAutomator2 / XCUITest 到设备 |
+| 移动端 | `qa_core.driver` + `qa_core.mobile`：会话、定位、等待与 Flow | Appium Server 2 到 UiAutomator2 / XCUITest 到设备 |
 | 全部 | `qa_core.config`：pydantic-settings | 从 `.env` 读取地址与开关 |
 
 接口、数据库与缓存三类测试直接打到同一个被测系统，移动端测试再经过 Appium
@@ -67,6 +68,9 @@ Redis 协议和 Appium 会话访问 `apps/compose` 提供的被测系统。`docs
 
 设备侧的逐步调用链（Android 与 iOS 分开）见
 [Mobile Driver Call Chain](mobile-driver-call-chain.md)。
+
+Android UI 分层、定位策略与显式等待边界见
+[Android Screen Framework](android-screen-framework.md)。
 
 ## 4. 建议阅读顺序
 

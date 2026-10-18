@@ -2,10 +2,11 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-最新进度：[WEEK-13 - Android Appium 架构、UiAutomator2、ADB 与调试](weekly/WEEK-13.md)
+最新进度：[WEEK-14 - Android Locator、显式等待、手势与 Screen/Component/Flow](weekly/WEEK-14.md)
 
 ## 周报 / Weekly Reports
 
+- [WEEK-14 - Android Locator、显式等待、手势与 Screen/Component/Flow](weekly/WEEK-14.md)
 - [WEEK-13 - Android Appium 架构、UiAutomator2、ADB 与调试](weekly/WEEK-13.md)
 - [WEEK-12 - 并行、Mock、Toxiproxy 与缺陷闭环](weekly/WEEK-12.md)
 - [WEEK-11 - RBAC、BOLA/IDOR、限流边界与输入安全](weekly/WEEK-11.md)

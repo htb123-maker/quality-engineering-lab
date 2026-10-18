@@ -2,9 +2,9 @@
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import AnyHttpUrl, Field, PostgresDsn, RedisDsn
+from pydantic import AnyHttpUrl, Field, PostgresDsn, RedisDsn, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["local", "ci", "performance", "staging"]
@@ -82,6 +82,8 @@ class Settings(BaseSettings):
         default=".launcher.EmptyHomeActivity"
     )
     android_new_command_timeout_seconds: int = Field(default=300, ge=0, le=3600)
+    android_ui_wait_timeout_seconds: float = Field(default=10.0, gt=0.0, le=120.0)
+    android_ui_wait_poll_seconds: float = Field(default=0.25, gt=0.0, le=10.0)
     ios_device_name: str = Field(default="iPhone 16")
     ios_platform_version: str | None = Field(default=None)
     ios_udid: str | None = Field(default=None)
@@ -119,6 +121,17 @@ class Settings(BaseSettings):
     ws_subscriber_queue_size: int = Field(default=64, ge=1, le=10_000)
     artifacts_dir: Path = Field(default=Path("artifacts"))
     log_level: LogLevel = Field(default="INFO")
+
+    @model_validator(mode="after")
+    def validate_android_ui_wait(self) -> Self:
+        """Keep the explicit-wait poll interval within its deadline."""
+
+        if self.android_ui_wait_poll_seconds > self.android_ui_wait_timeout_seconds:
+            raise ValueError(
+                "QA_ANDROID_UI_WAIT_POLL_SECONDS must not exceed "
+                "QA_ANDROID_UI_WAIT_TIMEOUT_SECONDS"
+            )
+        return self
 
 
 @lru_cache(maxsize=1)
