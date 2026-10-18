@@ -19,6 +19,7 @@ def test_android_options_map_typed_settings_to_uiautomator2_capabilities() -> No
         android_platform_version="15",
         android_app_package="com.example.demo",
         android_app_activity=".MainActivity",
+        android_adb_exec_timeout_ms=75_000,
     )
 
     capabilities = build_android_options(settings).to_capabilities()
@@ -30,6 +31,7 @@ def test_android_options_map_typed_settings_to_uiautomator2_capabilities() -> No
     assert capabilities["appium:platformVersion"] == "15"
     assert capabilities["appium:appPackage"] == "com.example.demo"
     assert capabilities["appium:appActivity"] == ".MainActivity"
+    assert capabilities["appium:adbExecTimeout"] == 75_000
     assert capabilities["appium:noReset"] is True
     assert capabilities["appium:newCommandTimeout"] == 300
 

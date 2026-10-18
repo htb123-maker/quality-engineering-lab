@@ -47,8 +47,9 @@ Redis 协议和 Appium 会话访问 `apps/compose` 提供的被测系统。`docs
 | Android UI 框架 | 类型化 Locator、显式等待、Screen/Component/Flow 与手势 | `packages/qa_core/mobile/`、`packages/qa_core/platforms/android/` |
 | Android 系统交互 | 权限、Hybrid、文件、剪贴板、Intent 与前台恢复 | `packages/qa_core/platforms/android/` |
 | Android 测试夹具 | 可构建的权限弹窗、WebView、深链接与恢复 App | `apps/android-fixture/` |
+| Android 设备矩阵 | YAML 设备画像、xdist worker 绑定、双 AVD 与真机扩展点 | `configs/android-device-matrix.yaml`、`packages/qa_core/platforms/android/devices.py` |
 | 报告 | Allure 结果、缺陷指纹、命名空间泄漏报告 | `packages/qa_core/reporting/`、`artifacts/` |
-| 并发 | pytest-xdist（`pytest -n 4`） | `pyproject.toml` |
+| 并发 | pytest-xdist；API 默认 `-n 4`，Android 双 AVD 使用 `-n 2` | `pyproject.toml`、`scripts/run_android_matrix.ps1` |
 | 日志 | structlog | `packages/qa_core/http/client.py` |
 | 本地环境 | Docker Compose：API + PostgreSQL 16 + Redis 7 | `apps/compose/compose.yaml` |
 | CI | GitHub Actions：质量门、SUT 集成、iOS 冒烟 | `.github/workflows/` |
@@ -75,6 +76,8 @@ Android UI 分层、定位策略与显式等待边界见
 [Android Screen Framework](android-screen-framework.md)。
 权限弹窗、Hybrid、文件和恢复调用见
 [Android System Interactions](android-system-interactions.md)。
+双 AVD、设备画像、worker 分配和 Allure 证据见
+[Android Device Matrix and Parallel Evidence](android-device-matrix.md)。
 
 ## 4. 建议阅读顺序
 
