@@ -6,7 +6,7 @@
 - 基线提交 / Base Commit: 502081e（Week 15 本地收口）
 - 计划提交 / Plan Commit: 570df1f
 - 远端分支 / Remote Branch: 已推送 / Pushed
-- Pull Request: 未创建 / Not created
+- Pull Request: [#8](https://github.com/htb123-maker/quality-engineering-lab/pull/8)
 
 ## 计划目标 / Plan Goal
 
@@ -167,7 +167,7 @@ Week 16 复用 Week 14 的 Screen/Wait/Gesture 和 Week 15 的权限、Hybrid、
 | Mixed AVD + physical device | 通过 / PASS | Android 15 AVD + Redmi K50 Android 14 | `60 passed in 152.25s` |
 | Physical device distribution | 通过 / PASS | Allure results | AVD 39, physical 21 |
 | Physical device metadata | 通过 / PASS | Allure | `physical-device`, Android 14, UDID recorded |
-| GitHub Actions / PR | 未执行 / NOT RUN | branch pushed | no PR or remote run |
+| GitHub Actions / PR | 通过 / PASS | PR #8 | Quality Gates and SUT Integration passed |
 
 ## 验收方式 / Acceptance Method
 
@@ -234,6 +234,7 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 - Final HTML report: `artifacts/android-matrix/20261018-221459/allure-report/`
 - Final console log: `artifacts/android-matrix/20261018-221459/pytest-console.log`
 - Mixed physical run: `artifacts/android-matrix/20261021-001139/`
+- Pull request: `https://github.com/htb123-maker/quality-engineering-lab/pull/8`
 - Appium logs: `artifacts/appium-server.out.log`、`artifacts/appium-server.err.log`
 
 ### 未验证项 / Unverified Items
@@ -243,7 +244,7 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 - OEM 权限页、通知栏、系统设置和厂商后台策略。
 - Android 版本升级、屏幕密度矩阵、字体缩放和深色模式。
 - Appium Server 多实例、跨主机设备池和 CI 模拟器。
-- Week 15/16 的 PR 和 GitHub Actions。
+- 更多 Android 真机和 OEM 机型的并行覆盖。
 
 ## 变更文件 / Files Changed
 
@@ -282,11 +283,11 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 - 长期 Session 提高速度，但要求每个测试主动恢复 App 状态；本轮通过重启 Activity
   实现，后续真实业务仍需独立的数据与账号清理。
 - AOSP ATD 没有代表性 OEM 系统 UI；已补一条 HyperOS 真机链路，但不能代表全部 OEM。
-- 本分支已推送，但尚未创建 PR，因此没有 GitHub Actions 证据。
+- PR #8 的 Quality Gates 和 SUT Integration 均已通过。
 
 ## 下一步 / Next Plan
 
 1. Week 17 准备 macOS、Xcode、XCUITest 和 WDA 环境并形成 runbook。
 2. 记录 Simulator、真机和设备云三条路径的前置条件与失败边界。
 3. 把 Android 设备矩阵 abstractions 与 iOS capabilities 保持平台隔离。
-4. 创建 PR，触发 GitHub Actions，并收口 CI 证据。
+4. 继续扩展真机数量、OEM 和 Android 版本矩阵。
