@@ -1,9 +1,10 @@
-# Android Week 15 Fixture
+# Android Test Fixture
 
 This small Android app provides deterministic device behaviors that the AOSP
 test shell cannot request:
 
 - a runtime CAMERA permission prompt;
+- a form with validation, reset, counter, and dialog state;
 - a custom deep link at `qaweek15://permission/...`;
 - visible foreground and resume state for background recovery checks.
 
@@ -14,6 +15,15 @@ Build, sign, and install on the configured emulator:
 
 ```powershell
 .\apps\android-fixture\build.ps1 -Serial emulator-5554
+```
+
+For the two-AVD Week 16 matrix:
+
+```powershell
+.\scripts\run_android_matrix.ps1 `
+  -PrimarySerial emulator-5554 `
+  -SecondarySerial emulator-5556 `
+  -Workers 2
 ```
 
 Generated build output, the debug keystore, and the APK stay under the ignored

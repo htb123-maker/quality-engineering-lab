@@ -2,7 +2,7 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-共 33 篇设计文档，按主题分组。
+共 35 篇设计文档，按主题分组。
 
 ## 目标与计划 / Goals and Plan
 
@@ -11,6 +11,7 @@
 
 ## 架构与结构图 / Architecture
 
+- [Android Device Matrix and Parallel Evidence](architecture/android-device-matrix.md)
 - [Android Screen Framework](architecture/android-screen-framework.md)
 - [Android System Interactions](architecture/android-system-interactions.md)
 - [Mobile Driver Call Chain](architecture/mobile-driver-call-chain.md)
@@ -35,6 +36,7 @@
 
 ## 排障手册 / Runbooks
 
+- [Android Device Matrix Triage](runbooks/android-device-matrix-triage.md)
 - [Android Locator and Wait Triage](runbooks/android-locator-and-wait-triage.md)
 - [Android Permissions and Recovery Triage](runbooks/android-permissions-and-recovery-triage.md)
 - [Android Session Debugging](runbooks/android-session-debugging.md)

@@ -77,9 +77,17 @@ class Settings(BaseSettings):
     android_device_name: str = Field(default="Pixel_API_35_AOSP_ATD")
     android_udid: str = Field(default="emulator-5554")
     android_platform_version: str = Field(default="15")
+    android_device_matrix: Path = Field(
+        default=Path("configs/android-device-matrix.yaml")
+    )
     android_app_package: str = Field(default="com.android.fakesystemapp")
     android_app_activity: str = Field(
         default=".launcher.EmptyHomeActivity"
+    )
+    android_adb_exec_timeout_ms: int = Field(
+        default=60_000,
+        ge=10_000,
+        le=300_000,
     )
     android_new_command_timeout_seconds: int = Field(default=300, ge=0, le=3600)
     android_ui_wait_timeout_seconds: float = Field(default=10.0, gt=0.0, le=120.0)

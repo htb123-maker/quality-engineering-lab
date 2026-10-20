@@ -1,0 +1,23 @@
+version: 1
+devices:
+  - id: local-primary-avd
+    role: primary-regression
+    udid_env: QA_ANDROID_UDID_PRIMARY
+    default_udid: emulator-5554
+    platform_version: "15"
+    required: true
+
+  - id: local-parallel-avd
+    role: parallel-regression
+    udid_env: QA_ANDROID_UDID_SECONDARY
+    default_udid: emulator-5556
+    platform_version: "15"
+    required: false
+
+  - id: physical-android
+    role: physical-device
+    udid_env: QA_ANDROID_UDID_PHYSICAL
+    default_udid: ""
+    platform_version: ""
+    platform_version_env: QA_ANDROID_PLATFORM_VERSION_PHYSICAL
+    required: false
