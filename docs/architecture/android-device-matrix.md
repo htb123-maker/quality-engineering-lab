@@ -8,11 +8,11 @@ from sharing one Appium device.
 
 `configs/android-device-matrix.yaml` is the source of truth:
 
-| Logical ID | Role | Default UDID | Required |
-| --- | --- | --- | --- |
-| `local-primary-avd` | primary regression | `emulator-5554` | yes |
-| `local-parallel-avd` | parallel regression | `emulator-5556` | no |
-| `physical-android` | physical-device compatibility | from environment | no |
+| Logical ID | Role | Default UDID | Platform version | Required |
+| --- | --- | --- | --- | --- |
+| `local-primary-avd` | primary regression | `emulator-5554` | 15 | yes |
+| `local-parallel-avd` | parallel regression | `emulator-5556` | 15 | no |
+| `physical-android` | physical-device compatibility | from environment | from environment | no |
 
 Each entry has a `udid_env` override. The default local setup maps:
 
@@ -20,11 +20,20 @@ Each entry has a `udid_env` override. The default local setup maps:
 QA_ANDROID_UDID_PRIMARY    -> local-primary-avd
 QA_ANDROID_UDID_SECONDARY  -> local-parallel-avd
 QA_ANDROID_UDID_PHYSICAL   -> physical-android
+QA_ANDROID_PLATFORM_VERSION_PHYSICAL -> physical platform version
 ```
 
 An optional device with no resolved UDID is omitted. A required device with no
 UDID fails during fixture setup. Duplicate UDIDs are rejected because two
 workers must never target the same device.
+
+`QA_ANDROID_DEVICE_IDS` restricts the active profiles while preserving YAML
+order. The runner uses it to select a physical-only or mixed AVD/device run:
+
+```text
+QA_ANDROID_DEVICE_IDS=physical-android
+QA_ANDROID_DEVICE_IDS=local-primary-avd,physical-android
+```
 
 ## 2. Worker Assignment
 
@@ -140,12 +149,32 @@ Single-device debugging:
 .\scripts\run_android_matrix.ps1 -Workers 1 -SkipFixtureBuild
 ```
 
+Mixed AVD and physical device:
+
+```powershell
+.\scripts\run_android_matrix.ps1 `
+  -PrimarySerial emulator-5554 `
+  -PhysicalSerial <physical-device-serial> `
+  -Workers 2
+```
+
+Physical device only:
+
+```powershell
+.\scripts\run_android_matrix.ps1 `
+  -PhysicalSerial <physical-device-serial> `
+  -Workers 1
+```
+
+The runner reads the physical device's Android release during the run and
+records the selected profile IDs in Allure.
+
 ## 7. Boundaries
 
 - Both exercised AVDs use Android 15 AOSP ATD. This proves parallel isolation
-  and scale, not Android version compatibility.
-- No physical Android device was connected. The physical profile is configured
-  but its behavior is unverified.
+  and scale on one API level.
+- The mixed run was verified on one Redmi K50 running Android 14. This is one
+  physical-device chain, not a comprehensive OEM or version matrix.
 - The AOSP ATD image does not represent OEM permission dialogs, launcher
   policies, notifications, or vendor-specific background restrictions.
 - Appium load, host CPU, memory, and emulator acceleration remain shared

@@ -19,4 +19,5 @@ devices:
     udid_env: QA_ANDROID_UDID_PHYSICAL
     default_udid: ""
     platform_version: ""
+    platform_version_env: QA_ANDROID_PLATFORM_VERSION_PHYSICAL
     required: false

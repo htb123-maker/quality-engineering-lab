@@ -55,6 +55,97 @@ def test_device_matrix_resolves_environment_and_omits_missing_optional_device(
 
 
 @pytest.mark.unit
+def test_device_matrix_can_select_physical_device_with_version_override(
+    tmp_path: Path,
+) -> None:
+    matrix = write_matrix(
+        tmp_path / "matrix.yaml",
+        """
+  - id: primary
+    role: primary
+    udid_env: PRIMARY_UDID
+    default_udid: emulator-5554
+    platform_version: "15"
+    required: true
+  - id: physical
+    role: physical
+    udid_env: PHYSICAL_UDID
+    platform_version: ""
+    platform_version_env: PHYSICAL_VERSION
+    required: false
+""",
+    )
+
+    profiles = load_android_device_matrix(
+        matrix,
+        {
+            "QA_ANDROID_DEVICE_IDS": "physical",
+            "PHYSICAL_UDID": "physical-serial",
+            "PHYSICAL_VERSION": "14",
+        },
+    )
+
+    assert profiles == (
+        AndroidDeviceProfile(
+            device_id="physical",
+            role="physical",
+            udid="physical-serial",
+            platform_version="14",
+            required=False,
+        ),
+    )
+
+
+@pytest.mark.unit
+def test_device_matrix_rejects_selected_device_without_udid(
+    tmp_path: Path,
+) -> None:
+    matrix = write_matrix(
+        tmp_path / "matrix.yaml",
+        """
+  - id: primary
+    role: primary
+    udid_env: PRIMARY_UDID
+    default_udid: emulator-5554
+    platform_version: "15"
+    required: true
+  - id: physical
+    role: physical
+    udid_env: PHYSICAL_UDID
+    platform_version: ""
+    required: false
+""",
+    )
+
+    with pytest.raises(ValueError, match="selected Android device 'physical' has no UDID"):
+        load_android_device_matrix(
+            matrix,
+            {"QA_ANDROID_DEVICE_IDS": "physical"},
+        )
+
+
+@pytest.mark.unit
+def test_device_matrix_rejects_unknown_selected_device(tmp_path: Path) -> None:
+    matrix = write_matrix(
+        tmp_path / "matrix.yaml",
+        """
+  - id: primary
+    role: primary
+    udid_env: PRIMARY_UDID
+    default_udid: emulator-5554
+    platform_version: "15"
+    required: true
+""",
+    )
+
+    with pytest.raises(ValueError, match="unknown device id"):
+        load_android_device_matrix(
+            matrix,
+            {"QA_ANDROID_DEVICE_IDS": "missing"},
+        )
+
+
+@pytest.mark.unit
 def test_device_matrix_rejects_duplicate_udids(tmp_path: Path) -> None:
     matrix = write_matrix(
         tmp_path / "matrix.yaml",

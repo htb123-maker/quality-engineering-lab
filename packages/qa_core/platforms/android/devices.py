@@ -36,9 +36,10 @@ def load_android_device_matrix(
     matrix_path: Path,
     environment: Mapping[str, str] | None = None,
 ) -> tuple[AndroidDeviceProfile, ...]:
-    """Load active devices from YAML and resolve UDID environment overrides."""
+    """Load selected devices from YAML and resolve environment overrides."""
 
     env = dict(os.environ if environment is None else environment)
+    selected_ids = _selected_device_ids(env)
     try:
         payload = yaml.safe_load(matrix_path.read_text(encoding="utf-8"))
     except FileNotFoundError as exc:
@@ -52,26 +53,35 @@ def load_android_device_matrix(
     if not isinstance(devices, list) or not devices:
         raise ValueError("Android device matrix must contain at least one device")
 
+    configured_ids: set[str] = set()
     resolved: list[AndroidDeviceProfile] = []
     for index, device in enumerate(devices):
         if not isinstance(device, Mapping):
             raise ValueError(f"device entry {index} must be a mapping")
         device_id = _required_string(device, "id", index)
+        if device_id in configured_ids:
+            raise ValueError(f"duplicate Android device id: {device_id!r}")
+        configured_ids.add(device_id)
         role = _required_string(device, "role", index)
         udid_env = _required_string(device, "udid_env", index)
         default_udid = _optional_string(device, "default_udid", index)
+        platform_version_env = _optional_string(device, "platform_version_env", index)
         platform_version = _optional_string(device, "platform_version", index)
+        platform_version = env.get(platform_version_env, "").strip() or platform_version
         required = device.get("required", False)
         if not isinstance(required, bool):
             raise ValueError(f"device entry {index} required must be boolean")
 
+        selected = not selected_ids or device_id in selected_ids
         udid = env.get(udid_env, "").strip() or default_udid
         if not udid:
-            if required:
+            if (selected_ids and selected) or (not selected_ids and required):
                 raise ValueError(
-                    f"required Android device {device_id!r} has no UDID; "
+                    f"selected Android device {device_id!r} has no UDID; "
                     f"set {udid_env}"
                 )
+            continue
+        if not selected:
             continue
         resolved.append(
             AndroidDeviceProfile(
@@ -83,12 +93,30 @@ def load_android_device_matrix(
             )
         )
 
+    unknown_ids = selected_ids.difference(configured_ids)
+    if unknown_ids:
+        raise ValueError(
+            "QA_ANDROID_DEVICE_IDS contains unknown device id(s): "
+            f"{', '.join(sorted(unknown_ids))}"
+        )
     if not resolved:
         raise ValueError("Android device matrix resolved no usable devices")
     udids = [profile.udid for profile in resolved]
     if len(udids) != len(set(udids)):
         raise ValueError("Android device matrix contains duplicate UDIDs")
     return tuple(resolved)
+
+
+def _selected_device_ids(environment: Mapping[str, str]) -> set[str]:
+    """Return explicitly selected profile IDs, or an empty set for all devices."""
+
+    raw_ids = environment.get("QA_ANDROID_DEVICE_IDS", "").strip()
+    if not raw_ids:
+        return set()
+    selected = {value.strip() for value in raw_ids.split(",") if value.strip()}
+    if not selected:
+        raise ValueError("QA_ANDROID_DEVICE_IDS must contain at least one device id")
+    return selected
 
 
 def select_worker_device(

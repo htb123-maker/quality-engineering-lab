@@ -142,16 +142,27 @@ Every result should include `android_device`, `android_udid`, and
 `android_role`. A failing test should include screenshot, page source, and
 logcat attachments.
 
-## Physical Device Is Configured but Unverified
+## Physical Device Profile
 
-Set the UDID explicitly:
+Confirm the device and run the physical profile directly:
 
 ```powershell
-$env:QA_ANDROID_UDID_PHYSICAL="<device-serial>"
-adb -s $env:QA_ANDROID_UDID_PHYSICAL get-state
+$serial = "<device-serial>"
+adb -s $serial get-state
+.\scripts\run_android_matrix.ps1 -PhysicalSerial $serial -Workers 1
 ```
 
-Then select that device with a worker count that matches the active matrix.
+The runner reads `ro.build.version.release`, selects `physical-android`, and
+records `physical-device` in Allure. Use a mixed AVD plus physical run when
+parallel-device evidence is required:
+
+```powershell
+.\scripts\run_android_matrix.ps1 `
+  -PrimarySerial emulator-5554 `
+  -PhysicalSerial $serial `
+  -Workers 2
+```
+
 Record the manufacturer, model, OS version, permission UI, and launcher package
 in the report. Do not infer physical-device success from AVD results.
 

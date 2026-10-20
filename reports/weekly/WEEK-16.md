@@ -1,11 +1,11 @@
 # WEEK-16 - Android 双 AVD、设备矩阵、日志与 60 条测试 / Android Dual AVD, Device Matrix, Logs, and 60 Tests
 
 - 计划 / Plan: Week 16，Android 设备矩阵与测试规模
-- 日期范围 / Date Range: 2026-10-18
+- 日期范围 / Date Range: 2026-10-18 to 2026-10-21
 - 分支 / Branch: study/week-16-android-device-matrix
 - 基线提交 / Base Commit: 502081e（Week 15 本地收口）
 - 计划提交 / Plan Commit: 570df1f
-- 远端分支 / Remote Branch: 未推送 / Not pushed
+- 远端分支 / Remote Branch: 已推送 / Pushed
 - Pull Request: 未创建 / Not created
 
 ## 计划目标 / Plan Goal
@@ -24,7 +24,7 @@ capture device-aware Allure diagnostics.
 
 ## 完成状态 / Completion Status
 
-**通过 / PASS（Windows 本机 + 两个 Android 15 AOSP ATD AVD）。**
+**通过 / PASS（Windows 本机 + 双 Android 15 AVD + Redmi K50 Android 14）。**
 
 已实际执行：
 
@@ -32,15 +32,17 @@ capture device-aware Allure diagnostics.
 - 两个 AVD 分别安装同一签名的 Android fixture。
 - 60 条 Android 测试通过两个 xdist worker 并行执行。
 - Allure 结果确认两台设备都实际参与：主 AVD 26 条，并行 AVD 34 条。
+- `emulator-5554` 与 Redmi K50 使用 primary AVD + physical profile 混合执行，
+  60 条测试通过：AVD 39 条，真机 21 条。
+- 真机结果为 `physical-android / physical-device / Android 14`。
 - 失败诊断 hook 已于单设备调试验证阶段实际触发，并产出截图、page source 和 logcat。
 - 测试结束后 Appium `/sessions` 返回空列表。
 
 Week 15 未完成项核对：
 
-- GitHub 远端不存在 `study/week-15-android-permissions-recovery`，分支未推送，
-  也没有 PR。
+- `study/week-15-android-permissions-recovery` 已推送；PR 仍未创建。
 - Week 15 的双 AVD 与测试规模在 Week 16 已补齐。
-- 真机、设备云、OEM 权限页、通知栏、进程死亡和 GitHub CI 仍未验证。
+- 真机基础链路已补齐；设备云、无线 ADB、通知栏、进程死亡和 GitHub CI 仍未验证。
 
 ## 完成范围 / Scope
 
@@ -48,6 +50,8 @@ Week 15 未完成项核对：
 
 - 新增 `configs/android-device-matrix.yaml`。
 - 主 AVD、并行 AVD 和可选真机都有逻辑 ID、角色、默认 UDID 和环境变量覆盖。
+- `QA_ANDROID_DEVICE_IDS` 支持选择物理设备单独运行或与 AVD 混合运行。
+- 真机平台版本由 runner 读取设备 `ro.build.version.release` 后注入 profile。
 - 缺少必选设备、重复 UDID 或 worker 数量超过设备数量时明确失败。
 - pytest-xdist 的 `gw0`、`gw1` 绑定不同 profile。
 
@@ -160,8 +164,10 @@ Week 16 复用 Week 14 的 Screen/Wait/Gesture 和 Week 15 的权限、Hybrid、
 | Android matrix, final run | 通过 / PASS | two AVDs + Appium 2.19.0 | `60 passed in 102.79s` |
 | Device distribution | 通过 / PASS | Allure results | primary 26, parallel 34 |
 | Session cleanup | 通过 / PASS | Appium `/sessions` | empty list |
-| Real Android device | 未执行 / NOT RUN | no physical device connected | optional matrix profile only |
-| GitHub Actions / PR | 未执行 / NOT RUN | branch not pushed | no remote run |
+| Mixed AVD + physical device | 通过 / PASS | Android 15 AVD + Redmi K50 Android 14 | `60 passed in 152.25s` |
+| Physical device distribution | 通过 / PASS | Allure results | AVD 39, physical 21 |
+| Physical device metadata | 通过 / PASS | Allure | `physical-device`, Android 14, UDID recorded |
+| GitHub Actions / PR | 未执行 / NOT RUN | branch pushed | no PR or remote run |
 
 ## 验收方式 / Acceptance Method
 
@@ -173,6 +179,7 @@ Week 16 复用 Week 14 的 Screen/Wait/Gesture 和 Week 15 的权限、Hybrid、
 4. Appium Server 2.19.0 在 `127.0.0.1:4723` ready。
 5. UiAutomator2 Driver `4.2.9` 已安装。
 6. 项目 `.venv` 使用 Python 3.12。
+7. 真机 USB 调试已授权，串号为 `XGZLFIHUUSQOJZFA`。
 
 ### 执行命令 / Commands
 
@@ -195,6 +202,12 @@ $env:PYTEST_DEBUG_TEMPROOT="$PWD\.tmp-pytest"
   -SecondarySerial emulator-5556 `
   -Workers 2 `
   -AppiumPort 4723
+
+.\scripts\run_android_matrix.ps1 `
+  -PrimarySerial emulator-5554 `
+  -PhysicalSerial XGZLFIHUUSQOJZFA `
+  -Workers 2 `
+  -AppiumPort 4723
 ```
 
 ### 预期结果 / Expected Results
@@ -204,6 +217,7 @@ All checks passed!
 Success: no issues found in 142 source files
 242 passed
 60 passed in 102.79s
+60 passed in 152.25s（AVD + Redmi K50）
 Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-report
 ```
 
@@ -219,16 +233,17 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 - Final Allure results: `artifacts/android-matrix/20261018-221459/allure-results/`
 - Final HTML report: `artifacts/android-matrix/20261018-221459/allure-report/`
 - Final console log: `artifacts/android-matrix/20261018-221459/pytest-console.log`
+- Mixed physical run: `artifacts/android-matrix/20261021-001139/`
 - Appium logs: `artifacts/appium-server.out.log`、`artifacts/appium-server.err.log`
 
 ### 未验证项 / Unverified Items
 
-- Android 真机、无线 ADB、设备云和厂商 ROM。
-- 第二个 Android 系统版本；本次两台 AVD 均为 Android 15。
+- 无线 ADB、设备云和更广泛的厂商 ROM。
+- 更多 Android 系统版本；当前覆盖一个 Android 15 AVD 与一个 Android 14 真机。
 - OEM 权限页、通知栏、系统设置和厂商后台策略。
 - Android 版本升级、屏幕密度矩阵、字体缩放和深色模式。
 - Appium Server 多实例、跨主机设备池和 CI 模拟器。
-- Week 15 分支的 GitHub 推送、PR 和 Actions。
+- Week 15/16 的 PR 和 GitHub Actions。
 
 ## 变更文件 / Files Changed
 
@@ -253,6 +268,8 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 - Android: 15 / API 35，x86_64 AOSP ATD
 - AVD: `Pixel_API_35_AOSP_ATD`、`Pixel_API_35_AOSP_ATD_2`
 - Device: `emulator-5554`、`emulator-5556`
+- Physical device: Redmi K50 / `22041211AC` / Android 14 / SDK 34
+- Physical UDID: `XGZLFIHUUSQOJZFA`
 - Appium endpoint: `http://127.0.0.1:4723`
 - Fixture package: `com.example.qaweek15`
 
@@ -264,12 +281,12 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 - 并行时 `dumpsys` 明显变慢，60 秒是当前主机上的有界配置，不是通用生产参数。
 - 长期 Session 提高速度，但要求每个测试主动恢复 App 状态；本轮通过重启 Activity
   实现，后续真实业务仍需独立的数据与账号清理。
-- AOSP ATD 没有代表性 OEM 系统 UI，真机结论必须单独采集。
-- 本分支尚未提交、推送或创建 PR，因此没有 GitHub Actions 证据。
+- AOSP ATD 没有代表性 OEM 系统 UI；已补一条 HyperOS 真机链路，但不能代表全部 OEM。
+- 本分支已推送，但尚未创建 PR，因此没有 GitHub Actions 证据。
 
 ## 下一步 / Next Plan
 
 1. Week 17 准备 macOS、Xcode、XCUITest 和 WDA 环境并形成 runbook。
 2. 记录 Simulator、真机和设备云三条路径的前置条件与失败边界。
 3. 把 Android 设备矩阵 abstractions 与 iOS capabilities 保持平台隔离。
-4. 如连接真机，补跑至少一条物理 Android 链路并记录厂商、型号和系统版本。
+4. 创建 PR，触发 GitHub Actions，并收口 CI 证据。
