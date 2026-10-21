@@ -52,9 +52,6 @@ jobs:
           xcrun simctl boot "$DEVICE_UDID" || true
           open -a Simulator
 
-      - name: Check iOS environment
-        run: .venv/bin/python scripts/check_ios_environment.py
-
       - name: Start Appium Server
         run: |
           mkdir -p artifacts
@@ -68,6 +65,14 @@ jobs:
           done
           cat artifacts/appium-ios.log
           exit 1
+
+      - name: Check iOS environment
+        run: |
+          .venv/bin/python scripts/check_ios_environment.py \
+            --profile simulator \
+            --server-url http://127.0.0.1:4723 \
+            --json \
+            --output artifacts/ios-environment.json
 
       - name: Run iOS smoke
         run: |

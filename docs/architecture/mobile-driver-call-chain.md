@@ -203,3 +203,42 @@ At `build_android_options`, inspect settings-to-capability mapping. At
 This week establishes the architecture and diagnostic path. Locator strategy,
 explicit waits, gestures, page objects, business flows, system dialogs, and
 larger Android suites belong to Week 14 to Week 16.
+
+## Week 17 iOS Environment Layers
+
+Week 17 turns the iOS portion of the call chain into a host-readiness model. The
+Python capability test can run on Windows, but the other layers require macOS.
+
+```mermaid
+flowchart TB
+    H["macOS host<br/>platform fact"] --> X["Xcode<br/>xcode-select + xcodebuild"]
+    X --> R["iOS runtime<br/>Simulator inventory"]
+    R --> S["Simulator or device<br/>UDID + boot/trust"]
+    S --> D["XCUITest Driver<br/>Appium package"]
+    D --> W["xcodebuild + WDA<br/>DerivedData + signing"]
+    W --> E["Appium session<br/>POST /session evidence"]
+    E --> T["Target app<br/>pytest assertion"]
+```
+
+The environment preflight records each observable layer in
+`scripts/check_ios_environment.py`. It supports two profiles:
+
+| Profile | Additional check | What it proves |
+| --- | --- | --- |
+| `simulator` | Matching available Simulator | Name, UDID, runtime, and state agree |
+| `device` | Code-signing identity and physical device | Xcode sees a signing identity and an iPhone/iPad |
+
+Neither profile proves a complete session. The canonical evidence remains an
+Appium `POST /session` response, WDA build/launch log, and a real XCUITest
+result from a macOS host.
+
+Windows verification is intentionally limited to:
+
+- Typed XCUITest capability construction.
+- Python import and test-skip behavior.
+- Appium package and Driver installation.
+- Pure parsing of Simulator, signing, and JSON preflight inputs.
+
+The `iOS Appium Smoke` workflow owns macOS execution. It writes
+`artifacts/ios-environment.json`, starts Appium, executes `tests/ios`, and
+uploads the diagnostics. A Windows `1 skipped` is never iOS runtime evidence.
