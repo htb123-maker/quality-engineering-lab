@@ -10,6 +10,7 @@ import android.app.PendingIntent;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -38,6 +39,7 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        applySystemTheme();
         super.onCreate(savedInstanceState);
         WebView.setWebContentsDebuggingEnabled(true);
 
@@ -188,8 +190,14 @@ public final class MainActivity extends Activity {
         webView.setContentDescription("fixture-webview");
         webView.loadDataWithBaseURL(
                 "https://fixture.local/",
-                "<html><body><h1 id=\"fixture-hybrid\">Hybrid ready</h1>"
-                        + "<button id=\"fixture-web-button\">Web action</button></body></html>",
+                "<html><head><style>"
+                        + "body{background:#fff;color:#000;font-family:sans-serif}"
+                        + "@media (prefers-color-scheme:dark){"
+                        + "body{background:#121212;color:#f5f5f5}}"
+                        + "</style></head><body>"
+                        + "<h1 id=\"fixture-hybrid\">Hybrid ready</h1>"
+                        + "<button id=\"fixture-web-button\">Web action</button>"
+                        + "</body></html>",
                 "text/html",
                 "UTF-8",
                 null
@@ -206,6 +214,16 @@ public final class MainActivity extends Activity {
         scroll.addView(root);
         setContentView(scroll);
         handleIntent(getIntent());
+    }
+
+    private void applySystemTheme() {
+        int nightMode = getResources().getConfiguration().uiMode
+                & Configuration.UI_MODE_NIGHT_MASK;
+        setTheme(
+                nightMode == Configuration.UI_MODE_NIGHT_YES
+                        ? android.R.style.Theme_Material_NoActionBar
+                        : android.R.style.Theme_Material_Light_NoActionBar
+        );
     }
 
     @Override
