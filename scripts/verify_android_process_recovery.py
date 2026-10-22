@@ -37,6 +37,7 @@ class RecoveryEvidence:
     session_id: str
     package: str
     activity: str
+    kill_strategy: str
     pid_before_kill: str
     pid_after_kill: str
     launch_state_after_kill: str
@@ -105,6 +106,28 @@ def wait_for_pid_exit(
         time.sleep(0.25)
         last_pid = read_pid(adb, serial, package)
     return last_pid
+
+
+def stop_package(
+    adb: str,
+    serial: str,
+    package: str,
+    strategy: str,
+    driver: WebDriver | None = None,
+) -> None:
+    """Stop the package with a deterministic foreground or background policy."""
+
+    if strategy == "am-kill":
+        if driver is None:
+            raise ValueError("am-kill requires an active driver for HOME")
+        driver.press_keycode(3)
+        time.sleep(1)
+        result = run_adb(adb, serial, "shell", "am", "kill", package)
+    else:
+        result = run_adb(adb, serial, "shell", "am", "force-stop", package)
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        raise RuntimeError(detail or f"{strategy} failed")
 
 
 def parse_launch_state(output: str) -> str:
@@ -229,6 +252,11 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--package", default=DEFAULT_PACKAGE)
     parser.add_argument("--activity", default=DEFAULT_ACTIVITY)
     parser.add_argument(
+        "--kill-strategy",
+        choices=("force-stop", "am-kill"),
+        default="force-stop",
+    )
+    parser.add_argument(
         "--json-output",
         type=Path,
         help="Write evidence JSON to this path.",
@@ -260,7 +288,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     old_driver = create_android_driver(settings)
     old_session_id = old_driver.session_id
 
-    run_adb(adb, args.serial, "shell", "am", "force-stop", args.package)
+    stop_package(
+        adb,
+        args.serial,
+        args.package,
+        args.kill_strategy,
+        old_driver,
+    )
     pid_after = wait_for_pid_exit(adb, args.serial, args.package)
     (
         probe_status,
@@ -285,6 +319,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         session_id=old_session_id,
         package=args.package,
         activity=args.activity,
+        kill_strategy=args.kill_strategy,
         pid_before_kill=pid_before,
         pid_after_kill=pid_after,
         launch_state_after_kill=launch_state,
