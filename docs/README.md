@@ -2,7 +2,7 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-共 39 篇设计文档，按主题分组。
+共 40 篇设计文档，按主题分组。
 
 ## 目标与计划 / Goals and Plan
 
@@ -37,6 +37,7 @@
 ## 排障手册 / Runbooks
 
 - [Android Wireless ADB Disconnect and Session Recovery](runbooks/android-adb-transport-recovery.md)
+- [Android Dark Mode, Font Scale, and Display Density](runbooks/android-dark-mode-font-and-density.md)
 - [Android Device Matrix Triage](runbooks/android-device-matrix-triage.md)
 - [Android Locator and Wait Triage](runbooks/android-locator-and-wait-triage.md)
 - [Android OEM Settings, Notifications, and Background Policy](runbooks/android-oem-settings-and-background-policy.md)
