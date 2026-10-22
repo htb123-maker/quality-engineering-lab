@@ -254,6 +254,7 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 | 后台软杀 | 通过 / PASS | `am kill` 后 PID 消失，旧 Session 存活并恢复 |
 | 无线 ADB 掉线重连 | 通过 / PASS | 断线时旧 Session 明确失败，重连后旧、新 Session 均恢复 |
 | 深色、字体与密度 | 通过 / PASS | 深色、1.3/1.5 字体、420/640 dpi 和组合压力均无重叠 |
+| 多语言、RTL 与横屏 | 通过 / PASS | 中文、阿拉伯语 RTL、横屏及 RTL 横屏组合均通过 |
 
 关键证据：
 
@@ -265,10 +266,12 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 - `artifacts/android-recovery/20261022/soft-kill-recovery.json`
 - `artifacts/android-recovery/20261022/transport-recovery.json`
 - `artifacts/android-display/20261022/`
+- `artifacts/android-orientation-locale/20261023/`
 - `docs/runbooks/android-oem-settings-and-background-policy.md`
 - `docs/runbooks/android-process-death-and-session-recovery.md`
 - `docs/runbooks/android-adb-transport-recovery.md`
 - `docs/runbooks/android-dark-mode-font-and-density.md`
+- `docs/runbooks/android-orientation-locale-rtl.md`
 
 ### 未验证项 / Unverified Items
 
@@ -277,7 +280,7 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 - 超出 Redmi K50 HyperOS 的其他 OEM 权限页、通知栏和系统设置。
 - 厂商后台策略在长时间、熄屏和资源压力下的实际终止条件。
 - 无线调试端口变化、Wi-Fi 切换、手机重启和 Appium 主机掉线。
-- 更多 Android 系统版本和多语言/RTL 布局。
+- 更多 Android 系统版本。
 - Appium Server 多实例、跨主机设备池和 CI 模拟器。
 - 更多 Android 真机和 OEM 机型的并行覆盖。
 
