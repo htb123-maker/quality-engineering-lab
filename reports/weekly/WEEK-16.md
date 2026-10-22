@@ -42,7 +42,8 @@ Week 15 未完成项核对：
 
 - `study/week-15-android-permissions-recovery` 已推送；PR 仍未创建。
 - Week 15 的双 AVD 与测试规模在 Week 16 已补齐。
-- 真机基础链路已补齐；设备云、无线 ADB、通知栏、进程死亡和 GitHub CI 仍未验证。
+- 真机基础链路已补齐；后续人工验收已补无线 ADB、HyperOS 权限、通知栏和
+  真实进程死亡；设备云和更广泛 OEM 仍未验证。
 
 ## 完成范围 / Scope
 
@@ -237,11 +238,36 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 - Pull request: `https://github.com/htb123-maker/quality-engineering-lab/pull/8`
 - Appium logs: `artifacts/appium-server.out.log`、`artifacts/appium-server.err.log`
 
+### 后续人工验收补充 / Post-Week Manual Acceptance
+
+日期 / Date: 2026-10-22  
+设备 / Device: Redmi K50、Android 14、HyperOS、无线 ADB。
+
+| 项目 / Item | 结论 / Status | 证据 / Evidence |
+| --- | --- | --- |
+| 无线 ADB | 通过 / PASS | 网络设备安装 APK、Appium session、19 条核心真机测试通过 |
+| HyperOS 权限页 | 通过 / PASS | 允许、拒绝、`USER_SET`、`USER_FIXED` 和再次请求均已验证 |
+| HyperOS 通知栏 | 通过 / PASS | 通知授权、渠道、通知栏可见、点击恢复和 auto-cancel |
+| 应用信息与通知设置 | 通过 / PASS | 应用版本、总开关和渠道详情与系统记录一致 |
+| 厂商省电策略 | 部分通过 / PARTIAL | 四个策略入口和持久化已验证；禁止后台未在 72 秒内杀进程 |
+| 真实进程死亡 | 通过 / PASS | PID 消失、旧 Session 存活并可重启 App、新 Session 恢复 |
+
+关键证据：
+
+- `artifacts/wireless-adb/allure-report/index.html`
+- `artifacts/android-permissions/20261022/`
+- `artifacts/android-notifications/20261022/`
+- `artifacts/android-settings/20261022/`
+- `artifacts/android-recovery/20261022/process-recovery.json`
+- `docs/runbooks/android-oem-settings-and-background-policy.md`
+- `docs/runbooks/android-process-death-and-session-recovery.md`
+
 ### 未验证项 / Unverified Items
 
-- 无线 ADB、设备云和更广泛的厂商 ROM。
+- 设备云和更广泛的厂商 ROM。
 - 更多 Android 系统版本；当前覆盖一个 Android 15 AVD 与一个 Android 14 真机。
-- OEM 权限页、通知栏、系统设置和厂商后台策略。
+- 超出 Redmi K50 HyperOS 的其他 OEM 权限页、通知栏和系统设置。
+- 厂商后台策略在长时间、熄屏和资源压力下的实际终止条件。
 - Android 版本升级、屏幕密度矩阵、字体缩放和深色模式。
 - Appium Server 多实例、跨主机设备池和 CI 模拟器。
 - 更多 Android 真机和 OEM 机型的并行覆盖。

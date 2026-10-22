@@ -2,7 +2,7 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-共 37 篇设计文档，按主题分组。
+共 38 篇设计文档，按主题分组。
 
 ## 目标与计划 / Goals and Plan
 
@@ -40,6 +40,7 @@
 - [Android Locator and Wait Triage](runbooks/android-locator-and-wait-triage.md)
 - [Android OEM Settings, Notifications, and Background Policy](runbooks/android-oem-settings-and-background-policy.md)
 - [Android Permissions and Recovery Triage](runbooks/android-permissions-and-recovery-triage.md)
+- [Android Process Death and Appium Session Recovery](runbooks/android-process-death-and-session-recovery.md)
 - [Android Session Debugging](runbooks/android-session-debugging.md)
 - [负向、幂等与状态机失败排查 / API Negative, Idempotency, and State Failure Triage](runbooks/api-negative-and-state-failures.md)
 - [认证失败排查 / Authentication Failure Triage](runbooks/authentication-failures.md)
