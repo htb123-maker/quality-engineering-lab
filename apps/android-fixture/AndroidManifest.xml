@@ -13,6 +13,7 @@
 
     <application
         android:label="QA Week15 Fixture"
+        android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
             android:name=".MainActivity"

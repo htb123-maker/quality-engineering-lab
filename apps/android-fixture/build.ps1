@@ -57,6 +57,7 @@ $sources = Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot "src") -Recurse -
 & $javac `
     -source 8 `
     -target 8 `
+    -encoding UTF-8 `
     -bootclasspath $androidJar `
     -d $classesDir `
     $sources.FullName

@@ -7,6 +7,7 @@ test shell cannot request:
 - a runtime notification-permission prompt and a fixed `qa-week15-status` channel;
 - a deterministic notification with a PendingIntent back to the fixture;
 - light/dark theme switching with a color-scheme-aware WebView;
+- English, Chinese, and Arabic fixture text with RTL layout support;
 - a form with validation, reset, counter, and dialog state;
 - a custom deep link at `qaweek15://permission/...`;
 - visible foreground and resume state for background recovery checks.
