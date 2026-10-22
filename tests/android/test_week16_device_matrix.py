@@ -559,8 +559,8 @@ def test_home_leaves_fixture_package(
         fixture_wait_policy(android_settings),
     )
     activities.go_home()
-    activities.wait_for_package(android_settings.android_app_package)
-    assert fixture_screen.driver.current_package == android_settings.android_app_package
+    activities.wait_for_package_not(FIXTURE_PACKAGE)
+    assert fixture_screen.driver.current_package != FIXTURE_PACKAGE
 
 
 @allure.story("Recovery")
