@@ -103,6 +103,34 @@ assumption is false for this stack.
 
 Use `am force-stop` when the acceptance target is explicitly process death.
 
+## Background Soft Kill
+
+`am kill` only targets eligible background processes. Verify the launcher is
+foreground before issuing it:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\verify_android_process_recovery.py `
+  --serial "<android-serial>" `
+  --kill-strategy am-kill `
+  --json-output artifacts\android-recovery\soft-kill-recovery.json
+```
+
+Week 16 observation:
+
+```text
+PID before: 4353
+launcher foreground before kill
+PID after: empty
+old app state: 1 / NOT_RUNNING
+old session foreground: com.miui.home / .launcher.Launcher
+old session relaunch: passed
+new session recovery: passed
+```
+
+This confirms that a soft-killed background App and a force-stopped App share
+the same important boundary: the target process is gone, but UiAutomator2 can
+remain alive.
+
 ## Failure Triage
 
 | Evidence | Meaning |

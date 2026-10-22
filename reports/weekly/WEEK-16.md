@@ -251,6 +251,8 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 | 应用信息与通知设置 | 通过 / PASS | 应用版本、总开关和渠道详情与系统记录一致 |
 | 厂商省电策略 | 部分通过 / PARTIAL | 四个策略入口和持久化已验证；禁止后台未在 72 秒内杀进程 |
 | 真实进程死亡 | 通过 / PASS | PID 消失、旧 Session 存活并可重启 App、新 Session 恢复 |
+| 后台软杀 | 通过 / PASS | `am kill` 后 PID 消失，旧 Session 存活并恢复 |
+| 无线 ADB 掉线重连 | 通过 / PASS | 断线时旧 Session 明确失败，重连后旧、新 Session 均恢复 |
 
 关键证据：
 
@@ -259,8 +261,11 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 - `artifacts/android-notifications/20261022/`
 - `artifacts/android-settings/20261022/`
 - `artifacts/android-recovery/20261022/process-recovery.json`
+- `artifacts/android-recovery/20261022/soft-kill-recovery.json`
+- `artifacts/android-recovery/20261022/transport-recovery.json`
 - `docs/runbooks/android-oem-settings-and-background-policy.md`
 - `docs/runbooks/android-process-death-and-session-recovery.md`
+- `docs/runbooks/android-adb-transport-recovery.md`
 
 ### 未验证项 / Unverified Items
 
@@ -268,6 +273,7 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 - 更多 Android 系统版本；当前覆盖一个 Android 15 AVD 与一个 Android 14 真机。
 - 超出 Redmi K50 HyperOS 的其他 OEM 权限页、通知栏和系统设置。
 - 厂商后台策略在长时间、熄屏和资源压力下的实际终止条件。
+- 无线调试端口变化、Wi-Fi 切换、手机重启和 Appium 主机掉线。
 - Android 版本升级、屏幕密度矩阵、字体缩放和深色模式。
 - Appium Server 多实例、跨主机设备池和 CI 模拟器。
 - 更多 Android 真机和 OEM 机型的并行覆盖。
