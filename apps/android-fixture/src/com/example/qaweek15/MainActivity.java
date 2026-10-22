@@ -3,10 +3,15 @@ package com.example.qaweek15;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.Intent;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.ViewGroup;
@@ -19,6 +24,9 @@ import android.widget.TextView;
 
 public final class MainActivity extends Activity {
     private static final int CAMERA_REQUEST_CODE = 1501;
+    private static final int NOTIFICATION_REQUEST_CODE = 1502;
+    private static final int NOTIFICATION_ID = 1502;
+    private static final String NOTIFICATION_CHANNEL_ID = "qa-week15-status";
 
     private TextView statusView;
     private TextView resumeView;
@@ -70,6 +78,17 @@ public final class MainActivity extends Activity {
             }
         });
         root.addView(requestCamera);
+
+        Button postNotification = new Button(this);
+        postNotification.setText("Post notification");
+        postNotification.setContentDescription("post-notification");
+        postNotification.setOnClickListener(new android.view.View.OnClickListener() {
+            @Override
+            public void onClick(android.view.View view) {
+                requestOrPostNotification();
+            }
+        });
+        root.addView(postNotification);
 
         inputView = new EditText(this);
         inputView.setHint("Test input");
@@ -210,11 +229,20 @@ public final class MainActivity extends Activity {
             int[] grantResults
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        boolean granted = grantResults.length > 0
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+        if (requestCode == NOTIFICATION_REQUEST_CODE) {
+            if (granted) {
+                postNotification();
+            } else {
+                statusView.setText("Notification denied");
+                statusView.setContentDescription("fixture-status:notification-denied");
+            }
+            return;
+        }
         if (requestCode != CAMERA_REQUEST_CODE) {
             return;
         }
-        boolean granted = grantResults.length > 0
-                && grantResults[0] == PackageManager.PERMISSION_GRANTED;
         statusView.setText(granted ? "Camera granted" : "Camera denied");
         statusView.setContentDescription(
                 granted ? "fixture-status:camera-granted" : "fixture-status:camera-denied"
@@ -228,6 +256,51 @@ public final class MainActivity extends Activity {
         }
         statusView.setText("Deep link: " + data);
         statusView.setContentDescription("fixture-status:deep-link:" + data);
+    }
+
+    private void requestOrPostNotification() {
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(
+                    new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                    NOTIFICATION_REQUEST_CODE
+            );
+            return;
+        }
+        postNotification();
+    }
+
+    private void postNotification() {
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        NotificationChannel channel = new NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                "QA fixture status",
+                NotificationManager.IMPORTANCE_DEFAULT
+        );
+        channel.setDescription("Controlled notifications for Android UI testing");
+        manager.createNotificationChannel(channel);
+
+        Intent launchIntent = new Intent(this, MainActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent contentIntent = PendingIntent.getActivity(
+                this,
+                0,
+                launchIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+        Notification notification = new Notification.Builder(this, NOTIFICATION_CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle("QA Week15 notification")
+                .setContentText("Notification channel is ready")
+                .setContentIntent(contentIntent)
+                .setAutoCancel(true)
+                .setOnlyAlertOnce(true)
+                .setCategory(Notification.CATEGORY_STATUS)
+                .build();
+        manager.notify(NOTIFICATION_ID, notification);
+        statusView.setText("Notification posted");
+        statusView.setContentDescription("fixture-status:notification-posted");
     }
 
     private void updateCounter() {
