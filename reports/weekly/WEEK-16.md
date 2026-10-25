@@ -258,7 +258,7 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 | Appium 多实例 | 通过 / PASS | 4723 真机与 4724 AVD 并发 Session，设备与状态完全隔离 |
 | 同设备多 Session | 通过 / PASS | 同一 AVD 并发双 Session，systemPort 与 mjpeg 端口隔离 |
 | 同一物理真机双 Session | 通过 / PASS | USB 真机并发双 Session，8200/8201 与 7810/7811 隔离 |
-| 跨主机设备池 | 未执行 / BLOCKED | 当前只有一个可达 Appium 主机 |
+| 跨主机设备池 | 延后 / DEFERRED | 当前只有一个 Appium 主机；延后到 Week 31 CI 设备池 |
 
 关键证据：
 
@@ -290,7 +290,7 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 - 厂商后台策略在长时间、熄屏和资源压力下的实际终止条件。
 - 无线调试端口变化、Wi-Fi 切换、手机重启和 Appium 主机掉线。
 - 更多 Android 系统版本。
-- 跨主机设备池和 CI 模拟器。
+- 跨主机设备池，延后到 Week 31；CI Android 模拟器仍待实现。
 - 更多 Android 真机和 OEM 机型的并行覆盖。
 
 ## 变更文件 / Files Changed

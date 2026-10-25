@@ -158,6 +158,42 @@ Week 20 的多 Simulator 和 DerivedData 隔离；它先建立可验证的环境
 
 之前的 macOS 成功只能证明流水线在旧提交上可用，不能替代本轮分支的新证据。
 
+### 2026-10-25 真机环境重试 / Physical-Device Retry
+
+本轮尝试从当前 Windows 主机进入真机验收，结论为 **环境阻塞 / ENVIRONMENT BLOCKED**，
+不是 iOS 测试失败。
+
+实际检查：
+
+| 检查 / Check | 结果 / Result | 证据 / Evidence |
+| --- | --- | --- |
+| macOS / Xcode / `xcrun` | `FAILED`（预期平台边界） | Windows 主机不存在这些工具 |
+| Keychain 签名身份 | `FAILED` | Windows 无 macOS `security` |
+| 物理 iPhone/iPad 可见性 | `FAILED` | 无 macOS `xctrace`，也没有 Apple 设备 |
+| Appium 2.19.0 | `PASS` | Windows 包检查 |
+| XCUITest Driver 8.4.3 | `PASS` | 仅证明 Python 包安装 |
+| 自托管 GitHub Runner | `0` | Repository Runners API |
+| Windows iPhone/Apple 设备 | `0` | Windows PnP inventory |
+
+预检命令：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\check_ios_environment.py `
+  --profile device `
+  --json `
+  --output artifacts\ios-device-preflight\20261025\windows-preflight.json
+```
+
+实际退出码为 `1`，JSON 中 `passed=false`。这是正确结果。
+
+真机验收仍缺三项硬前置：
+
+1. 一台 macOS 主机或可用的自托管 macOS Runner。
+2. 已安装并选中的 Xcode，以及可构建 WDA 的 Apple Development 签名身份。
+3. 一台已信任 Mac、开启开发者模式并安装目标 App 的 iPhone。
+
+设备云是替代路径，但当前没有已配置的 provider endpoint 或凭据。
+
 ## 验收方式 / Acceptance Method
 
 ### Windows 静态验证
@@ -256,6 +292,7 @@ artifacts/allure-results exists
 - Architecture: `docs/architecture/mobile-driver-call-chain.md`
 - CI workflow: `.github/workflows/ios-smoke.yml`
 - Environment JSON: `artifacts/ios-environment.json`（macOS 运行时生成）
+- Windows physical-device preflight: `artifacts/ios-device-preflight/20261025/windows-preflight.json`
 - Appium log: `artifacts/appium-ios.log`
 - Previous macOS baseline: https://github.com/htb123-maker/quality-engineering-lab/actions/runs/37327396190
 
@@ -264,6 +301,7 @@ artifacts/allure-results exists
 - 本轮 macOS `check_ios_environment.py --doctor` 的真实 Xcode/WDA 结果。
 - 本轮分支的 WDA 首次构建和 `WebDriverAgentRunner` 启动。
 - 本轮分支的 Appium `POST /session` 与 iOS smoke 通过结果。
+- 当前仓库没有自托管 macOS Runner，GitHub Runner API 返回 `total_count=0`。
 - 真机 Apple Team、证书、Provisioning Profile、设备信任和 Developer Mode。
 - 设备云端点、凭据注入、App 上传和 provider-specific capabilities。
 - 两个 iOS Simulator 版本、多 WDA 端口和 DerivedData 隔离；属于 Week 20。
@@ -288,6 +326,8 @@ artifacts/allure-results exists
 - iOS host: 未提供 / not available
 - Xcode: 未提供 / not available
 - macOS Runner: 本轮未触发 / not dispatched
+- Self-hosted GitHub runners: 0
+- Windows physical Apple devices: 0
 
 ## 风险与限制 / Risks and Limitations
 

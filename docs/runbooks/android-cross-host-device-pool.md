@@ -79,10 +79,11 @@ Passing evidence requires:
 - every session sees the expected package;
 - `host_count >= 2` for cross-host acceptance.
 
-## Week 16 Boundary
+## Acceptance Decision
 
-The cross-host acceptance has not been executed because only one reachable
-Appium host is available in the current environment.
+Cross-host device-pool acceptance is deferred to Week 31 CI/device-pool work.
+Only one reachable Appium host is available in the current local environment,
+so there is no honest PASS evidence for `host_count >= 2`.
 
 Prepared tooling:
 
@@ -92,7 +93,8 @@ Prepared tooling:
   validation
 
 Do not report PASS until a real second host endpoint is supplied and
-`host_count >= 2`.
+`host_count >= 2`. Local multi-instance, physical-device same-host sessions,
+and same-device service-port isolation are already verified separately.
 
 ## Failure Triage
 
