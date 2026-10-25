@@ -103,6 +103,36 @@ both remaining sessions after cleanup: []
 Both Appium logs contained the corresponding `POST /session` request with the
 expected unique service ports.
 
+## Physical Device Observation
+
+The same probe also passed against one USB-connected Redmi K50:
+
+```text
+shared device: XGZLFIHUUSQOJZFA
+
+primary:
+  Appium: 127.0.0.1:4723
+  session: a7fa4005-...
+  systemPort: 8200
+  mjpegServerPort: 7810
+
+secondary:
+  Appium: 127.0.0.1:4724
+  session: 5bc106e6-...
+  systemPort: 8201
+  mjpegServerPort: 7811
+
+both status: passed
+both package: com.example.qaweek15
+both Activity: .MainActivity
+```
+
+Both server logs explicitly reported:
+
+```text
+Using device: XGZLFIHUUSQOJZFA
+```
+
 ## Failure Triage
 
 | Evidence | Likely boundary |
@@ -115,7 +145,8 @@ expected unique service ports.
 
 ## Boundaries
 
-This probe covers one AVD shared by two local Appium servers. It does not cover:
+This probe covers one AVD and one physical device, each shared by two local
+Appium servers. It does not cover:
 
 - two physical devices;
 - two hosts;
