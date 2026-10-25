@@ -30,6 +30,8 @@ def test_default_settings_are_local_and_safe() -> None:
     assert str(settings.appium_server_url) == "http://127.0.0.1:4723/"
     assert settings.android_ui_wait_timeout_seconds == 10.0
     assert settings.android_ui_wait_poll_seconds == 0.25
+    assert settings.android_system_port == 8200
+    assert settings.android_mjpeg_server_port == 7810
     assert settings.ios_device_name == "iPhone 16"
     assert settings.ios_platform_version is None
     assert settings.ios_udid is None

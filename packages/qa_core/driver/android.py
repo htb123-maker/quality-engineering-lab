@@ -21,6 +21,8 @@ def build_android_options(settings: Settings) -> UiAutomator2Options:
     options.adb_exec_timeout = settings.android_adb_exec_timeout_ms
     options.no_reset = True
     options.new_command_timeout = settings.android_new_command_timeout_seconds
+    options.system_port = settings.android_system_port
+    options.mjpeg_server_port = settings.android_mjpeg_server_port
     return options
 
 

@@ -90,6 +90,8 @@ class Settings(BaseSettings):
         le=300_000,
     )
     android_new_command_timeout_seconds: int = Field(default=300, ge=0, le=3600)
+    android_system_port: int = Field(default=8200, ge=1024, le=65535)
+    android_mjpeg_server_port: int = Field(default=7810, ge=1024, le=65535)
     android_ui_wait_timeout_seconds: float = Field(default=10.0, gt=0.0, le=120.0)
     android_ui_wait_poll_seconds: float = Field(default=0.25, gt=0.0, le=10.0)
     ios_device_name: str = Field(default="iPhone 16")
