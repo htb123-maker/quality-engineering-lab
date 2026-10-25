@@ -139,3 +139,6 @@ This acceptance does not cover:
 - CI-managed emulators.
 
 Those remain separate Week 16 or later integration cases.
+
+The same-device port case is covered separately by
+`android-same-device-multi-session.md`.

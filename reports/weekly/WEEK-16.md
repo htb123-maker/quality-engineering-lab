@@ -256,6 +256,7 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 | 深色、字体与密度 | 通过 / PASS | 深色、1.3/1.5 字体、420/640 dpi 和组合压力均无重叠 |
 | 多语言、RTL 与横屏 | 通过 / PASS | 中文、阿拉伯语 RTL、横屏及 RTL 横屏组合均通过 |
 | Appium 多实例 | 通过 / PASS | 4723 真机与 4724 AVD 并发 Session，设备与状态完全隔离 |
+| 同设备多 Session | 通过 / PASS | 同一 AVD 并发双 Session，systemPort 与 mjpeg 端口隔离 |
 
 关键证据：
 
@@ -269,12 +270,14 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 - `artifacts/android-display/20261022/`
 - `artifacts/android-orientation-locale/20261023/`
 - `artifacts/android-multi-instance/20261023/`
+- `artifacts/android-same-device-ports/20261025/`
 - `docs/runbooks/android-oem-settings-and-background-policy.md`
 - `docs/runbooks/android-process-death-and-session-recovery.md`
 - `docs/runbooks/android-adb-transport-recovery.md`
 - `docs/runbooks/android-dark-mode-font-and-density.md`
 - `docs/runbooks/android-orientation-locale-rtl.md`
 - `docs/runbooks/android-appium-multi-instance.md`
+- `docs/runbooks/android-same-device-multi-session.md`
 
 ### 未验证项 / Unverified Items
 
