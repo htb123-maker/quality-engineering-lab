@@ -19,6 +19,22 @@ shared, so use read-only commands for concurrent acceptance.
 The Appium HTTP ports belong to the Windows host. The UiAutomator2 system port
 is used on the Android device and must also be unique for the same device.
 
+## Physical Device Variant
+
+Replace `emulator-5554` with the current USB or wireless ADB serial:
+
+```powershell
+adb devices -l
+
+.\.venv\Scripts\python.exe `
+  scripts\verify_android_same_device_ports.py `
+  --serial "<physical-serial>" `
+  --json-output artifacts\android-same-device-ports\physical.json
+```
+
+Keep both Appium servers on the same Windows host for this case. Reconnect the
+phone before starting if its wireless-debugging port changed.
+
 ## Start the AVD and Servers
 
 ```powershell

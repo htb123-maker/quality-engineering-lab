@@ -2,7 +2,7 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-共 43 篇设计文档，按主题分组。
+共 44 篇设计文档，按主题分组。
 
 ## 目标与计划 / Goals and Plan
 
@@ -38,6 +38,7 @@
 
 - [Android Wireless ADB Disconnect and Session Recovery](runbooks/android-adb-transport-recovery.md)
 - [Android Appium Multi-Instance and Port Isolation](runbooks/android-appium-multi-instance.md)
+- [Android Cross-Host Appium Device Pool](runbooks/android-cross-host-device-pool.md)
 - [Android Dark Mode, Font Scale, and Display Density](runbooks/android-dark-mode-font-and-density.md)
 - [Android Device Matrix Triage](runbooks/android-device-matrix-triage.md)
 - [Android Locator and Wait Triage](runbooks/android-locator-and-wait-triage.md)

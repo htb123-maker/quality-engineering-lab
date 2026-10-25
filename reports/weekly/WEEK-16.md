@@ -257,6 +257,8 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 | 多语言、RTL 与横屏 | 通过 / PASS | 中文、阿拉伯语 RTL、横屏及 RTL 横屏组合均通过 |
 | Appium 多实例 | 通过 / PASS | 4723 真机与 4724 AVD 并发 Session，设备与状态完全隔离 |
 | 同设备多 Session | 通过 / PASS | 同一 AVD 并发双 Session，systemPort 与 mjpeg 端口隔离 |
+| 同一物理真机双 Session | 未执行 / NOT RUN | 2026-10-25 物理设备未连接，旧无线端口失效 |
+| 跨主机设备池 | 未执行 / BLOCKED | 当前只有一个可达 Appium 主机 |
 
 关键证据：
 
@@ -278,6 +280,7 @@ Report successfully generated to .../artifacts/android-matrix/<run-id>/allure-re
 - `docs/runbooks/android-orientation-locale-rtl.md`
 - `docs/runbooks/android-appium-multi-instance.md`
 - `docs/runbooks/android-same-device-multi-session.md`
+- `docs/runbooks/android-cross-host-device-pool.md`
 
 ### 未验证项 / Unverified Items
 
