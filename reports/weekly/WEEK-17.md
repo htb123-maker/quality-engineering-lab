@@ -194,6 +194,25 @@ Week 20 的多 Simulator 和 DerivedData 隔离；它先建立可验证的环境
 
 设备云是替代路径，但当前没有已配置的 provider endpoint 或凭据。
 
+### 已准备的自托管真机链路 / Prepared Self-Hosted Path
+
+新增 `ios-device-smoke.yml`，只匹配：
+
+```text
+self-hosted + macOS + ios-device
+```
+
+XCUITest capabilities 已补齐：
+
+- `xcodeOrgId`
+- `xcodeSigningId`
+- `updatedWDABundleId`
+- `allowProvisioningUpdates`
+- `showXcodeLog`
+
+当前 GitHub Runner API 仍返回 `total_count=0`，所以工作流尚未执行。Runner
+注册和变量配置见 `docs/runbooks/ios-self-hosted-device-runner.md`。
+
 ## 验收方式 / Acceptance Method
 
 ### Windows 静态验证
@@ -291,6 +310,8 @@ artifacts/allure-results exists
 - WDA/signing triage: `docs/runbooks/ios-wda-signing-triage.md`
 - Architecture: `docs/architecture/mobile-driver-call-chain.md`
 - CI workflow: `.github/workflows/ios-smoke.yml`
+- Physical-device workflow: `.github/workflows/ios-device-smoke.yml`
+- Self-hosted runner runbook: `docs/runbooks/ios-self-hosted-device-runner.md`
 - Environment JSON: `artifacts/ios-environment.json`（macOS 运行时生成）
 - Windows physical-device preflight: `artifacts/ios-device-preflight/20261025/windows-preflight.json`
 - Appium log: `artifacts/appium-ios.log`

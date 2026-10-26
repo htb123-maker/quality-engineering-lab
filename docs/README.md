@@ -2,7 +2,7 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-共 44 篇设计文档，按主题分组。
+共 45 篇设计文档，按主题分组。
 
 ## 目标与计划 / Goals and Plan
 
@@ -55,6 +55,7 @@
 - [数据库锁等待与死锁排查 / Database Lock-Wait and Deadlock Triage](runbooks/database-lock-and-deadlock-triage.md)
 - [Failed Quality Gate Triage Runbook](runbooks/failed-quality-gate.md)
 - [Fault Injection and Defect Draft Triage](runbooks/fault-injection-and-defect-drafts.md)
+- [iOS Self-Hosted Physical Device Runner](runbooks/ios-self-hosted-device-runner.md)
 - [iOS WDA Build and Signing Triage](runbooks/ios-wda-signing-triage.md)
 - [iOS XCUITest Simulator and Device Environment Runbook](runbooks/ios-xcuitest-simulator.md)
 - [Local SUT Docker Compose Runbook](runbooks/local-sut-compose.md)
