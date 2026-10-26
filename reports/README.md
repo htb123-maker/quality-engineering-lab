@@ -2,10 +2,11 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-最新进度：[WEEK-17 - iOS 环境、Xcode、XCUITest、WDA 与签名](weekly/WEEK-17.md)
+最新进度：[WEEK-18 - iOS Capabilities、定位、键盘、手势与框架](weekly/WEEK-18.md)
 
 ## 周报 / Weekly Reports
 
+- [WEEK-18 - iOS Capabilities、定位、键盘、手势与框架](weekly/WEEK-18.md)
 - [WEEK-17 - iOS 环境、Xcode、XCUITest、WDA 与签名](weekly/WEEK-17.md)
 - [WEEK-16 - Android 双 AVD、设备矩阵、日志与 60 条测试](weekly/WEEK-16.md)
 - [WEEK-15 - Android 权限、系统弹窗、Hybrid、文件与恢复](weekly/WEEK-15.md)
