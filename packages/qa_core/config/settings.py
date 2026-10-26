@@ -98,6 +98,11 @@ class Settings(BaseSettings):
     ios_platform_version: str | None = Field(default=None)
     ios_udid: str | None = Field(default=None)
     ios_bundle_id: str = Field(default="com.apple.Preferences")
+    ios_xcode_org_id: str | None = Field(default=None)
+    ios_xcode_signing_id: str = Field(default="Apple Development")
+    ios_updated_wda_bundle_id: str | None = Field(default=None)
+    ios_allow_provisioning_updates: bool = Field(default=False)
+    ios_show_xcode_log: bool = Field(default=False)
     ios_wda_local_port: int = Field(default=8100, ge=1, le=65535)
     ios_use_new_wda: bool = Field(default=True)
     ios_wda_launch_timeout_ms: int = Field(

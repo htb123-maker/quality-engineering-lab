@@ -13,6 +13,11 @@ def test_ios_options_map_project_settings_to_xcuitest_capabilities() -> None:
         ios_platform_version="18.5",
         ios_udid="00000000-0000-0000-0000-000000000000",
         ios_bundle_id="com.example.settings",
+        ios_xcode_org_id="TEAM123456",
+        ios_xcode_signing_id="Apple Development",
+        ios_updated_wda_bundle_id="com.example.qa.WebDriverAgentRunner",
+        ios_allow_provisioning_updates=True,
+        ios_show_xcode_log=True,
         ios_wda_local_port=8101,
         ios_use_new_wda=False,
         ios_wda_launch_timeout_ms=300_000,
@@ -28,6 +33,14 @@ def test_ios_options_map_project_settings_to_xcuitest_capabilities() -> None:
     assert capabilities["appium:platformVersion"] == "18.5"
     assert capabilities["appium:udid"] == "00000000-0000-0000-0000-000000000000"
     assert capabilities["appium:bundleId"] == "com.example.settings"
+    assert capabilities["appium:xcodeOrgId"] == "TEAM123456"
+    assert capabilities["appium:xcodeSigningId"] == "Apple Development"
+    assert (
+        capabilities["appium:updatedWDABundleId"]
+        == "com.example.qa.WebDriverAgentRunner"
+    )
+    assert capabilities["appium:allowProvisioningUpdates"] is True
+    assert capabilities["appium:showXcodeLog"] is True
     assert capabilities["appium:noReset"] is True
     assert capabilities["appium:useNewWDA"] is False
     assert capabilities["appium:wdaLocalPort"] == 8101
@@ -44,3 +57,5 @@ def test_ios_options_omit_optional_runtime_and_udid() -> None:
 
     assert "appium:platformVersion" not in capabilities
     assert "appium:udid" not in capabilities
+    assert "appium:xcodeOrgId" not in capabilities
+    assert "appium:updatedWDABundleId" not in capabilities

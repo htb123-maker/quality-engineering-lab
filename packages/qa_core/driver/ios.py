@@ -19,6 +19,14 @@ def build_ios_options(settings: Settings) -> XCUITestOptions:
     if settings.ios_udid:
         options.udid = settings.ios_udid
     options.bundle_id = settings.ios_bundle_id
+    if settings.ios_xcode_org_id:
+        options.xcode_org_id = settings.ios_xcode_org_id
+        options.xcode_signing_id = settings.ios_xcode_signing_id
+    if settings.ios_updated_wda_bundle_id:
+        options.updated_wda_bundle_id = settings.ios_updated_wda_bundle_id
+    if settings.ios_allow_provisioning_updates:
+        options.set_capability("appium:allowProvisioningUpdates", True)
+    options.show_xcode_log = settings.ios_show_xcode_log
     options.no_reset = True
     options.use_new_wda = settings.ios_use_new_wda
     options.wda_local_port = settings.ios_wda_local_port

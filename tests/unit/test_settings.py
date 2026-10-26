@@ -36,6 +36,11 @@ def test_default_settings_are_local_and_safe() -> None:
     assert settings.ios_platform_version is None
     assert settings.ios_udid is None
     assert settings.ios_bundle_id == "com.apple.Preferences"
+    assert settings.ios_xcode_org_id is None
+    assert settings.ios_xcode_signing_id == "Apple Development"
+    assert settings.ios_updated_wda_bundle_id is None
+    assert settings.ios_allow_provisioning_updates is False
+    assert settings.ios_show_xcode_log is False
     assert settings.ios_wda_local_port == 8100
     assert settings.ios_use_new_wda is True
     assert settings.ios_wda_launch_timeout_ms == 240_000
