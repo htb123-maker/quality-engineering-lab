@@ -4,7 +4,8 @@
 - 日期范围 / Date Range: 2026-10-26 to 2026-11-01
 - 分支 / Branch: study/week-18-ios-framework
 - 基线提交 / Base Commit: 1aed070（Week 17 运行验收延期）
-- 计划提交 / Plan Commit: 本文件首次提交 / Initial commit for this file
+- 计划提交 / Plan Commit: c8e451a
+- 远端分支 / Remote Branch: 已推送 / Pushed
 - Pull Request: 尚未创建 / Not created
 - 状态 / Status: **计划已开启 / PLANNED**
 
