@@ -151,6 +151,20 @@ iOS 不是可选项。项目必须覆盖：
 2. macOS CI Runner。
 3. Appium 2 设备云。
 
+### 6.1 Week 17 环境验收调度
+
+Week 17 的静态预检、诊断 runbook 和自托管真机准备可以先行收口，但
+Simulator/WDA/session 的运行验收延期到 Week 21 iOS 阶段验收：
+
+- 在 Week 21 当时最新的 iOS 分支上重新执行环境预检、WDA 构建、Appium
+  session 和 iOS smoke。
+- 证据必须包含 `passed=true` 的环境 JSON、Appium 日志和 Allure 结果。
+- 真机签名与设备信任在具备 Mac 或设备云时一并验收。
+- 延期不降低 Week 17 和 iOS 阶段的目标，也不允许把跳过写成通过。
+
+Week 18 到 Week 20 可以继续建设 capabilities、定位器、交互和框架骨架；
+Week 21 阶段门必须统一验证这些能力在真实 iOS 运行环境中成立。
+
 ## 7. 跨平台目标
 
 Android 和 iOS 应共享：

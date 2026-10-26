@@ -1,12 +1,33 @@
 # WEEK-17 - iOS 环境、Xcode、XCUITest、WDA 与签名 / iOS Environment, Xcode, XCUITest, WDA, and Signing
 
 - 计划 / Plan: Week 17，iOS 环境准备与 WDA 诊断
-- 日期范围 / Date Range: 2026-10-21 to 2026-10-27（进行中 / In Progress）
+- 日期范围 / Date Range: 2026-10-21 to 2026-10-27（环境阶段收口 / Environment Scope Closed）
 - 分支 / Branch: study/week-17-ios-environment-wda
 - 基线提交 / Base Commit: b7a9cf2（Week 16 真机矩阵收口）
 - 计划提交 / Plan Commit: 08764dc
 - Pull Request: 尚未创建 / Not created
-- 完成状态 / Completion Status: **部分通过 / PARTIAL**
+- 完成状态 / Completion Status: **部分通过，运行验收延期 / PARTIAL - RUNTIME ACCEPTANCE DEFERRED**
+
+## 验收调度 / Acceptance Schedule
+
+Week 17 的静态验证、环境预检、WDA/签名诊断和自托管真机准备已经形成可用基线。
+以下依赖 macOS/Xcode 的运行项不在 Week 17 继续阻塞，统一延期到 Week 21
+iOS 阶段验收一起执行：
+
+- 本轮分支的 macOS Simulator 预检，要求 `passed=true`。
+- WDA 首次构建、`WebDriverAgentRunner` 启动和真实 Appium session。
+- 当前 iOS 代码基线上的 `tests/ios` smoke、Appium 日志和 Allure 证据。
+- 真机签名、Provisioning Profile、设备信任和 Developer Mode 的可执行验证；
+  仅在 Week 21 已具备 Mac 或设备云时纳入阶段门。
+
+Week 21 验收时使用当时最新的 iOS 分支，不要求重新检出 Week 17 的历史提交。
+必须重新执行环境检查、iOS smoke 和证据归档，不能用旧 macOS baseline
+代替当前代码结果。若 Week 21 仍没有可用 macOS 环境，该项保持延期，不得
+把 `SKIPPED` 或 `NOT RUN` 写成 `PASS`。
+
+English summary: runtime acceptance is deferred to the Week 21 iOS stage gate.
+Week 18 may proceed with framework work, but the deferred checks must be rerun
+against the then-current iOS branch before the iOS stage can pass.
 
 ## 计划目标 / Plan Goal
 
@@ -151,9 +172,9 @@ Week 20 的多 Simulator 和 DerivedData 隔离；它先建立可验证的环境
 | XCUITest Driver package | 通过 / PASS | Windows | `xcuitest@8.4.3` |
 | iOS smoke | 跳过 / SKIPPED | Windows | `1 skipped in 0.20s` |
 | Workflow YAML parse | 通过 / PASS | Windows | PyYAML loaded `iOS Appium Smoke` |
-| macOS preflight | 未执行 / NOT RUN | macOS | requires a Mac or macOS runner |
-| WDA build | 未执行 / NOT RUN | macOS | requires Xcode |
-| Current-branch macOS smoke | 未执行 / NOT RUN | macOS Runner | workflow not dispatched |
+| macOS preflight | 延期 / DEFERRED | macOS | Week 21 stage acceptance |
+| WDA build | 延期 / DEFERRED | macOS | Week 21 stage acceptance |
+| Current-branch macOS smoke | 延期 / DEFERRED | macOS Runner | Week 21 stage acceptance |
 | Previous baseline macOS smoke | 通过 / PASS | macOS Runner, `main` | run `37327396190`, 2026-10-05 |
 
 之前的 macOS 成功只能证明流水线在旧提交上可用，不能替代本轮分支的新证据。
@@ -319,11 +340,12 @@ artifacts/allure-results exists
 
 ## 未验证项 / Unverified Items
 
-- 本轮 macOS `check_ios_environment.py --doctor` 的真实 Xcode/WDA 结果。
-- 本轮分支的 WDA 首次构建和 `WebDriverAgentRunner` 启动。
-- 本轮分支的 Appium `POST /session` 与 iOS smoke 通过结果。
-- 当前仓库没有自托管 macOS Runner，GitHub Runner API 返回 `total_count=0`。
-- 真机 Apple Team、证书、Provisioning Profile、设备信任和 Developer Mode。
+- **延期到 Week 21：** macOS `check_ios_environment.py --doctor` 的真实
+  Xcode/WDA 结果。
+- **延期到 Week 21：** WDA 首次构建和 `WebDriverAgentRunner` 启动。
+- **延期到 Week 21：** Appium `POST /session`、`tests/ios` smoke 和 Allure 证据。
+- **延期到 Week 21：** 真机 Apple Team、证书、Provisioning Profile、设备信任
+  和 Developer Mode；只有具备 Mac 或设备云时才纳入验收。
 - 设备云端点、凭据注入、App 上传和 provider-specific capabilities。
 - 两个 iOS Simulator 版本、多 WDA 端口和 DerivedData 隔离；属于 Week 20。
 - 50 条 iOS 测试和完整 iOS 业务框架；属于 Week 18 到 Week 21。
@@ -370,3 +392,6 @@ Week 18 进入 iOS 框架骨架：
 3. 复用 `qa_core.mobile` 的 Screen/Flow 思路，但不把 Android 定位器硬编码到 iOS。
 4. 在 macOS Runner 上记录至少一条真实 iOS session 和一条业务页面操作。
 5. 保留 `ios-environment.json`、Appium 日志和 Allure 作为 Week 18 基线证据。
+
+Week 17 延期的 macOS/WDA/session 验收仍以 Week 21 阶段门为准。Week 18 只在
+获得 macOS 执行环境时记录本轮证据；否则继续保留为显式未验证项。
