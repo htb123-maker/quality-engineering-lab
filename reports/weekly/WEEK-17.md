@@ -5,6 +5,7 @@
 - 分支 / Branch: study/week-17-ios-environment-wda
 - 基线提交 / Base Commit: b7a9cf2（Week 16 真机矩阵收口）
 - 计划提交 / Plan Commit: 08764dc
+- 远端分支 / Remote Branch: 已推送 / Pushed
 - Pull Request: 尚未创建 / Not created
 - 完成状态 / Completion Status: **部分通过，运行验收延期 / PARTIAL - RUNTIME ACCEPTANCE DEFERRED**
 
