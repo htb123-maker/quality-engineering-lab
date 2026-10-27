@@ -7,7 +7,7 @@
 - 计划提交 / Plan Commit: c8e451a
 - 远端分支 / Remote Branch: 已推送 / Pushed
 - Pull Request: 尚未创建 / Not created
-- 状态 / Status: **计划已开启 / PLANNED**
+- 状态 / Status: **计划已开启，实施未开始 / PLANNED ONLY**
 
 ## 计划目标 / Plan Goal
 
@@ -28,6 +28,25 @@ primitives, shared Screen/Flow composition, and one macOS-backed smoke.
 
 本计划只开启框架建设。Week 17 延期到 Week 21 的 Simulator/WDA/session
 运行验收仍然有效；没有 macOS 环境时，相关项必须保持显式未验证。
+
+## 完成状态 / Completion Status
+
+**未开始 / NOT STARTED（检查日期 2026-10-27）**
+
+截至 `f11c9ca`，Week 18 只有计划和元数据提交：
+
+- `c8e451a` 新增 Week 18 计划并更新报告索引。
+- `fa26ea5` 和 `f11c9ca` 只更新 Week 17/18 的远端与计划提交记录。
+- `git diff --stat c8e451a..f11c9ca` 仅包含报告文件，没有源码、配置或测试变更。
+- `packages/qa_core/platforms/ios` 尚不存在，没有 iOS locator、keyboard 或
+  gesture 模块。
+- `tests/ios` 仍只有既有 session smoke，没有 Week 18 Screen smoke。
+- 计划中的 iOS runbook、架构说明和 capability profile 均未新增。
+- Ruff、Mypy、targeted unit tests 和 iOS smoke 均未执行。
+
+结论：Week 18 是“计划已开启”，不是“部分完成”。Week 19 可以继续创建计划，
+但在 Week 18 的 locator、wait、keyboard 和 gesture 骨架可复用之前，Week 19
+不能进入完成状态。
 
 ## 第 17 周交接 / Week 17 Handoff
 
@@ -301,3 +320,6 @@ Week 19 进入 iOS 系统交互与业务测试：
 3. 前后台恢复与失败证据。
 4. 复用 Week 18 的 capability profile、iOS locator、等待和 Screen/Flow。
 5. 在可用 macOS 环境中保留真实 session 和 Allure 证据。
+
+上述依赖当前尚未实现。Week 19 的执行顺序必须是先补齐 Week 18 框架基线，
+再扩展系统交互；不能通过复制 Android 实现或静态单元测试宣称 iOS 已完成。
