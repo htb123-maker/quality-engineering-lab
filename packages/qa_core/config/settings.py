@@ -4,12 +4,20 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal, Self
 
-from pydantic import AnyHttpUrl, Field, PostgresDsn, RedisDsn, model_validator
+from pydantic import (
+    AnyHttpUrl,
+    Field,
+    PostgresDsn,
+    RedisDsn,
+    SecretStr,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["local", "ci", "performance", "staging"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 AuthMode = Literal["bearer", "cookie"]
+IosDeviceProvider = Literal["local", "browserstack", "saucelabs", "lambdatest"]
 
 
 class Settings(BaseSettings):
@@ -115,6 +123,22 @@ class Settings(BaseSettings):
         default=10_000,
         ge=1_000,
         le=60_000,
+    )
+    ios_device_provider: IosDeviceProvider = "local"
+    ios_cloud_remote_url: AnyHttpUrl | None = None
+    ios_cloud_user: str | None = None
+    ios_cloud_access_key: SecretStr | None = None
+    ios_cloud_app: str | None = None
+    ios_cloud_device_name: str = Field(default="iPhone 15", min_length=1)
+    ios_cloud_platform_version: str = Field(default="17", min_length=1)
+    ios_cloud_project_name: str = Field(
+        default="quality-engineering-lab",
+        min_length=1,
+    )
+    ios_cloud_build_name: str = Field(default="ios-cloud-smoke", min_length=1)
+    ios_cloud_session_name: str = Field(
+        default="ios-session-smoke",
+        min_length=1,
     )
     postgres_dsn: PostgresDsn = Field(
         default_factory=lambda: PostgresDsn("postgresql://qa:qa@127.0.0.1:15432/qa")

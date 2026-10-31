@@ -46,6 +46,16 @@ def test_default_settings_are_local_and_safe() -> None:
     assert settings.ios_wda_launch_timeout_ms == 240_000
     assert settings.ios_wda_startup_retries == 2
     assert settings.ios_wda_startup_retry_interval_ms == 10_000
+    assert settings.ios_device_provider == "local"
+    assert settings.ios_cloud_remote_url is None
+    assert settings.ios_cloud_user is None
+    assert settings.ios_cloud_access_key is None
+    assert settings.ios_cloud_app is None
+    assert settings.ios_cloud_device_name == "iPhone 15"
+    assert settings.ios_cloud_platform_version == "17"
+    assert settings.ios_cloud_project_name == "quality-engineering-lab"
+    assert settings.ios_cloud_build_name == "ios-cloud-smoke"
+    assert settings.ios_cloud_session_name == "ios-session-smoke"
     assert str(settings.postgres_dsn) == "postgresql://qa:qa@127.0.0.1:15432/qa"
     assert str(settings.redis_url) == "redis://127.0.0.1:26379/0"
     assert settings.artifacts_dir == Path("artifacts")

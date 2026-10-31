@@ -2,6 +2,7 @@
 
 # mypy: disable-error-code="untyped-decorator,no-untyped-call"
 
+import os
 import sys
 
 import allure
@@ -16,8 +17,9 @@ from qa_core.driver.ios import create_ios_driver
 @pytest.mark.ios
 @pytest.mark.smoke
 @pytest.mark.skipif(
-    sys.platform != "darwin",
-    reason="XCUITest requires macOS, Xcode, and WebDriverAgent.",
+    sys.platform != "darwin"
+    or os.getenv("QA_IOS_DEVICE_PROVIDER", "local").lower() != "local",
+    reason="Local XCUITest requires macOS and a local device provider.",
 )
 @pytest.mark.timeout(900)
 @allure.testcase("SMOKE-IOS-SESSION-001", "iOS session lifecycle")

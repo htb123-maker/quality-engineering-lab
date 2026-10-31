@@ -1,0 +1,90 @@
+name: iOS Cloud Device Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: Appium device cloud provider
+        required: true
+        type: choice
+        default: browserstack
+        options:
+          - browserstack
+          - saucelabs
+          - lambdatest
+      device_name:
+        description: Cloud device name
+        required: true
+        type: string
+        default: iPhone 15
+      platform_version:
+        description: iOS platform version
+        required: true
+        type: string
+        default: "17"
+      remote_url:
+        description: Appium cloud endpoint
+        required: true
+        type: string
+        default: https://hub-cloud.browserstack.com/wd/hub
+
+permissions:
+  contents: read
+
+jobs:
+  ios-cloud:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      QA_IOS_DEVICE_PROVIDER: ${{ inputs.provider }}
+      QA_IOS_CLOUD_REMOTE_URL: ${{ inputs.remote_url }}
+      QA_IOS_CLOUD_USER: ${{ secrets.IOS_CLOUD_USER }}
+      QA_IOS_CLOUD_ACCESS_KEY: ${{ secrets.IOS_CLOUD_ACCESS_KEY }}
+      QA_IOS_CLOUD_APP: ${{ secrets.IOS_CLOUD_APP }}
+      QA_IOS_CLOUD_DEVICE_NAME: ${{ inputs.device_name }}
+      QA_IOS_CLOUD_PLATFORM_VERSION: ${{ inputs.platform_version }}
+      QA_IOS_CLOUD_PROJECT_NAME: quality-engineering-lab
+      QA_IOS_CLOUD_BUILD_NAME: ios-cloud-${{ github.run_id }}
+      QA_IOS_CLOUD_SESSION_NAME: ios-session-smoke
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Validate cloud credentials and app
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in \
+            QA_IOS_CLOUD_USER \
+            QA_IOS_CLOUD_ACCESS_KEY \
+            QA_IOS_CLOUD_APP; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Missing required device-cloud secret: $name"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      - name: Run cloud iOS smoke
+        run: |
+          mkdir -p artifacts/allure-results
+          uv run --no-sync pytest tests/ios -q \
+            --alluredir=artifacts/allure-results
+
+      - name: Upload cloud diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-cloud-diagnostics-${{ inputs.provider }}
+          path: artifacts/
+          if-no-files-found: ignore
