@@ -1,5 +1,24 @@
 # iOS XCUITest Simulator and Device Environment Runbook
 
+## macOS CI WDA Startup Budget
+
+The GitHub-hosted macOS Simulator job performs a cold WDA build. A 240-second
+WDA launch timeout can be shorter than the first `xcodebuild` cycle on a busy
+runner, and retries can then exhaust the outer pytest timeout before the
+second WDA attempt has a chance to answer `/status`.
+
+For the Week 17 Simulator acceptance path:
+
+- keep `QA_IOS_SHOW_XCODE_LOG=true` so `xcodebuild` failures are captured;
+- use `QA_IOS_WDA_LAUNCH_TIMEOUT_MS=600000` for the cold build;
+- use `QA_IOS_WDA_STARTUP_RETRIES=1` so one attempt gets a full diagnostic
+  window instead of spending the budget on repeated partial builds;
+- allow the pytest session smoke at least 900 seconds.
+
+If WDA still does not answer `/status`, classify it as an XCUITest/WDA runtime
+failure, not as a passed iOS environment. Preserve `ios-environment.json`,
+`appium-ios.log`, the GitHub Run URL, and Allure results.
+
 ## Purpose
 
 Prepare a macOS host for the first iOS Appium session, prove that Xcode,

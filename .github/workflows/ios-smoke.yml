@@ -15,6 +15,10 @@ jobs:
       QA_IOS_BUNDLE_ID: com.apple.Preferences
       QA_IOS_WDA_LOCAL_PORT: "8100"
       QA_IOS_USE_NEW_WDA: "true"
+      QA_IOS_SHOW_XCODE_LOG: "true"
+      QA_IOS_WDA_LAUNCH_TIMEOUT_MS: "600000"
+      QA_IOS_WDA_STARTUP_RETRIES: "1"
+      QA_IOS_WDA_STARTUP_RETRY_INTERVAL_MS: "10000"
 
     steps:
       - name: Check out repository
