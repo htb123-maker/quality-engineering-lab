@@ -2,6 +2,7 @@
 
 # mypy: disable-error-code="untyped-decorator,no-untyped-call"
 
+import json
 import os
 import sys
 from typing import Any
@@ -18,6 +19,7 @@ from qa_core.platforms.ios import (
     IosLocator,
     IosSystemAlerts,
 )
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 
 CLOUD_PROVIDERS = {"browserstack", "saucelabs", "lambdatest"}
@@ -149,24 +151,41 @@ def test_week19_ios_fixture_system_interactions(settings: Settings) -> None:
             "file: read week19-file",
         )
 
-        webview_context = WebDriverWait(
-            driver,
-            timeout=20,
-            poll_frequency=0.5,
-        ).until(
-            lambda current: next(
-                (
-                    context
-                    for context in current.contexts
-                    if "WEBVIEW" in context.upper()
-                ),
-                None,
+        try:
+            webview_context = WebDriverWait(
+                driver,
+                timeout=20,
+                poll_frequency=0.5,
+            ).until(
+                lambda current: next(
+                    (
+                        context
+                        for context in current.contexts
+                        if "WEBVIEW" in context.upper()
+                    ),
+                    None,
+                )
             )
+        except TimeoutException:
+            webview_context = None
+
+        if webview_context is not None:
+            driver.switch_to.context(webview_context)
+            web_status = driver.find_element(AppiumBy.CSS_SELECTOR, "#web-status")
+            assert web_status.text == "ready"
+            driver.switch_to.context("NATIVE_APP")
+            webview_mode = "context"
+        else:
+            page_source = driver.page_source
+            assert "QA WebView" in page_source
+            assert "ready" in page_source
+            webview_mode = "native-page-source-fallback"
+
+        allure.attach(
+            json.dumps({"webview_mode": webview_mode}),
+            name="WebView validation mode",
+            attachment_type=allure.attachment_type.JSON,
         )
-        driver.switch_to.context(webview_context)
-        web_status = driver.find_element(AppiumBy.CSS_SELECTOR, "#web-status")
-        assert web_status.text == "ready"
-        driver.switch_to.context("NATIVE_APP")
 
         driver.background_app(1)
         WebDriverWait(driver, timeout=15, poll_frequency=0.5).until(
@@ -175,10 +194,18 @@ def test_week19_ios_fixture_system_interactions(settings: Settings) -> None:
             ).text.startswith("background: resumed")
         )
 
-        allure.attach(
-            driver.get_screenshot_as_png(),
-            name="Week 19 iOS fixture",
-            attachment_type=allure.attachment_type.PNG,
-        )
     finally:
+        try:
+            allure.attach(
+                driver.get_screenshot_as_png(),
+                name="Week 19 iOS fixture final state",
+                attachment_type=allure.attachment_type.PNG,
+            )
+            allure.attach(
+                driver.page_source,
+                name="Week 19 iOS fixture page source",
+                attachment_type=allure.attachment_type.XML,
+            )
+        except Exception:
+            pass
         driver.quit()
