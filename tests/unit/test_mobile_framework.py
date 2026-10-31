@@ -146,6 +146,16 @@ def test_mobile_wait_gone_succeeds_when_element_is_missing() -> None:
 
 
 @pytest.mark.unit
+def test_mobile_wait_matches_exact_text() -> None:
+    locator = Locator(LocatorStrategy.ACCESSIBILITY_ID, "Status")
+    element = FakeNode(text="ready")
+    scope = FakeNode(children={locator.as_tuple(): element})
+    wait = MobileWait(as_driver(scope), fast_wait_policy())
+
+    assert wait.text_is(as_scope(scope), locator, "ready") is cast(WebElement, element)
+
+
+@pytest.mark.unit
 def test_screen_scopes_descendants_and_actions_to_its_root() -> None:
     screen_root_locator = Locator(LocatorStrategy.RESOURCE_ID, "android:id/content")
     child_locator = Locator(LocatorStrategy.ACCESSIBILITY_ID, "Continue")

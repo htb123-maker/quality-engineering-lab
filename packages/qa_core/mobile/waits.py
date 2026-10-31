@@ -144,3 +144,22 @@ class MobileWait:
             return False
 
         self._until(locator, "gone", missing)
+
+    def text_is(
+        self,
+        scope: SearchContext,
+        locator: LocatorLike,
+        expected: str,
+    ) -> WebElement:
+        """Wait until one visible element contains exactly the expected text."""
+
+        def matching_text() -> WebElement | bool:
+            element = scope.find_element(*locator.as_tuple())
+            if element.is_displayed() and element.text == expected:
+                return element
+            return False
+
+        return cast(
+            WebElement,
+            self._until(locator, f"text {expected!r}", matching_text),
+        )

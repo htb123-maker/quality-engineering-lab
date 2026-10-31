@@ -10,11 +10,13 @@ from appium.webdriver.webdriver import WebDriver
 from qa_core.mobile.screens import Screen
 from qa_core.mobile.waits import MobileWait, SearchContext, WaitPolicy
 from qa_core.platforms.ios import (
+    IosAlertAction,
     IosGestures,
     IosKeyboard,
     IosLocator,
     IosLocatorStrategy,
     IosSwipeDirection,
+    IosSystemAlerts,
 )
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.keys import Keys
@@ -57,6 +59,31 @@ class FakeNode:
 
     def hide_keyboard(self) -> None:
         self.keyboard_hidden += 1
+
+
+class FakeAlert:
+    text = "Allow access?"
+
+    def __init__(self) -> None:
+        self.accepted = 0
+        self.dismissed = 0
+
+    def accept(self) -> None:
+        self.accepted += 1
+
+    def dismiss(self) -> None:
+        self.dismissed += 1
+
+
+class FakeSwitchTo:
+    def __init__(self, alert: FakeAlert) -> None:
+        self.alert = alert
+
+
+class FakeAlertDriver:
+    def __init__(self) -> None:
+        self.alert = FakeAlert()
+        self.switch_to = FakeSwitchTo(self.alert)
 
 
 def as_driver(node: FakeNode) -> WebDriver:
@@ -158,3 +185,15 @@ def test_ios_gestures_reject_invalid_direction_and_velocity() -> None:
 
     with pytest.raises(ValueError, match="velocity"):
         gestures.swipe(IosSwipeDirection.UP, velocity=0)
+
+
+@pytest.mark.unit
+def test_ios_system_alerts_accept_and_dismiss() -> None:
+    driver = FakeAlertDriver()
+    alerts = IosSystemAlerts(cast(WebDriver, driver), timeout_seconds=0.05)
+
+    alerts.handle(IosAlertAction.ACCEPT)
+    alerts.handle(IosAlertAction.DISMISS)
+
+    assert driver.alert.accepted == 1
+    assert driver.alert.dismissed == 1

@@ -1,0 +1,105 @@
+name: iOS Week 19 Fixture Cloud
+
+on:
+  push:
+    paths:
+      - .github/workflows/ios-fixture-cloud.yml
+      - apps/ios-fixture/**
+      - packages/qa_core/config/settings.py
+      - packages/qa_core/driver/ios.py
+      - packages/qa_core/mobile/**
+      - packages/qa_core/platforms/ios/**
+      - tests/ios/test_week19_system_interactions.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-fixture-cloud:
+    runs-on: macos-15
+    timeout-minutes: 45
+    env:
+      QA_IOS_DEVICE_PROVIDER: browserstack
+      QA_IOS_CLOUD_REMOTE_URL: https://hub-cloud.browserstack.com/wd/hub
+      QA_IOS_CLOUD_USER: ${{ secrets.IOS_CLOUD_USER }}
+      QA_IOS_CLOUD_ACCESS_KEY: ${{ secrets.IOS_CLOUD_ACCESS_KEY }}
+      QA_IOS_CLOUD_DEVICE_NAME: iPhone 14
+      QA_IOS_CLOUD_PLATFORM_VERSION: "16"
+      QA_IOS_CLOUD_PROJECT_NAME: quality-engineering-lab
+      QA_IOS_CLOUD_BUILD_NAME: week19-${{ github.run_id }}
+      QA_IOS_CLOUD_SESSION_NAME: week19-system-interactions
+      QA_IOS_BUNDLE_ID: com.example.qaweek19
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Build iOS device fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project apps/ios-fixture/QaIosFixture.xcodeproj \
+            -scheme QaIosFixture \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath artifacts/ios-fixture-derived \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: Package iOS fixture IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="artifacts/ios-fixture-derived/Build/Products/Debug-iphoneos/QaIosFixture.app"
+          test -d "$app_path"
+          mkdir -p artifacts/ios-fixture-ipa/Payload
+          cp -R "$app_path" artifacts/ios-fixture-ipa/Payload/
+          cd artifacts/ios-fixture-ipa
+          zip -qry ../QaIosFixture.ipa Payload
+          test -s ../QaIosFixture.ipa
+
+      - name: Upload fixture to BrowserStack
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${QA_IOS_CLOUD_USER:-}"
+          test -n "${QA_IOS_CLOUD_ACCESS_KEY:-}"
+          curl --fail --silent --show-error \
+            -u "$QA_IOS_CLOUD_USER:$QA_IOS_CLOUD_ACCESS_KEY" \
+            -X POST \
+            -F "file=@artifacts/QaIosFixture.ipa" \
+            https://api-cloud.browserstack.com/app-automate/upload \
+            > artifacts/browserstack-upload.json
+          app_url="$(
+            python3 -c \
+              'import json; print(json.load(open("artifacts/browserstack-upload.json"))["app_url"])'
+          )"
+          test -n "$app_url"
+          echo "QA_IOS_CLOUD_APP=$app_url" >> "$GITHUB_ENV"
+
+      - name: Run Week 19 system interactions
+        run: |
+          mkdir -p artifacts/allure-results
+          uv run --no-sync pytest \
+            tests/ios/test_week19_system_interactions.py -q \
+            --alluredir=artifacts/allure-results
+
+      - name: Upload Week 19 diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-week19-fixture-diagnostics
+          path: artifacts/
+          if-no-files-found: ignore
