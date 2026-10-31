@@ -1,0 +1,60 @@
+name: iOS Cloud Sample Smoke
+
+on:
+  push:
+    paths:
+      - .github/workflows/ios-cloud-sample-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-cloud-sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      QA_IOS_DEVICE_PROVIDER: browserstack
+      QA_IOS_CLOUD_REMOTE_URL: https://hub-cloud.browserstack.com/wd/hub
+      QA_IOS_CLOUD_USER: ${{ secrets.IOS_CLOUD_USER }}
+      QA_IOS_CLOUD_ACCESS_KEY: ${{ secrets.IOS_CLOUD_ACCESS_KEY }}
+      QA_IOS_CLOUD_APP: bs://sample.app
+      QA_IOS_CLOUD_DEVICE_NAME: iPhone 14
+      QA_IOS_CLOUD_PLATFORM_VERSION: "16"
+      QA_IOS_CLOUD_PROJECT_NAME: quality-engineering-lab
+      QA_IOS_CLOUD_BUILD_NAME: sample-${{ github.run_id }}
+      QA_IOS_CLOUD_SESSION_NAME: sample-session
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Validate cloud credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${QA_IOS_CLOUD_USER:-}"
+          test -n "${QA_IOS_CLOUD_ACCESS_KEY:-}"
+
+      - name: Run BrowserStack sample iOS session
+        run: |
+          mkdir -p artifacts/allure-results
+          uv run --no-sync pytest \
+            tests/ios/test_cloud_session.py -q \
+            --alluredir=artifacts/allure-results
+
+      - name: Upload cloud sample diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-cloud-sample-diagnostics
+          path: artifacts/
+          if-no-files-found: ignore
