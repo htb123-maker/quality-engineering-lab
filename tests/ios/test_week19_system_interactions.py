@@ -5,6 +5,7 @@
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Any
 
 import allure
@@ -16,6 +17,7 @@ from qa_core.mobile.screens import Screen
 from qa_core.mobile.waits import MobileWait, WaitPolicy
 from qa_core.platforms.ios import (
     IosAlertAction,
+    IosDiagnostics,
     IosLocator,
     IosSystemAlerts,
 )
@@ -81,6 +83,28 @@ def _handle_permission_prompt(driver: Any, action: IosAlertAction) -> None:
     IosSystemAlerts(driver, timeout_seconds=15.0).handle(action)
 
 
+def _capture_step(diagnostics: IosDiagnostics, step: str) -> None:
+    try:
+        capture = diagnostics.capture(step)
+    except Exception as exc:
+        allure.attach(
+            f"{type(exc).__name__}: {exc}",
+            name=f"Diagnostics failed: {step}",
+            attachment_type=allure.attachment_type.TEXT,
+        )
+        return
+    allure.attach.file(
+        str(capture.screenshot_path),
+        name=f"Screenshot: {step}",
+        attachment_type=allure.attachment_type.PNG,
+    )
+    allure.attach.file(
+        str(capture.page_source_path),
+        name=f"Page source: {step}",
+        attachment_type=allure.attachment_type.XML,
+    )
+
+
 @allure.epic("Quality Engineering Lab")
 @allure.feature("iOS System Interactions")
 @allure.story("Week 19 fixture")
@@ -99,6 +123,10 @@ def _handle_permission_prompt(driver: Any, action: IosAlertAction) -> None:
 def test_week19_ios_fixture_system_interactions(settings: Settings) -> None:
     driver = create_ios_driver(settings)
     wait = MobileWait(driver, WaitPolicy(timeout_seconds=15.0))
+    diagnostics = IosDiagnostics(
+        driver,
+        Path("artifacts/ios-diagnostics"),
+    )
 
     try:
         screen = FixtureScreen(driver, wait_policy=WaitPolicy(timeout_seconds=15.0))
@@ -108,10 +136,12 @@ def test_week19_ios_fixture_system_interactions(settings: Settings) -> None:
             FixtureScreen.title,
             "QA iOS Fixture",
         )
+        _capture_step(diagnostics, "01-fixture-ready")
 
         screen.tap(FixtureScreen.camera_button)
         _handle_permission_prompt(driver, IosAlertAction.ACCEPT)
         wait.text_is(screen.scope(), FixtureScreen.camera_status, "camera: granted")
+        _capture_step(diagnostics, "02-camera-granted")
 
         screen.tap(FixtureScreen.microphone_button)
         _handle_permission_prompt(driver, IosAlertAction.DISMISS)
@@ -120,6 +150,7 @@ def test_week19_ios_fixture_system_interactions(settings: Settings) -> None:
             FixtureScreen.microphone_status,
             "microphone: denied",
         )
+        _capture_step(diagnostics, "03-microphone-denied")
 
         screen.tap(FixtureScreen.notification_button)
         _handle_permission_prompt(driver, IosAlertAction.ACCEPT)
@@ -128,12 +159,14 @@ def test_week19_ios_fixture_system_interactions(settings: Settings) -> None:
             FixtureScreen.notification_status,
             "notifications: authorized",
         )
+        _capture_step(diagnostics, "04-notification-authorized")
         screen.tap(FixtureScreen.send_notification_button)
         wait.text_is(
             screen.scope(),
             FixtureScreen.notification_status,
             "notifications: scheduled",
         )
+        _capture_step(diagnostics, "05-notification-scheduled")
 
         screen.tap(FixtureScreen.deep_link_button)
         wait.text_is(
@@ -141,15 +174,18 @@ def test_week19_ios_fixture_system_interactions(settings: Settings) -> None:
             FixtureScreen.deep_link_status,
             "deep link: opened qaweek19://system-interactions?case=deep-link",
         )
+        _capture_step(diagnostics, "06-deep-link")
 
         screen.tap(FixtureScreen.write_file_button)
         wait.text_is(screen.scope(), FixtureScreen.file_status, "file: written")
+        _capture_step(diagnostics, "07-file-written")
         screen.tap(FixtureScreen.read_file_button)
         wait.text_is(
             screen.scope(),
             FixtureScreen.file_status,
             "file: read week19-file",
         )
+        _capture_step(diagnostics, "08-file-read")
 
         try:
             webview_context = WebDriverWait(
@@ -186,6 +222,7 @@ def test_week19_ios_fixture_system_interactions(settings: Settings) -> None:
             name="WebView validation mode",
             attachment_type=allure.attachment_type.JSON,
         )
+        _capture_step(diagnostics, "09-webview")
 
         driver.background_app(1)
         WebDriverWait(driver, timeout=15, poll_frequency=0.5).until(
@@ -193,19 +230,8 @@ def test_week19_ios_fixture_system_interactions(settings: Settings) -> None:
                 *FixtureScreen.background_status.as_tuple()
             ).text.startswith("background: resumed")
         )
+        _capture_step(diagnostics, "10-background-resumed")
 
     finally:
-        try:
-            allure.attach(
-                driver.get_screenshot_as_png(),
-                name="Week 19 iOS fixture final state",
-                attachment_type=allure.attachment_type.PNG,
-            )
-            allure.attach(
-                driver.page_source,
-                name="Week 19 iOS fixture page source",
-                attachment_type=allure.attachment_type.XML,
-            )
-        except Exception:
-            pass
+        _capture_step(diagnostics, "99-final")
         driver.quit()

@@ -103,3 +103,11 @@ jobs:
           name: ios-week19-fixture-diagnostics
           path: artifacts/
           if-no-files-found: ignore
+
+      - name: Upload Week 19 screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-week19-screenshots
+          path: artifacts/ios-diagnostics/
+          if-no-files-found: ignore
