@@ -11,6 +11,7 @@ from qa_core.driver.ios import build_ios_options, create_ios_driver
 def test_ios_options_map_project_settings_to_xcuitest_capabilities() -> None:
     settings = Settings(
         _env_file=None,
+        ios_capability_profile="device",
         ios_device_name="iPhone 16 Pro",
         ios_platform_version="18.5",
         ios_udid="00000000-0000-0000-0000-000000000000",
@@ -61,6 +62,38 @@ def test_ios_options_omit_optional_runtime_and_udid() -> None:
     assert "appium:udid" not in capabilities
     assert "appium:xcodeOrgId" not in capabilities
     assert "appium:updatedWDABundleId" not in capabilities
+
+
+def test_simulator_profile_omits_device_signing_capabilities() -> None:
+    settings = Settings(
+        _env_file=None,
+        ios_capability_profile="simulator",
+        ios_xcode_org_id="TEAM123456",
+        ios_allow_provisioning_updates=True,
+    )
+
+    capabilities = build_ios_options(settings).to_capabilities()
+
+    assert "appium:xcodeOrgId" not in capabilities
+    assert "appium:allowProvisioningUpdates" not in capabilities
+
+
+def test_device_profile_requires_udid() -> None:
+    settings = Settings(_env_file=None, ios_capability_profile="device")
+
+    with pytest.raises(ValueError, match="ios_udid"):
+        build_ios_options(settings)
+
+
+def test_device_profile_requires_team() -> None:
+    settings = Settings(
+        _env_file=None,
+        ios_capability_profile="device",
+        ios_udid="00000000-0000-0000-0000-000000000000",
+    )
+
+    with pytest.raises(ValueError, match="ios_xcode_org_id"):
+        build_ios_options(settings)
 
 
 def test_browserstack_options_use_nested_vendor_capabilities() -> None:

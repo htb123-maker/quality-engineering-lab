@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Protocol
 
 from appium.webdriver.common.appiumby import AppiumBy
 
@@ -13,6 +14,16 @@ class LocatorStrategy(StrEnum):
     RESOURCE_ID = AppiumBy.ID
     UIAUTOMATOR = AppiumBy.ANDROID_UIAUTOMATOR
     XPATH = AppiumBy.XPATH
+
+
+class LocatorLike(Protocol):
+    """Locator shape shared by platform-specific locator implementations."""
+
+    def as_tuple(self) -> tuple[str, str]:
+        """Return the strategy and value expected by WebDriver."""
+
+    def __str__(self) -> str:
+        """Return a diagnostic label for timeout and report output."""
 
 
 @dataclass(frozen=True, slots=True)

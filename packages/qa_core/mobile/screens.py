@@ -7,14 +7,14 @@ from typing import Self
 from appium.webdriver.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
 
-from qa_core.mobile.locators import Locator
+from qa_core.mobile.locators import LocatorLike
 from qa_core.mobile.waits import MobileWait, SearchContext, WaitPolicy
 
 
 class Component:
     """A reusable UI region scoped to a root locator."""
 
-    root_locator: Locator
+    root_locator: LocatorLike
 
     def __init__(
         self,
@@ -37,29 +37,29 @@ class Component:
 
         return self.wait.visible(self.scope(), self.root_locator)
 
-    def descendant(self, locator: Locator) -> WebElement:
+    def descendant(self, locator: LocatorLike) -> WebElement:
         """Resolve a visible element inside this component only."""
 
         return self.wait.visible(self.element(), locator)
 
-    def tap(self, locator: Locator) -> None:
+    def tap(self, locator: LocatorLike) -> None:
         """Tap one clickable descendant."""
 
         self.wait.clickable(self.element(), locator).click()
 
-    def text_of(self, locator: Locator) -> str:
+    def text_of(self, locator: LocatorLike) -> str:
         """Return the displayed text of a descendant."""
 
         return self.descendant(locator).text
 
-    def send_keys(self, locator: Locator, value: str) -> None:
+    def send_keys(self, locator: LocatorLike, value: str) -> None:
         """Clear and type into a descendant input."""
 
         element = self.descendant(locator)
         element.clear()
         element.send_keys(value)
 
-    def attribute_of(self, locator: Locator, name: str) -> str | None:
+    def attribute_of(self, locator: LocatorLike, name: str) -> str | None:
         """Read one WebDriver attribute from a descendant."""
 
         return self.descendant(locator).get_attribute(name)
