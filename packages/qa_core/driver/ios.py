@@ -23,7 +23,7 @@ def _required_cloud_setting(value: str | None, name: str) -> str:
     return value.strip()
 
 
-def _cloud_capabilities(settings: Settings) -> tuple[str, dict[str, Any]]:
+def _cloud_capabilities(settings: Settings) -> tuple[str, dict[str, Any], str]:
     """Build the provider-specific options namespace and values."""
 
     provider = settings.ios_device_provider
@@ -38,37 +38,48 @@ def _cloud_capabilities(settings: Settings) -> tuple[str, dict[str, Any]]:
     common: dict[str, Any] = {
         "deviceName": settings.ios_cloud_device_name,
         "platformVersion": settings.ios_cloud_platform_version,
-        "app": app,
     }
     secret = access_key.get_secret_value()
     if provider == "browserstack":
-        return "bstack:options", {
+        return (
+            "bstack:options",
+            {
+                **common,
+                "userName": username,
+                "accessKey": secret,
+                "projectName": settings.ios_cloud_project_name,
+                "buildName": settings.ios_cloud_build_name,
+                "sessionName": settings.ios_cloud_session_name,
+                "debug": True,
+                "networkLogs": True,
+            },
+            app,
+        )
+    if provider == "saucelabs":
+        return (
+            "sauce:options",
+            {
+                **common,
+                "username": username,
+                "accessKey": secret,
+                "build": settings.ios_cloud_build_name,
+                "name": settings.ios_cloud_session_name,
+            },
+            app,
+        )
+    return (
+        "LT:Options",
+        {
             **common,
             "userName": username,
             "accessKey": secret,
             "projectName": settings.ios_cloud_project_name,
             "buildName": settings.ios_cloud_build_name,
-            "sessionName": settings.ios_cloud_session_name,
-            "debug": True,
-            "networkLogs": True,
-        }
-    if provider == "saucelabs":
-        return "sauce:options", {
-            **common,
-            "username": username,
-            "accessKey": secret,
-            "build": settings.ios_cloud_build_name,
             "name": settings.ios_cloud_session_name,
-        }
-    return "LT:Options", {
-        **common,
-        "userName": username,
-        "accessKey": secret,
-        "projectName": settings.ios_cloud_project_name,
-        "buildName": settings.ios_cloud_build_name,
-        "name": settings.ios_cloud_session_name,
-        "isRealMobile": True,
-    }
+            "isRealMobile": True,
+        },
+        app,
+    )
 
 
 def _build_cloud_ios_options(settings: Settings) -> XCUITestOptions:
@@ -77,8 +88,9 @@ def _build_cloud_ios_options(settings: Settings) -> XCUITestOptions:
     options = XCUITestOptions()
     options.platform_name = "iOS"
     options.automation_name = "XCUITest"
-    namespace, capabilities = _cloud_capabilities(settings)
+    namespace, capabilities, app = _cloud_capabilities(settings)
     options.set_capability(namespace, capabilities)
+    options.app = app
     return options
 
 

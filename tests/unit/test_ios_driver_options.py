@@ -77,9 +77,10 @@ def test_browserstack_options_use_nested_vendor_capabilities() -> None:
     capabilities = build_ios_options(settings).to_capabilities()
     vendor_options = capabilities["bstack:options"]
 
+    assert capabilities["appium:app"] == "bs://example-app"
     assert vendor_options["userName"] == "cloud-user"
     assert vendor_options["accessKey"] == "cloud-secret"
-    assert vendor_options["app"] == "bs://example-app"
+    assert "app" not in vendor_options
     assert vendor_options["deviceName"] == "iPhone 15"
     assert vendor_options["platformVersion"] == "17"
     assert vendor_options["networkLogs"] is True
@@ -107,8 +108,9 @@ def test_other_cloud_providers_map_to_their_namespace(
 
     capabilities = build_ios_options(settings).to_capabilities()
 
+    assert capabilities["appium:app"] == "storage:example-app"
     assert capabilities[namespace]["accessKey"] == "cloud-secret"
-    assert capabilities[namespace]["app"] == "storage:example-app"
+    assert "app" not in capabilities[namespace]
 
 
 def test_cloud_provider_requires_credentials_and_app() -> None:

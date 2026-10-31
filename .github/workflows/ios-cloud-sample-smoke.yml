@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - .github/workflows/ios-cloud-sample-smoke.yml
+      - packages/qa_core/driver/ios.py
+      - tests/ios/test_cloud_session.py
   workflow_dispatch:
 
 permissions:
