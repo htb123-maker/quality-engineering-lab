@@ -26,7 +26,11 @@ CLOUD_PROVIDERS = {"browserstack", "saucelabs", "lambdatest"}
 class FixtureScreen(Screen):
     """Stable root and controls from the Week 19 iOS fixture."""
 
-    root_locator = IosLocator.accessibility_id("fixture-title", "Fixture title")
+    root_locator = IosLocator.class_chain(
+        "**/XCUIElementTypeWindow[1]",
+        "Application window",
+    )
+    title = IosLocator.accessibility_id("fixture-title", "Fixture title")
     camera_button = IosLocator.accessibility_id("request-camera", "Camera button")
     microphone_button = IosLocator.accessibility_id(
         "request-microphone",
@@ -97,6 +101,11 @@ def test_week19_ios_fixture_system_interactions(settings: Settings) -> None:
     try:
         screen = FixtureScreen(driver, wait_policy=WaitPolicy(timeout_seconds=15.0))
         screen.wait_ready()
+        wait.text_is(
+            screen.element(),
+            FixtureScreen.title,
+            "QA iOS Fixture",
+        )
 
         screen.tap(FixtureScreen.camera_button)
         _handle_permission_prompt(driver, IosAlertAction.ACCEPT)
