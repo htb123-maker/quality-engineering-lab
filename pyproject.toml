@@ -6,6 +6,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "appium-python-client>=5.3.1,<6",
     "httpx>=0.28",
+    "locust>=2.32,<3",
     "psycopg[binary]>=3.2",
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
@@ -49,7 +50,7 @@ select = ["E", "F", "I", "B", "UP"]
 
 [tool.mypy]
 python_version = "3.12"
-files = ["packages", "tests"]
+files = ["packages", "tests", "performance"]
 mypy_path = ["packages", "apps/compose/api"]
 plugins = ["pydantic.mypy"]
 check_untyped_defs = true

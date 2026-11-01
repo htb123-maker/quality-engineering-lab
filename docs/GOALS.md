@@ -1,7 +1,7 @@
 # 项目目标文档
 
-版本：2.2  
-日期：2026-09-25  
+版本：2.8<br>
+日期：2026-10-31<br>
 项目定位：企业级质量工程平台，不是 Demo 或小型 MVP  
 配套执行方式：[项目执行计划](PLAN.md)
 
@@ -151,19 +151,47 @@ iOS 不是可选项。项目必须覆盖：
 2. macOS CI Runner。
 3. Appium 2 设备云。
 
-### 6.1 Week 17 环境验收调度
+### 6.1 iOS 环境验收调度
 
-Week 17 的静态预检、诊断 runbook 和自托管真机准备可以先行收口，但
-Simulator/WDA/session 的运行验收延期到 Week 21 iOS 阶段验收：
+当前 Windows 主机不能本地执行 iOS Simulator、WDA 构建或真机签名。
+因此 iOS 验收拆成两个独立门，不能用其中一个门代替另一个门：
 
-- 在 Week 21 当时最新的 iOS 分支上重新执行环境预检、WDA 构建、Appium
-  session 和 iOS smoke。
-- 证据必须包含 `passed=true` 的环境 JSON、Appium 日志和 Allure 结果。
-- 真机签名与设备信任在具备 Mac 或设备云时一并验收。
-- 延期不降低 Week 17 和 iOS 阶段的目标，也不允许把跳过写成通过。
+| 门 / Gate | 放行条件 / Entry Condition | 当前状态 / Status |
+| --- | --- | --- |
+| macOS 运行门 | 有 Mac、macOS CI Runner 或设备云 Simulator | **PASS，2026-10-31** |
+| 物理设备门 | 有已签名的 iPhone 或设备云真机 | **PASS（基线）**：iPhone 15 / iOS 17 完成 10 条云端用例，`9 passed, 1 xfailed`；多设备矩阵待 Week 20/21 |
 
-Week 18 到 Week 20 可以继续建设 capabilities、定位器、交互和框架骨架；
-Week 21 阶段门必须统一验证这些能力在真实 iOS 运行环境中成立。
+2026-10-31 使用 GitHub 托管 `macos-15-arm64` Runner 完成了 Week 17 运行验收：
+Xcode 16.4、iOS 18.5 Simulator、WDA 构建、Appium session 和 iOS smoke 均通过。
+该结果只放行 Simulator 运行路径，不代表真机签名、设备信任或物理设备行为已验证。
+
+物理设备门继续负责：
+
+- Apple Team、证书、Provisioning Profile 和设备信任。
+- 真机 UDID、Developer Mode 和真实系统行为。
+- Week 20 的多真机/WDA 并行及 Week 21 的真机阶段证据。
+- Week 30 的真机移动性能和 Week 31 的真机 CI 流水线。
+
+未通过物理设备门时，Simulator 能力可以继续开发和验收，但“真机或设备云真机”
+验收项必须保持延期，不得用 Simulator 结果替代。
+
+物理门当前选择设备云路线。应用层已支持 BrowserStack、Sauce Labs 和
+LambdaTest capability；默认 provider 为 BrowserStack。2026-10-31 已完成：
+
+- `bs://sample.app` 真实云 session。
+- 从源码构建 `QaIosFixture.ipa`。
+- 自动上传 BrowserStack 并取得 workflow-local `bs://` App ID。
+- 在真实 iPhone 15 / iOS 17 上验证权限重置、外部冷启动深链接、通知授权与
+  调度、文件、WebView native content 和前后台恢复。
+- WebView context 在 70 秒后仍不可见，保持严格 `xfail`；通知中心展示和
+  通知点击仍未自动化。
+
+物理设备基线门已经通过。剩余内容是多设备、多版本和并行 WDA/DerivedData
+矩阵，属于 Week 20/21。
+
+macOS 运行门已放行，因此 Week 18 到 Week 24 恢复按顺序收口。Week 20 和
+Week 21 的 Simulator 部分可以执行，物理设备部分继续保持延期。恢复 iOS
+不降低原测试数量、真实执行或证据要求。
 
 ## 7. 跨平台目标
 
@@ -370,6 +398,42 @@ AI 是增强层，不替代传统工程能力。
 - 绕过测试和质量门禁。
 - 用模型结论替代 Schema、日志、设备和性能事实。
 
+### 11.5 只读 Agent 监控 Workflow
+
+监控系统采用“确定性传感器 + 只读 Agent 分析”的结构。CI、pytest、Locust、
+Prometheus、Allure 和设备预检负责产生事实并判断是否越过阈值；Agent 只在
+定时任务、失败事件或指标告警发生后读取证据，不能作为唯一监控传感器。
+
+```text
+定时任务 / CI 事件
+-> 确定性规则判断异常
+-> 收集日志、报告、指标和设备证据
+-> 只读 Agent 分类、关联和解释
+-> 结构化诊断
+-> 人工确认或已有 Workflow 执行受控动作
+-> 用真实处理结果评测 Agent
+```
+
+必须覆盖的监控 Workflow：
+
+| Workflow | 触发 / Trigger | Agent 输出 | 不能做什么 |
+| --- | --- | --- | --- |
+| 性能回归监控 | SLO 越界、baseline 退化 | 指标关联、嫌疑层、证据和实验建议 | 修改阈值或宣布通过 |
+| Flaky 监控 | 间歇失败、重跑结果不一致 | 失败指纹聚类、历史和可能根因 | 用重跑掩盖失败 |
+| CI 监控 | Job 失败、工件缺失、超时 | 失败分层、证据链接和修复建议 | 自动合并或绕过门禁 |
+| iOS 环境监控 | 预检失败、Runner 离线 | 缺失前置和 `DEFERRED/NOT RUN` 结论 | 把未执行写成通过 |
+| 每周维护监控 | 定时扫描报告、ADR、runbook 和趋势 | 过期证据、风险和下周任务候选 | 自动改优先级或关闭缺陷 |
+
+每次 Agent 运行必须保存：
+
+- Run ID、触发来源、输入证据路径和使用的模型配置。
+- 结构化结论：严重性、失败层、证据引用、置信度和建议动作。
+- 是否人工修改、耗时、Token、成本以及最终是否被采纳。
+- 失败兜底：证据缺失时输出 `INSUFFICIENT_EVIDENCE`，不得猜测为通过。
+
+Agent 监控不能常驻读取全部日志，也不能自行扩大工具权限。监控增强不阻塞
+基础测试、性能和 CI 主线；先让确定性质量门禁稳定，再接只读 Agent。
+
 ## 12. 工程与 CI 目标
 
 - 单一 monorepo 和共享 `qa_core`。
@@ -569,6 +633,8 @@ Agent 可以辅助分类、去重和生成草稿，但不能自动创建大量�
 - 有 Golden Tasks、准确率、幻觉率和人工修改率。
 - 有 Token、成本和 P95 延迟。
 - 至少展示一次 Agent 误判、修正和防护改进。
+- 至少有一个定时只读监控 Workflow，证明 Agent 参与告警分析而不替代质量门禁。
+- 确定性监控与 Agent 结论可分别追踪，证据缺失时必须显式输出不足。
 
 ### 缺陷闭环目标
 
