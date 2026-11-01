@@ -23,6 +23,7 @@ permissions:
   contents: read
 
 env:
+  PYTHONPATH: packages
   QA_IOS_DEVICE_PROVIDER: local
   QA_IOS_DEVICE_MATRIX: configs/ios-device-matrix.yaml
   QA_IOS_RUN_ID: ${{ github.run_id }}
