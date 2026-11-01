@@ -2,12 +2,12 @@
 
 - 计划 / Plan: Week 19，iOS 系统交互与业务测试
 - 日期范围 / Date Range: 2026-10-27 to 2026-11-02
-- 分支 / Branch: study/week-19-ios-system-interactions
-- 基线提交 / Base Commit: e58949d（Week 18 完成状态核对）
+- 分支 / Branch: codex/ios-week19-fixture-20261031
+- 基线提交 / Base Commit: 319ab85（Week 18 framework）
 - 计划提交 / Plan Commit: 322eece
-- 远端分支 / Remote Branch: 未推送 / Not pushed
+- 远端分支 / Remote Branch: `origin/codex/ios-week19-fixture-20261031`
 - Pull Request: 尚未创建 / Not created
-- 状态 / Status: **计划已开启，实施未开始 / PLANNED ONLY**
+- 状态 / Status: **部分通过，验收项未闭合 / PARTIAL PASS - ACCEPTANCE GAPS**
 
 ## 计划目标 / Plan Goal
 
@@ -27,8 +27,51 @@ English summary: extend the iOS framework with a controlled fixture, permission
 and system-dialog handling, notifications, deep links, file boundaries, WebView
 context switching, foreground recovery, and a small business journey.
 
-本计划只负责开启 Week 19。当前 Week 18 实施尚未开始，因此本计划不能被视为
-已有 iOS 业务测试能力。
+Week 19 已建立项目自己的 iOS fixture，并完成源码构建、IPA 打包、BrowserStack
+上传和真实云设备系统交互验收。
+
+## 环境门更新 / Environment Gate Update
+
+macOS 运行门和 Week 18 框架已在 2026-10-31 通过。Week 19 使用 GitHub
+`macos-15` 构建真机 App，再上传 BrowserStack 真实 iPhone，运行验收通过。
+
+## 完成状态 / Completion Status
+
+**部分通过 / PARTIAL PASS**
+
+- `apps/ios-fixture` 提供 camera、microphone、notification、deep link、file、
+  background 和 local WKWebView。
+- macOS Runner 成功执行 `xcodebuild` device build。
+- fixture 打包为 `QaIosFixture.ipa` 并自动上传 BrowserStack。
+- 真实设备 iPhone 14 / iOS 16 上 `1 passed in 86.65s`。
+- 权限允许和拒绝均为真实系统 prompt。
+- 通知授权、本地通知调度、深链接、文件、背景恢复和 WebView 内容有实际断言。
+- BrowserStack 未暴露 WebView context，使用 native page source fallback；
+  该限制已记录，不把 fallback 写成 context 切换通过。
+- 本计划要求至少 10 条 iOS 测试，但当前 cloud workflow 只执行 1 条聚合
+  pytest 用例；多能力步骤有断言，不等于满足“至少 10 条测试”的数量验收。
+- 外部冷启动深链接、通知点击跳转、通知中心展示和跨运行权限重置仍未执行。
+
+因此 Week 19 的基础链路可以复用，但不能标记为完整 `PASS`。Week 20 可以
+开始建设独立的设备矩阵基础设施，最终收口时仍必须携带或补齐这些缺口。
+
+GitHub Run:
+
+https://github.com/htb123-maker/quality-engineering-lab/actions/runs/41178275574
+
+### 2026-11-01 完成状态复核 / Completion Audit
+
+| 检查 / Check | 结果 / Result | 说明 / Note |
+| --- | --- | --- |
+| GitHub cloud run | PASS | Run `41178275574` 成功；构建、上传和 iOS 会话均完成 |
+| 真实 iOS 断言 | PASS（1 条） | iPhone 14 / iOS 16 上 `1 passed in 86.65s` |
+| 至少 10 条 iOS 测试 | NOT MET | 当前只收集到 1 条 cloud 聚合用例 |
+| WebView context | DEFERRED | 只有 native page source fallback |
+| 外部冷启动深链接与通知点击 | NOT RUN | 不作为已通过证据 |
+| Windows Ruff | PASS | `All checks passed!` |
+| Windows Mypy | PASS | 163 source files |
+| Windows unit tests | PASS | `300 passed in 10.23s` |
+| Windows iOS tests | SKIPPED | `4 skipped`；不能折算为 iOS 运行通过 |
 
 ## 前置门 / Prerequisite Gate
 
@@ -42,14 +85,14 @@ Week 19 正式实现前必须满足：
 
 当前核对结果：
 
-- Week 18 只有计划与状态提交，没有实现提交。
-- `packages/qa_core/platforms/ios` 不存在。
-- `tests/ios` 仍只有既有 session smoke。
-- Week 18 的所有质量检查均为 `NOT RUN`。
-- Week 17/18 的 macOS、WDA 和 session 运行验收仍延期到 Week 21。
+- Week 17 的 macOS、WDA 和 session 运行验收已于 2026-10-31 通过。
+- Week 18 的 iOS framework cloud smoke 已通过。
+- Week 19 的 fixture 构建、上传和真实云系统交互基线已通过。
+- Week 19 的测试数量、WebView context 和部分冷启动场景仍未闭合。
 
-因此 Week 19 当前状态只能是 `PLANNED ONLY`。计划可以继续细化，代码实施应先
-补齐 Week 18，或由人工明确批准调整顺序。
+Week 18 的 capability、locator、wait、keyboard、gesture 和 Screen/Flow
+骨架已通过真实云 smoke，Week 19 的单设备前置门已经满足。下一步应补齐
+Week 19 验收缺口，同时可以开始 Week 20 的设备矩阵设计、静态实现和单元测试。
 
 ## 当前基线 / Current Baseline
 
@@ -57,10 +100,10 @@ Week 19 正式实现前必须满足：
 - `tests/ios/test_session.py` 可创建和退出最小 iOS session。
 - Android 已有权限、系统交互、Hybrid、文件和恢复实现，可以作为设计参考，
   但不能直接复用平台语义。
-- 当前没有 iOS 测试夹具 App。
+- `apps/ios-fixture` 已存在并在真实云设备运行。
 - 当前本机没有 macOS、Xcode、WDA 或 iOS Simulator。
-- GitHub 上已有 macOS Simulator workflow 和自托管真机 workflow，但尚未在
-  Week 18/19 代码上取得运行证据。
+- GitHub 上的 macOS Simulator 和云真机 workflow 已取得 Week 17 到 Week 19
+  运行证据。
 
 ## 术语解释 / Glossary
 
@@ -106,7 +149,7 @@ flowchart LR
     W18["Week 18<br/>iOS 框架骨架"] --> W19["Week 19<br/>系统交互与业务测试"]
     W19 --> W20["Week 20<br/>真机、设备云与并行"]
     W20 --> W21["Week 21<br/>iOS 阶段验收"]
-    W17["Week 17<br/>环境与 WDA"] -. "运行验收延期" .-> W21
+    W17["Week 17<br/>环境与 WDA"] -. "macOS PASS" .-> W21
     W18 -. "必须先补齐" .-> W19
     class W19 current
     classDef current fill:#2d7ff9,color:#fff,stroke:#1b4f9c,stroke-width:2px
@@ -218,23 +261,27 @@ Week 19 至少形成以下可执行用例：
 
 | 检查项 / Check | 结果 / Status | 执行环境 / Environment | 证据 / Evidence |
 | --- | --- | --- | --- |
-| Ruff | 未执行 / NOT RUN | Windows | 实现后执行 |
-| Mypy | 未执行 / NOT RUN | Windows | 实现后执行 |
-| iOS platform unit tests | 未执行 / NOT RUN | Windows | 实现后执行 |
-| Full unit regression | 未执行 / NOT RUN | Windows | 收口前执行 |
-| iOS fixture build | 未执行 / NOT RUN | macOS | 实现后执行 |
-| iOS system interaction tests | 未执行 / NOT RUN | macOS Simulator | 实现后执行 |
-| Physical-device checks | 未执行 / NOT RUN | iPhone + macOS | 有设备时执行 |
+| Ruff | 通过 / PASS | Windows | `All checks passed!` |
+| Mypy | 通过 / PASS | Windows | 163 source files |
+| iOS fixture contract tests | 通过 / PASS | Windows | 12 targeted tests |
+| iOS platform unit tests | 通过 / PASS | Windows | 38 targeted tests |
+| Full unit regression | 通过 / PASS | Windows | 300 passed |
+| iOS fixture build | 通过 / PASS | macOS Xcode 16.4 | `BUILD SUCCEEDED` |
+| IPA package + upload | 通过 / PASS | macOS + BrowserStack API | workflow-local `bs://` |
+| iOS system interaction tests | 通过但含限制 / PASS WITH LIMITATION | BrowserStack iPhone 14 / iOS 16 | `1 passed in 86.65s` |
+| Physical-device checks | PASS（云基线） | BrowserStack real iPhone | Run `41178275574` |
+| iOS collection on Windows | 跳过 / SKIPPED | Windows | `4 skipped`; 无新增运行证据 |
 
 ## Week 18 依赖检查 / Week 18 Dependency Checks
 
-以下条件没有全部满足时，不得把 Week 19 标记为完成：
+以下前置条件已满足。它们证明 Week 19 可以继续，但不替代本计划自己的
+测试数量和 WebView 验收：
 
-- [ ] iOS capability profile 和单元测试可用。
-- [ ] iOS locator 支持 accessibility id、predicate 和 class chain。
-- [ ] iOS 显式等待、键盘和手势原语可用。
-- [ ] 至少一个 iOS Screen/Flow smoke 在 macOS 执行。
-- [ ] iOS locator/keyboard/gesture 排障 runbook 存在。
+- [x] iOS capability profile 和单元测试可用。
+- [x] iOS locator 支持 accessibility id、predicate 和 class chain。
+- [x] iOS 显式等待、键盘和手势原语可用。
+- [x] 至少一个 iOS Screen/Flow smoke 在真实云设备执行。
+- [x] iOS locator/keyboard/gesture 排障 runbook 存在。
 
 ## 验收方式 / Acceptance Method
 
@@ -311,43 +358,47 @@ xcrun simctl openurl "$QA_IOS_UDID" \
 
 ### 证据路径 / Evidence
 
-- 环境 JSON: `artifacts/week19-ios-environment.json`
-- iOS 夹具构建: `artifacts/ios-fixture-derived`
-- Appium 日志: `artifacts/appium-ios.log`
-- Allure: `artifacts/week19-allure-results`
-- 截图与页面层级: `artifacts/ios-diagnostics/`
-- GitHub Run: macOS 实际执行后回填
+- GitHub Run: https://github.com/htb123-maker/quality-engineering-lab/actions/runs/41178275574
+- iOS fixture 源码: `apps/ios-fixture/`
+- Build/package/upload/Allure artifacts:
+  `ios-week19-fixture-diagnostics`（GitHub Actions artifact）
+- Screenshot artifact: `ios-week19-screenshots`
+- Local screenshots:
+  `artifacts/ios-week19/run-41178275574/screenshots/`
+- BrowserStack upload response: `artifacts/browserstack-upload.json`
+- Allure: `artifacts/allure-results/`
+- 架构: `docs/architecture/ios-system-interactions.md`
+- Runbooks:
+  `docs/runbooks/ios-permissions-notifications-triage.md`、
+  `docs/runbooks/ios-deep-links-files-webview.md`
 
 ### 未验证项 / Unverified Items
 
-- Week 18 框架前置能力。
-- iOS 夹具构建、安装和启动。
-- 权限弹窗与通知系统 UI。
-- 深链接冷启动和前台恢复。
-- 文件读写边界。
-- WKWebView context 切换。
-- 真机签名、通知展示和系统权限重置能力。
-- Week 17/18 延期到 Week 21 的运行验收。
+- 至少 10 条真实 iOS 测试尚未达到；当前仅收集到 1 条 cloud 聚合用例。
+- WKWebView context 切换在该 BrowserStack/Xcode 组合上不可用；本轮只完成
+  native page source fallback。
+- 真正的外部冷启动深链接和通知点击跳转尚未执行；本轮验证同一 App 内的 URL
+  handler。
+- 通知中心展示和系统权限跨运行重置未验证。
+- 本地 physical-device 签名、Provisioning 和设备信任未验证。
+- 多设备、多 iOS 版本和并行 WDA 属于 Week 20/21。
 
-## 计划变更文件 / Planned Files
+## 变更文件 / Files Changed
 
 - `apps/ios-fixture/`
 - `packages/qa_core/platforms/ios/permissions.py`
-- `packages/qa_core/platforms/ios/system_ui.py`
-- `packages/qa_core/platforms/ios/notifications.py`
-- `packages/qa_core/platforms/ios/deep_links.py`
-- `packages/qa_core/platforms/ios/files.py`
-- `packages/qa_core/platforms/ios/hybrid.py`
-- `packages/qa_core/platforms/ios/lifecycle.py`
-- `tests/unit/test_ios_system_interactions.py`
-- `tests/ios/test_system_interactions.py`
+- `.github/workflows/ios-fixture-cloud.yml`
+- `tests/unit/test_ios_fixture_contract.py`
+- `tests/unit/test_ios_mobile_framework.py`
+- `tests/ios/test_week19_system_interactions.py`
+- `docs/architecture/ios-system-interactions.md`
+- `docs/architecture/mobile-driver-call-chain.md`
 - `docs/runbooks/ios-permissions-notifications-triage.md`
 - `docs/runbooks/ios-deep-links-files-webview.md`
-- `docs/architecture/mobile-driver-call-chain.md`
 - `reports/weekly/WEEK-19.md`
 
-实际模块以实现和测试边界为准。只有在确实减少重复或提供清晰失败分类时才新增
-模块，不为了匹配清单创建空封装。
+通知、文件、WebView 和恢复逻辑保留在 fixture App 内验证；只有系统弹窗处理
+抽成共享 iOS primitive，避免为每个按钮创建无复用价值的封装。
 
 ## 环境 / Environment
 
@@ -355,10 +406,11 @@ xcrun simctl openurl "$QA_IOS_UDID" \
 - Python 3.12，项目 `.venv`
 - Appium 2.19.0
 - XCUITest Driver 8.4.3
-- iOS host: 未提供 / not available
-- Xcode: 未提供 / not available
-- macOS Runner: 本轮未执行 / not executed
-- Self-hosted iOS device runner: 当前未注册
+- macOS Runner: GitHub `macos-15`
+- Xcode: 16.4
+- Device cloud: BrowserStack App Automate
+- Real device: iPhone 14 / iOS 16
+- Self-hosted iOS device runner: 未使用
 
 ## 风险与限制 / Risks and Limitations
 
@@ -367,16 +419,17 @@ xcrun simctl openurl "$QA_IOS_UDID" \
 - WKWebView context 可能受 App 调试开关、Driver 版本和 Simulator 状态影响。
 - XCUITest Driver 对文件操作的接口和支持范围需要以实际版本文档和运行结果为准。
 - 通知栏和多任务切换会增加失败噪声，必须保留页面层级和截图。
-- Week 18 尚未实现，直接开始 Week 19 代码会扩大返工和误判风险。
+- Week 19 当前只有 1 条真实 cloud 聚合用例，不能替代 10 条测试的数量验收。
+- WebView fallback 已通过内容断言，但不能替代 context 切换验收。
 - 没有 macOS 环境时只能完成静态实现和单元测试，不能完成 Week 19 运行验收。
 
 ## 下一步 / Next Plan
 
 Week 20 进入 iOS 设备与并行能力：
 
-1. 两个 Simulator 版本或设备 profile。
-2. 真机或设备云链路。
-3. 多 WDA 端口和 session 隔离。
-4. DerivedData 隔离。
-5. 设备、Xcode、WDA 和 Appium 日志联合诊断。
-6. 为 Week 21 的 50 条 iOS 阶段验收准备设备证据。
+1. 建立显式 iOS 设备矩阵，覆盖当前版本、前一主版本和可选云真机。
+2. 让 pytest-xdist worker 绑定独立设备 profile。
+3. 为每个并行 session 分配唯一 WDA 端口和 DerivedData 目录。
+4. 验证两个 Simulator 可并行创建和退出 session，且无端口或构建目录冲突。
+5. 保留云真机链路并采集设备、Xcode、WDA 和 Appium 联合诊断。
+6. Week 19 的测试数量和 WebView 缺口继续作为 Week 20 收口门，不得静默跳过。
