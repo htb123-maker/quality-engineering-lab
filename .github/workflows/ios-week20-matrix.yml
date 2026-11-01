@@ -95,20 +95,28 @@ jobs:
           done
           xcrun simctl list devices
 
-      - name: Start Appium Server
+      - name: Start two Appium Servers
         shell: bash
         run: |
           set -euo pipefail
-          nohup appium --address 127.0.0.1 --port 4723 --log-level debug \
-            > artifacts/appium-ios-matrix.log 2>&1 &
-          for attempt in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:4723/status; then
-              exit 0
-            fi
-            sleep 2
+          for port in 4723 4724; do
+            nohup appium --address 127.0.0.1 --port "$port" --log-level debug \
+              > "artifacts/appium-ios-matrix-$port.log" 2>&1 &
           done
-          cat artifacts/appium-ios-matrix.log
-          exit 1
+          for port in 4723 4724; do
+            ready=0
+            for attempt in {1..30}; do
+              if curl --fail --silent "http://127.0.0.1:$port/status"; then
+                ready=1
+                break
+              fi
+              sleep 2
+            done
+            if [[ "$ready" -ne 1 ]]; then
+              cat "artifacts/appium-ios-matrix-$port.log"
+              exit 1
+            fi
+          done
 
       - name: Run two isolated iOS workers
         run: |

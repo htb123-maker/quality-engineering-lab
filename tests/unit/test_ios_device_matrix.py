@@ -18,6 +18,7 @@ from qa_core.platforms.ios.devices import (
 def write_matrix(path: Path, devices: str) -> Path:
     path.write_text(
         "version: 1\n"
+        "appium_port_base: 4723\n"
         "wda_port_base: 8100\n"
         "derived_data_root: artifacts/ios-derived\n"
         f"devices:\n{devices}",
@@ -74,6 +75,7 @@ def test_matrix_resolves_two_simulators_and_omits_missing_optional(
         ),
     )
     assert matrix.wda_port_base == 8100
+    assert matrix.appium_port_base == 4723
     assert matrix.derived_data_root == Path("artifacts/ios-derived")
 
 
@@ -238,6 +240,7 @@ def test_worker_resources_allocate_unique_ports_and_directories(
     assert first.profile.device_id == "first"
     assert second.profile.device_id == "second"
     assert (first.wda_local_port, second.wda_local_port) == (8100, 8101)
+    assert (first.appium_server_port, second.appium_server_port) == (4723, 4724)
     assert first.derived_data_path != second.derived_data_path
     assert first.derived_data_path == (
         tmp_path / "artifacts" / "ios-derived" / "run-42" / "first"
@@ -278,6 +281,7 @@ def test_worker_settings_map_profile_and_derived_data_path(tmp_path: Path) -> No
     resources = allocate_ios_worker_resources(
         IosDeviceMatrix(
             profiles=(profile,),
+            appium_port_base=4723,
             wda_port_base=8100,
             derived_data_root=Path("artifacts/ios-derived"),
         ),
@@ -293,6 +297,7 @@ def test_worker_settings_map_profile_and_derived_data_path(tmp_path: Path) -> No
     assert settings.ios_device_name == "iPhone 16"
     assert settings.ios_platform_version == "18.5"
     assert settings.ios_wda_local_port == 8100
+    assert str(settings.appium_server_url).rstrip("/") == "http://127.0.0.1:4723"
     assert settings.ios_derived_data_path == resources.derived_data_path
 
 
@@ -318,6 +323,7 @@ def test_xdist_context_and_unsafe_run_id_are_rejected() -> None:
     )
     matrix = IosDeviceMatrix(
         profiles=(profile,),
+        appium_port_base=4723,
         wda_port_base=8100,
         derived_data_root=Path("artifacts/ios-derived"),
     )

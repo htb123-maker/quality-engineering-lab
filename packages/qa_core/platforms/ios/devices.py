@@ -51,12 +51,15 @@ class IosDeviceMatrix:
     """Resolved iOS devices plus matrix-level resource defaults."""
 
     profiles: tuple[IosDeviceProfile, ...]
+    appium_port_base: int
     wda_port_base: int
     derived_data_root: Path
 
     def __post_init__(self) -> None:
         if not self.profiles:
             raise ValueError("iOS device matrix must resolve at least one device")
+        if not 1024 <= self.appium_port_base <= 65535:
+            raise ValueError("iOS Appium port base must be between 1024 and 65535")
         if not 1024 <= self.wda_port_base <= 65535:
             raise ValueError("iOS WDA port base must be between 1024 and 65535")
         if self.derived_data_root.is_absolute():
@@ -73,6 +76,7 @@ class IosWorkerResources:
     worker_index: int
     worker_count: int
     run_id: str
+    appium_server_port: int | None
     wda_local_port: int | None
     derived_data_path: Path
 
@@ -94,8 +98,11 @@ def load_ios_device_matrix(
     if payload.get("version") != 1:
         raise ValueError("iOS device matrix version must be 1")
 
-    raw_port = payload.get("wda_port_base", 8100)
-    if isinstance(raw_port, bool) or not isinstance(raw_port, int):
+    raw_appium_port = payload.get("appium_port_base", 4723)
+    if isinstance(raw_appium_port, bool) or not isinstance(raw_appium_port, int):
+        raise ValueError("iOS Appium port base must be an integer")
+    raw_wda_port = payload.get("wda_port_base", 8100)
+    if isinstance(raw_wda_port, bool) or not isinstance(raw_wda_port, int):
         raise ValueError("iOS WDA port base must be an integer")
 
     raw_root = payload.get("derived_data_root", "artifacts/ios-derived")
@@ -188,7 +195,8 @@ def load_ios_device_matrix(
 
     return IosDeviceMatrix(
         profiles=tuple(resolved),
-        wda_port_base=raw_port,
+        appium_port_base=raw_appium_port,
+        wda_port_base=raw_wda_port,
         derived_data_root=Path(raw_root.strip()),
     )
 
@@ -229,9 +237,13 @@ def allocate_ios_worker_resources(
     )
     _require_safe_token(run_id, "iOS run id")
 
+    appium_server_port: int | None = None
     wda_local_port: int | None = None
     if profile.provider == "local":
+        appium_server_port = matrix.appium_port_base + worker_index
         wda_local_port = matrix.wda_port_base + worker_index
+        if appium_server_port > 65535:
+            raise ValueError("allocated iOS Appium port exceeds 65535")
         if wda_local_port > 65535:
             raise ValueError("allocated iOS WDA port exceeds 65535")
 
@@ -247,6 +259,7 @@ def allocate_ios_worker_resources(
         worker_index=worker_index,
         worker_count=worker_count,
         run_id=run_id,
+        appium_server_port=appium_server_port,
         wda_local_port=wda_local_port,
         derived_data_path=derived_data_path,
     )
@@ -268,6 +281,9 @@ def build_ios_worker_settings(
         "ios_derived_data_path": resources.derived_data_path,
     }
     if profile.provider == "local":
+        updates["appium_server_url"] = (
+            f"http://127.0.0.1:{resources.appium_server_port}"
+        )
         updates["ios_wda_local_port"] = resources.wda_local_port
     else:
         updates["ios_cloud_device_name"] = profile.device_name

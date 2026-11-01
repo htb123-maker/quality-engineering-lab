@@ -1,4 +1,5 @@
 version: 1
+appium_port_base: 4723
 wda_port_base: 8100
 derived_data_root: artifacts/ios-derived
 devices:

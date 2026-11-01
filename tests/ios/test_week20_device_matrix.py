@@ -60,6 +60,8 @@ def test_week20_parallel_simulator_session(
         "device_id": ios_worker_profile.device_id,
         "role": ios_worker_profile.role,
         "udid": ios_worker_profile.udid,
+        "appium_server_port": ios_worker_resources.appium_server_port,
+        "appium_server_url": str(ios_worker_settings.appium_server_url),
         "wda_local_port": expected_port,
         "derived_data_path": str(ios_worker_resources.derived_data_path),
         "worker_index": ios_worker_resources.worker_index,
@@ -84,6 +86,10 @@ def test_week20_parallel_simulator_session(
         allure.dynamic.parameter("ios_device", ios_worker_profile.device_id)
         allure.dynamic.parameter("ios_role", ios_worker_profile.role)
         allure.dynamic.parameter("ios_udid", ios_worker_profile.udid or "")
+        allure.dynamic.parameter(
+            "ios_appium_port",
+            str(ios_worker_resources.appium_server_port),
+        )
         allure.dynamic.parameter("ios_wda_port", str(expected_port))
         allure.attach(
             json.dumps(record, indent=2, sort_keys=True),

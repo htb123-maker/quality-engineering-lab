@@ -37,7 +37,13 @@ def verify_records(
     if not all(record.get("completed") is True for record in records):
         raise ValueError("one or more iOS workers did not complete")
 
-    for field in ("device_id", "udid", "wda_local_port", "derived_data_path"):
+    for field in (
+        "device_id",
+        "udid",
+        "appium_server_port",
+        "wda_local_port",
+        "derived_data_path",
+    ):
         values = [record.get(field) for record in records]
         if any(value in (None, "") for value in values):
             raise ValueError(f"worker record is missing {field}")
@@ -52,6 +58,9 @@ def verify_records(
     return {
         "worker_count": len(records),
         "devices": sorted(str(record["device_id"]) for record in records),
+        "appium_server_ports": sorted(
+            int(record["appium_server_port"]) for record in records
+        ),
         "wda_local_ports": sorted(int(record["wda_local_port"]) for record in records),
         "derived_data_paths": sorted(
             str(record["derived_data_path"]) for record in records

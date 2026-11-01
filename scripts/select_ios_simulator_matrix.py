@@ -20,6 +20,7 @@ class SimulatorDevice:
     udid: str
     version: str
     major: int
+    minor: int
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -83,6 +84,7 @@ def load_devices(payload: object) -> tuple[SimulatorDevice, ...]:
                         udid=udid,
                         version=version,
                         major=major,
+                        minor=minor,
                     )
                 )
     if not selected:
@@ -97,14 +99,19 @@ def select_matrix(
 ) -> dict[str, dict[str, str]]:
     """Choose two current-major devices plus an optional prior-major device."""
 
-    current_major = max(device.major for device in devices)
+    current_version = max((device.major, device.minor) for device in devices)
+    current_major = current_version[0]
     current = sorted(
-        (device for device in devices if device.major == current_major),
+        (
+            device
+            for device in devices
+            if (device.major, device.minor) == current_version
+        ),
         key=lambda device: _preference_key(device, preferred_names),
     )
     if len(current) < 2:
         raise ValueError(
-            f"iOS {current_major} has {len(current)} available iPhone; "
+            f"iOS {current[0].version} has {len(current)} available iPhone; "
             "parallel acceptance requires at least two"
         )
 
