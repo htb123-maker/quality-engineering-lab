@@ -1,5 +1,6 @@
 """Unit tests for XCUITest option construction."""
 
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -28,6 +29,7 @@ def test_ios_options_map_project_settings_to_xcuitest_capabilities() -> None:
         ios_wda_startup_retry_interval_ms=5_000,
         ios_webview_connect_timeout_ms=45_000,
         ios_webview_connect_retries=4,
+        ios_derived_data_path="artifacts/ios-derived/gw0",
     )
 
     capabilities = build_ios_options(settings).to_capabilities()
@@ -54,6 +56,9 @@ def test_ios_options_map_project_settings_to_xcuitest_capabilities() -> None:
     assert capabilities["appium:wdaStartupRetryInterval"] == 5_000
     assert capabilities["appium:webviewConnectTimeout"] == 45_000
     assert capabilities["appium:webviewConnectRetries"] == 4
+    assert capabilities["appium:derivedDataPath"] == str(
+        Path("artifacts/ios-derived/gw0")
+    )
 
 
 @pytest.mark.unit

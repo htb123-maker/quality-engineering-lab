@@ -1,0 +1,116 @@
+name: iOS Week 20 Parallel Matrix
+
+on:
+  push:
+    paths:
+      - .github/workflows/ios-week20-matrix.yml
+      - configs/ios-device-matrix.yaml
+      - packages/qa_core/config/settings.py
+      - packages/qa_core/driver/ios.py
+      - packages/qa_core/platforms/ios/devices.py
+      - scripts/select_ios_simulator_matrix.py
+      - scripts/verify_ios_parallel_resources.py
+      - tests/ios/conftest.py
+      - tests/ios/test_week20_device_matrix.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-parallel-simulator:
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      QA_IOS_DEVICE_PROVIDER: local
+      QA_IOS_DEVICE_IDS: simulator-current-primary,simulator-current-secondary
+      QA_IOS_DEVICE_MATRIX: configs/ios-device-matrix.yaml
+      QA_IOS_RUN_ID: ${{ github.run_id }}
+      QA_IOS_BUNDLE_ID: com.apple.Preferences
+      QA_IOS_USE_NEW_WDA: "true"
+      QA_IOS_SHOW_XCODE_LOG: "true"
+      QA_IOS_WDA_LAUNCH_TIMEOUT_MS: "600000"
+      QA_IOS_WDA_STARTUP_RETRIES: "1"
+      QA_IOS_WDA_STARTUP_RETRY_INTERVAL_MS: "10000"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Appium and XCUITest Driver
+        run: |
+          npm install --global appium@2.19.0
+          appium driver install xcuitest@8.4.3
+
+      - name: Select two current-major Simulators
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          xcrun simctl list devices available -j \
+            > artifacts/ios-simulators.json
+          python3 scripts/select_ios_simulator_matrix.py \
+            --input artifacts/ios-simulators.json \
+            --output-env artifacts/ios-simulator-matrix.env \
+            --json
+          cat artifacts/ios-simulator-matrix.env >> "$GITHUB_ENV"
+
+      - name: Boot selected Simulators
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun simctl boot "$QA_IOS_SIM_CURRENT_UDID" || true
+          xcrun simctl boot "$QA_IOS_SIM_SECONDARY_UDID" || true
+          open -a Simulator
+          xcrun simctl bootstatus "$QA_IOS_SIM_CURRENT_UDID" -b
+          xcrun simctl bootstatus "$QA_IOS_SIM_SECONDARY_UDID" -b
+
+      - name: Start Appium Server
+        shell: bash
+        run: |
+          set -euo pipefail
+          nohup appium --address 127.0.0.1 --port 4723 --log-level debug \
+            > artifacts/appium-ios-matrix.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4723/status; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat artifacts/appium-ios-matrix.log
+          exit 1
+
+      - name: Run two isolated iOS workers
+        run: |
+          mkdir -p artifacts/allure-results
+          .venv/bin/python -m pytest \
+            tests/ios/test_week20_device_matrix.py \
+            -q -n 2 --dist=each \
+            --alluredir=artifacts/allure-results \
+            --junitxml=artifacts/week20-junit.xml
+
+      - name: Verify parallel resource overlap
+        run: |
+          .venv/bin/python scripts/verify_ios_parallel_resources.py \
+            --run-dir "artifacts/ios-week20/${{ github.run_id }}" \
+            --expected-workers 2
+
+      - name: Upload Week 20 matrix diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-week20-matrix-diagnostics
+          path: artifacts/
+          if-no-files-found: ignore
