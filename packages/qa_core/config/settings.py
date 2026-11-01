@@ -125,6 +125,12 @@ class Settings(BaseSettings):
         ge=1_000,
         le=60_000,
     )
+    ios_webview_connect_timeout_ms: int = Field(
+        default=60_000,
+        ge=5_000,
+        le=180_000,
+    )
+    ios_webview_connect_retries: int = Field(default=3, ge=1, le=10)
     ios_device_provider: IosDeviceProvider = "local"
     ios_capability_profile: IosCapabilityProfile = "simulator"
     ios_cloud_remote_url: AnyHttpUrl | None = None

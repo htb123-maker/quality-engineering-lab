@@ -125,6 +125,12 @@ final class ViewController: UIViewController {
         )
         NotificationCenter.default.addObserver(
             self,
+            selector: #selector(handleNotificationOpened),
+            name: .fixtureNotificationOpened,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
             selector: #selector(appDidEnterBackground),
             name: UIApplication.didEnterBackgroundNotification,
             object: nil
@@ -138,6 +144,9 @@ final class ViewController: UIViewController {
     }
 
     private func configureWebView() {
+        if #available(iOS 16.4, *) {
+            webView.isInspectable = true
+        }
         let html = """
         <!doctype html>
         <html>
@@ -155,6 +164,12 @@ final class ViewController: UIViewController {
         cameraLabel.text = "camera: \(cameraAuthorizationText())"
         microphoneLabel.text = "microphone: \(microphoneAuthorizationText())"
         backgroundLabel.text = "background: launches=\(UserDefaults.standard.integer(forKey: "fixture.resumeCount"))"
+        if UserDefaults.standard.bool(forKey: "fixture.notificationOpened") {
+            notificationLabel.text = "notifications: opened qa-week19-local"
+        }
+        if let deepLink = UserDefaults.standard.string(forKey: "fixture.lastDeepLink") {
+            deepLinkLabel.text = "deep link: opened \(deepLink)"
+        }
     }
 
     private func requestCamera() {
@@ -208,6 +223,7 @@ final class ViewController: UIViewController {
     }
 
     private func sendLocalNotification() {
+        UserDefaults.standard.set(false, forKey: "fixture.notificationOpened")
         let content = UNMutableNotificationContent()
         content.title = "QA Week19"
         content.body = "Fixture local notification"
@@ -235,7 +251,12 @@ final class ViewController: UIViewController {
         }
     }
 
-    private func handleDeepLink(_ url: URL) {
+    @objc private func handleNotificationOpened() {
+        notificationLabel.text = "notifications: opened qa-week19-local"
+    }
+
+    func handleDeepLink(_ url: URL) {
+        UserDefaults.standard.set(url.absoluteString, forKey: "fixture.lastDeepLink")
         deepLinkLabel.text = "deep link: opened \(url.absoluteString)"
     }
 

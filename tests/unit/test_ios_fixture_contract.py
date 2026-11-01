@@ -37,6 +37,8 @@ def test_ios_fixture_exposes_stable_accessibility_ids() -> None:
     }
 
     assert all(identifier in source for identifier in expected_ids)
+    assert "isInspectable = true" in source
+    assert "fixtureNotificationOpened" in source
 
 
 def test_ios_fixture_xcode_project_and_shared_scheme_are_present() -> None:

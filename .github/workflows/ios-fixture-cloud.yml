@@ -11,6 +11,17 @@ on:
       - packages/qa_core/platforms/ios/**
       - tests/ios/test_week19_system_interactions.py
   workflow_dispatch:
+    inputs:
+      device_name:
+        description: BrowserStack real-device name
+        required: true
+        type: string
+        default: iPhone 15
+      platform_version:
+        description: iOS version; mobile deep links require iOS 16.4+
+        required: true
+        type: string
+        default: "17"
 
 permissions:
   contents: read
@@ -18,18 +29,20 @@ permissions:
 jobs:
   ios-fixture-cloud:
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 90
     env:
       QA_IOS_DEVICE_PROVIDER: browserstack
       QA_IOS_CLOUD_REMOTE_URL: https://hub-cloud.browserstack.com/wd/hub
       QA_IOS_CLOUD_USER: ${{ secrets.IOS_CLOUD_USER }}
       QA_IOS_CLOUD_ACCESS_KEY: ${{ secrets.IOS_CLOUD_ACCESS_KEY }}
-      QA_IOS_CLOUD_DEVICE_NAME: iPhone 14
-      QA_IOS_CLOUD_PLATFORM_VERSION: "16"
+      QA_IOS_CLOUD_DEVICE_NAME: ${{ inputs.device_name || 'iPhone 15' }}
+      QA_IOS_CLOUD_PLATFORM_VERSION: ${{ inputs.platform_version || '17' }}
       QA_IOS_CLOUD_PROJECT_NAME: quality-engineering-lab
-      QA_IOS_CLOUD_BUILD_NAME: week19-${{ github.run_id }}
-      QA_IOS_CLOUD_SESSION_NAME: week19-system-interactions
+      QA_IOS_CLOUD_BUILD_NAME: week19-acceptance-${{ github.run_id }}
+      QA_IOS_CLOUD_SESSION_NAME: week19-acceptance
       QA_IOS_BUNDLE_ID: com.example.qaweek19
+      QA_IOS_WEBVIEW_CONNECT_TIMEOUT_MS: "60000"
+      QA_IOS_WEBVIEW_CONNECT_RETRIES: "3"
 
     steps:
       - name: Check out repository
@@ -89,12 +102,13 @@ jobs:
           test -n "$app_url"
           echo "QA_IOS_CLOUD_APP=$app_url" >> "$GITHUB_ENV"
 
-      - name: Run Week 19 system interactions
+      - name: Run Week 19 acceptance cases
         run: |
           mkdir -p artifacts/allure-results
           uv run --no-sync pytest \
             tests/ios/test_week19_system_interactions.py -q \
-            --alluredir=artifacts/allure-results
+            --alluredir=artifacts/allure-results \
+            --junitxml=artifacts/week19-junit.xml
 
       - name: Upload Week 19 diagnostics
         if: always()
