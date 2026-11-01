@@ -95,6 +95,18 @@ times, and completion state. `scripts/verify_ios_parallel_resources.py` rejects:
 - duplicate devices, UDIDs, Appium ports, WDA ports, or DerivedData paths;
 - sessions that did not overlap in time.
 
+Run `41317497880` passed this verifier on Xcode 16.4 / iOS 18.5:
+
+```text
+2 workers
+Appium ports: 4723, 4724
+WDA ports: 8100, 8101
+session overlap: 98.28s
+```
+
+The two Simulators were iPhone 16 and iPhone 16 Plus. Week 20 still needs a
+previous-major runtime job and a multi-device cloud matrix.
+
 ## Provider Boundary
 
 Cloud profiles use `ios_cloud_device_name` and
