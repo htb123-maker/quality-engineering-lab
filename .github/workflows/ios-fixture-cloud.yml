@@ -40,6 +40,7 @@ jobs:
       QA_IOS_CLOUD_PROJECT_NAME: quality-engineering-lab
       QA_IOS_CLOUD_BUILD_NAME: week19-acceptance-${{ github.run_id }}
       QA_IOS_CLOUD_SESSION_NAME: week19-acceptance
+      QA_IOS_CLOUD_APPIUM_VERSION: "2.19.0"
       QA_IOS_BUNDLE_ID: com.example.qaweek19
       QA_IOS_WEBVIEW_CONNECT_TIMEOUT_MS: "60000"
       QA_IOS_WEBVIEW_CONNECT_RETRIES: "3"

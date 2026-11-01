@@ -120,6 +120,7 @@ def test_browserstack_options_use_nested_vendor_capabilities() -> None:
     assert "app" not in vendor_options
     assert vendor_options["deviceName"] == "iPhone 15"
     assert vendor_options["platformVersion"] == "17"
+    assert vendor_options["appiumVersion"] == "2.19.0"
     assert vendor_options["networkLogs"] is True
     assert capabilities["appium:webviewConnectTimeout"] == 60_000
     assert capabilities["appium:webviewConnectRetries"] == 3

@@ -50,6 +50,7 @@ def _cloud_capabilities(settings: Settings) -> tuple[str, dict[str, Any], str]:
                 "projectName": settings.ios_cloud_project_name,
                 "buildName": settings.ios_cloud_build_name,
                 "sessionName": settings.ios_cloud_session_name,
+                "appiumVersion": settings.ios_cloud_appium_version,
                 "debug": True,
                 "networkLogs": True,
             },
