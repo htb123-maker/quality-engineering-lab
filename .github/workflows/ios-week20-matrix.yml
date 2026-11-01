@@ -11,6 +11,7 @@ on:
       - scripts/select_ios_simulator_matrix.py
       - scripts/verify_ios_parallel_resources.py
       - tests/ios/conftest.py
+      - scripts/prewarm_ios_wda.py
       - tests/ios/test_week20_device_matrix.py
   workflow_dispatch:
 
@@ -27,7 +28,7 @@ jobs:
       QA_IOS_DEVICE_MATRIX: configs/ios-device-matrix.yaml
       QA_IOS_RUN_ID: ${{ github.run_id }}
       QA_IOS_BUNDLE_ID: com.apple.Preferences
-      QA_IOS_USE_NEW_WDA: "true"
+      QA_IOS_USE_NEW_WDA: "false"
       QA_IOS_SHOW_XCODE_LOG: "true"
       QA_IOS_WDA_LAUNCH_TIMEOUT_MS: "600000"
       QA_IOS_WDA_STARTUP_RETRIES: "1"
@@ -123,6 +124,12 @@ jobs:
               exit 1
             fi
           done
+
+      - name: Prewarm WDA caches sequentially
+        run: |
+          PYTHONPATH=packages .venv/bin/python scripts/prewarm_ios_wda.py \
+            --matrix configs/ios-device-matrix.yaml \
+            --worker-count 2
 
       - name: Run two isolated iOS workers
         run: |

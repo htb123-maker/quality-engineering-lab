@@ -74,6 +74,12 @@ then maps that profile to `appium:udid`, `appium:wdaLocalPort`, and
 `pytest -n 2 --dist=each` is intentional: the same matrix test runs once on
 each worker, guaranteeing that both profiles participate.
 
+Before that parallel phase, `scripts/prewarm_ios_wda.py` creates one serial
+session per worker. XCUITest Driver documents that first-time WDA compilation is
+faster and safer when serial, while later sessions can reuse the per-profile
+DerivedData cache in parallel. The prewarm also verifies that each Appium server
+and Simulator can start independently before the overlap test.
+
 ## Runtime Evidence
 
 Each worker writes:
