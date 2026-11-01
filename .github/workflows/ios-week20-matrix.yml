@@ -74,8 +74,26 @@ jobs:
           xcrun simctl boot "$QA_IOS_SIM_CURRENT_UDID" || true
           xcrun simctl boot "$QA_IOS_SIM_SECONDARY_UDID" || true
           open -a Simulator
-          xcrun simctl bootstatus "$QA_IOS_SIM_CURRENT_UDID" -b
-          xcrun simctl bootstatus "$QA_IOS_SIM_SECONDARY_UDID" -b
+          for device_udid in \
+            "$QA_IOS_SIM_CURRENT_UDID" \
+            "$QA_IOS_SIM_SECONDARY_UDID"; do
+            booted=0
+            for attempt in {1..120}; do
+              if xcrun simctl list devices |
+                grep -F "$device_udid" |
+                grep -q "(Booted)"; then
+                booted=1
+                break
+              fi
+              sleep 2
+            done
+            if [[ "$booted" -ne 1 ]]; then
+              echo "::error::Simulator $device_udid did not reach Booted state"
+              xcrun simctl list devices
+              exit 1
+            fi
+          done
+          xcrun simctl list devices
 
       - name: Start Appium Server
         shell: bash
