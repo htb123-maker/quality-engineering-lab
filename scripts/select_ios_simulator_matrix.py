@@ -43,6 +43,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         action="store_true",
         help="Print the selected matrix as JSON.",
     )
+    parser.add_argument(
+        "--runtime-version",
+        help="Require this exact iOS Simulator runtime version, for example 18.5.",
+    )
     return parser.parse_args(argv)
 
 
@@ -96,10 +100,23 @@ def select_matrix(
     devices: tuple[SimulatorDevice, ...],
     *,
     preferred_names: Sequence[str] = ("iPhone 16", "iPhone 15", "iPhone 14"),
+    runtime_version: str | None = None,
 ) -> dict[str, dict[str, str]]:
     """Choose two current-major devices plus an optional prior-major device."""
 
-    current_version = max((device.major, device.minor) for device in devices)
+    if runtime_version is not None:
+        matching = tuple(
+            device for device in devices if device.version == runtime_version
+        )
+        if not matching:
+            available = sorted({device.version for device in devices})
+            raise ValueError(
+                f"iOS Simulator runtime {runtime_version} is unavailable; "
+                f"available versions: {', '.join(available)}"
+            )
+        current_version = (matching[0].major, matching[0].minor)
+    else:
+        current_version = max((device.major, device.minor) for device in devices)
     current_major = current_version[0]
     current = sorted(
         (
@@ -190,7 +207,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     try:
         payload = json.loads(args.input.read_text(encoding="utf-8"))
-        matrix = select_matrix(load_devices(payload))
+        matrix = select_matrix(
+            load_devices(payload),
+            runtime_version=args.runtime_version,
+        )
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         raise SystemExit(str(exc)) from exc
 

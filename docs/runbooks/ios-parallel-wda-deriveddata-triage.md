@@ -40,6 +40,10 @@ xcrun simctl list devices
 
 The selected UDIDs must both be `Booted`. The workflow waits for at most 120
 polls rather than allowing `simctl bootstatus` to block indefinitely.
+The selected runtime version must also equal
+`xcrun --sdk iphonesimulator --show-sdk-version`; otherwise `xcode-select`
+may point to Xcode 16.4 while CoreSimulator still exposes a newer runtime that
+that Xcode cannot build against.
 
 ## Check Ports
 

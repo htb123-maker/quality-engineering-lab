@@ -65,11 +65,15 @@ jobs:
       - name: Select two current-major Simulators
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p artifacts
+          SDK_VERSION="$(xcrun --sdk iphonesimulator --show-sdk-version)"
+          echo "Selected Xcode simulator SDK: $SDK_VERSION"
           xcrun simctl list devices available -j \
             > artifacts/ios-simulators.json
           python3 scripts/select_ios_simulator_matrix.py \
             --input artifacts/ios-simulators.json \
+            --runtime-version "$SDK_VERSION" \
             --output-env artifacts/ios-simulator-matrix.env \
             --json
           cat artifacts/ios-simulator-matrix.env >> "$GITHUB_ENV"
