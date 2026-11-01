@@ -2,7 +2,7 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-共 47 篇设计文档，按主题分组。
+共 49 篇设计文档，按主题分组。
 
 ## 目标与计划 / Goals and Plan
 
@@ -15,6 +15,7 @@
 - [Android Screen Framework](architecture/android-screen-framework.md)
 - [Android System Interactions](architecture/android-system-interactions.md)
 - [iOS Device Matrix and Parallel Isolation](architecture/ios-device-matrix.md)
+- [iOS Stability, Inventory, and Failure Diagnostics](architecture/ios-stability-and-diagnostics.md)
 - [Mobile Driver Call Chain](architecture/mobile-driver-call-chain.md)
 - [项目结构与技术栈总览](architecture/project-overview.md)
 
@@ -58,6 +59,7 @@
 - [Fault Injection and Defect Draft Triage](runbooks/fault-injection-and-defect-drafts.md)
 - [iOS Parallel WDA and DerivedData Triage](runbooks/ios-parallel-wda-deriveddata-triage.md)
 - [iOS Self-Hosted Physical Device Runner](runbooks/ios-self-hosted-device-runner.md)
+- [iOS Stability and Flaky Triage](runbooks/ios-stability-and-flaky-triage.md)
 - [iOS WDA Build and Signing Triage](runbooks/ios-wda-signing-triage.md)
 - [iOS XCUITest Simulator and Device Environment Runbook](runbooks/ios-xcuitest-simulator.md)
 - [Local SUT Docker Compose Runbook](runbooks/local-sut-compose.md)

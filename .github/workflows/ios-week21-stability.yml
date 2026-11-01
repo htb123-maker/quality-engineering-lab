@@ -1,0 +1,329 @@
+name: iOS Week 21 Stability
+
+on:
+  push:
+    paths:
+      - .github/workflows/ios-week21-stability.yml
+      - apps/ios-fixture/**
+      - configs/ios-device-matrix.yaml
+      - configs/ios-test-inventory.yaml
+      - packages/qa_core/driver/ios.py
+      - packages/qa_core/platforms/ios/**
+      - scripts/check_ios_test_inventory.py
+      - scripts/run_ios_stability.py
+      - scripts/select_ios_simulator_matrix.py
+      - scripts/prewarm_ios_wda.py
+      - tests/ios/**
+      - tests/unit/test_ios_diagnostics.py
+      - tests/unit/test_ios_stability.py
+      - tests/unit/test_ios_test_inventory.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  QA_IOS_DEVICE_PROVIDER: local
+  QA_IOS_DEVICE_MATRIX: configs/ios-device-matrix.yaml
+  QA_IOS_RUN_ID: ${{ github.run_id }}
+  QA_IOS_BUNDLE_ID: com.example.qaweek19
+  QA_IOS_USE_NEW_WDA: "false"
+  QA_IOS_SHOW_XCODE_LOG: "true"
+  QA_IOS_WDA_LAUNCH_TIMEOUT_MS: "600000"
+  QA_IOS_WDA_STARTUP_RETRIES: "1"
+  QA_IOS_WDA_STARTUP_RETRY_INTERVAL_MS: "10000"
+  QA_IOS_WEBVIEW_CONNECT_TIMEOUT_MS: "60000"
+  QA_IOS_WEBVIEW_CONNECT_RETRIES: "3"
+
+jobs:
+  ios-week21:
+    runs-on: macos-15
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16.4
+        shell: bash
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+          xcodebuild -version
+          xcrun simctl list runtimes
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Validate inventory and unit contracts
+        run: |
+          uv run --no-sync python scripts/check_ios_test_inventory.py --json
+          uv run --no-sync pytest \
+            tests/unit/test_ios_test_inventory.py \
+            tests/unit/test_ios_stability.py \
+            tests/unit/test_ios_diagnostics.py \
+            -q
+          uv run --no-sync pytest tests/ios --collect-only -q
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Appium and XCUITest Driver
+        run: |
+          npm install --global appium@2.19.0
+          appium driver install xcuitest@8.4.3
+
+      - name: Select current, parallel, and optional previous Simulators
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          SDK_VERSION="$(xcrun --sdk iphonesimulator --show-sdk-version)"
+          xcrun simctl list devices available -j \
+            > artifacts/ios-simulators.json
+          python3 scripts/select_ios_simulator_matrix.py \
+            --input artifacts/ios-simulators.json \
+            --runtime-version "$SDK_VERSION" \
+            --output-env artifacts/ios-simulator-matrix.env \
+            --json
+          cat artifacts/ios-simulator-matrix.env >> "$GITHUB_ENV"
+
+      - name: Boot current-major Simulators
+        shell: bash
+        run: |
+          set -euo pipefail
+          for device_udid in \
+            "$QA_IOS_SIM_CURRENT_UDID" \
+            "$QA_IOS_SIM_SECONDARY_UDID"; do
+            xcrun simctl boot "$device_udid" || true
+          done
+          open -a Simulator
+          for device_udid in \
+            "$QA_IOS_SIM_CURRENT_UDID" \
+            "$QA_IOS_SIM_SECONDARY_UDID"; do
+            for attempt in {1..120}; do
+              if xcrun simctl list devices |
+                grep -F "$device_udid" |
+                grep -q "(Booted)"; then
+                break
+              fi
+              if [[ "$attempt" -eq 120 ]]; then
+                xcrun simctl list devices
+                exit 1
+              fi
+              sleep 2
+            done
+          done
+
+      - name: Build and install QA fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project apps/ios-fixture/QaIosFixture.xcodeproj \
+            -scheme QaIosFixture \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,id=$QA_IOS_SIM_CURRENT_UDID" \
+            -derivedDataPath artifacts/ios-fixture-simulator-derived \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+          app_path="artifacts/ios-fixture-simulator-derived/Build/Products/Debug-iphonesimulator/QaIosFixture.app"
+          test -d "$app_path"
+          for device_udid in \
+            "$QA_IOS_SIM_CURRENT_UDID" \
+            "$QA_IOS_SIM_SECONDARY_UDID"; do
+            xcrun simctl install "$device_udid" "$app_path"
+          done
+
+      - name: Start two Appium servers
+        shell: bash
+        run: |
+          set -euo pipefail
+          for port in 4723 4724; do
+            nohup appium --address 127.0.0.1 --port "$port" --log-level debug \
+              > "artifacts/appium-ios-week21-$port.log" 2>&1 &
+          done
+          for port in 4723 4724; do
+            for attempt in {1..30}; do
+              if curl --fail --silent "http://127.0.0.1:$port/status"; then
+                break
+              fi
+              if [[ "$attempt" -eq 30 ]]; then
+                cat "artifacts/appium-ios-week21-$port.log"
+                exit 1
+              fi
+              sleep 2
+            done
+          done
+
+      - name: Prewarm sequential WDA caches
+        env:
+          QA_IOS_DEVICE_IDS: simulator-current-primary,simulator-current-secondary
+        run: |
+          uv run --no-sync python scripts/prewarm_ios_wda.py \
+            --matrix configs/ios-device-matrix.yaml \
+            --worker-count 2
+
+      - name: Verify dual-Simulator resource isolation
+        env:
+          QA_IOS_DEVICE_IDS: simulator-current-primary,simulator-current-secondary
+        run: |
+          uv run --no-sync pytest \
+            tests/ios/test_week20_device_matrix.py \
+            -q -n 2 --dist=each \
+            --alluredir=artifacts/allure-week21-parallel \
+            --junitxml=artifacts/week21-parallel-junit.xml
+          uv run --no-sync python scripts/verify_ios_parallel_resources.py \
+            --run-dir "artifacts/ios-week20/${{ github.run_id }}" \
+            --expected-workers 2
+
+      - name: Run current-major 50-test stage suite
+        env:
+          QA_IOS_DEVICE_IDS: simulator-current-primary
+        run: |
+          export QA_IOS_UDID="$QA_IOS_SIM_CURRENT_UDID"
+          export QA_IOS_DEVICE_NAME="$QA_IOS_SIM_CURRENT_DEVICE"
+          export QA_IOS_PLATFORM_VERSION="$QA_IOS_SIM_CURRENT_VERSION"
+          mkdir -p artifacts/allure-week21-current
+          uv run --no-sync pytest tests/ios \
+            --ignore=tests/ios/test_cloud_session.py \
+            -q \
+            --alluredir=artifacts/allure-week21-current \
+            --junitxml=artifacts/week21-current-junit.xml
+
+      - name: Run ten first-outcome P0 stability cycles
+        env:
+          QA_IOS_DEVICE_IDS: simulator-current-primary
+        run: |
+          export QA_IOS_UDID="$QA_IOS_SIM_CURRENT_UDID"
+          export QA_IOS_DEVICE_NAME="$QA_IOS_SIM_CURRENT_DEVICE"
+          export QA_IOS_PLATFORM_VERSION="$QA_IOS_SIM_CURRENT_VERSION"
+          uv run --no-sync python scripts/run_ios_stability.py \
+            --runs 10 \
+            --target tests/ios/test_session.py::test_ios_session_starts_and_quits \
+            --target tests/ios/test_week19_system_interactions.py::test_01_fixture_launches \
+            --target tests/ios/test_week19_system_interactions.py::test_06_in_app_deep_link_opens \
+            --target tests/ios/test_week19_system_interactions.py::test_07_external_cold_start_deep_link_opens \
+            --target tests/ios/test_week21_fixture_interactions.py::test_read_file_after_write_returns_fixture_content \
+            --target tests/ios/test_week21_framework_diagnostics.py::test_missing_element_timeout_names_locator \
+            --run-dir artifacts/ios-week21/stability-runs \
+            --output artifacts/ios-week21/stability.json \
+            --allure-dir artifacts/allure-week21-stability
+
+      - name: Run previous-major risk-based compatibility
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/ios-week21
+          if [[ "${QA_IOS_SIM_PREVIOUS_AVAILABLE:-false}" != "true" ]]; then
+            printf '%s\n' \
+              '{"status":"BLOCKED","reason":"previous-major runtime unavailable"}' \
+              > artifacts/ios-week21/previous-major.json
+            exit 0
+          fi
+
+          previous_udid="$QA_IOS_SIM_PREVIOUS_UDID"
+          xcrun simctl boot "$previous_udid" || true
+          for attempt in {1..120}; do
+            if xcrun simctl list devices |
+              grep -F "$previous_udid" |
+              grep -q "(Booted)"; then
+              break
+            fi
+            if [[ "$attempt" -eq 120 ]]; then
+              xcrun simctl list devices
+              exit 1
+            fi
+            sleep 2
+          done
+          app_path="artifacts/ios-fixture-simulator-derived/Build/Products/Debug-iphonesimulator/QaIosFixture.app"
+          xcrun simctl install "$previous_udid" "$app_path"
+
+          set +e
+          QA_IOS_DEVICE_IDS=simulator-previous-major \
+          QA_IOS_UDID="$previous_udid" \
+          QA_IOS_DEVICE_NAME="$QA_IOS_SIM_PREVIOUS_DEVICE" \
+          QA_IOS_PLATFORM_VERSION="$QA_IOS_SIM_PREVIOUS_VERSION" \
+          uv run --no-sync pytest \
+            tests/ios/test_session.py \
+            tests/ios/test_week19_system_interactions.py::test_01_fixture_launches \
+            tests/ios/test_week19_system_interactions.py::test_06_in_app_deep_link_opens \
+            tests/ios/test_week19_system_interactions.py::test_07_external_cold_start_deep_link_opens \
+            tests/ios/test_week21_fixture_interactions.py::test_read_file_after_write_returns_fixture_content \
+            tests/ios/test_week21_framework_diagnostics.py::test_missing_element_timeout_names_locator \
+            -q \
+            --alluredir=artifacts/allure-week21-previous \
+            --junitxml=artifacts/ios-week21/previous-major-junit.xml
+          status=$?
+          set -e
+          if [[ "$status" -eq 0 ]]; then
+            printf '%s\n' \
+              '{"status":"PASS","scope":"risk-based compatibility subset"}' \
+              > artifacts/ios-week21/previous-major.json
+          else
+            printf '%s\n' \
+              '{"status":"FAILED","scope":"risk-based compatibility subset"}' \
+              > artifacts/ios-week21/previous-major.json
+            exit "$status"
+          fi
+
+      - name: Verify no Appium sessions leaked
+        if: always()
+        run: |
+          uv run --no-sync python - <<'PY'
+          import json
+          import urllib.request
+
+          for port in (4723, 4724):
+              with urllib.request.urlopen(
+                  f"http://127.0.0.1:{port}/sessions",
+                  timeout=10,
+              ) as response:
+                  payload = json.load(response)
+              sessions = payload.get("value", [])
+              if sessions:
+                  raise SystemExit(
+                      f"leaked Appium sessions on port {port}: {sessions!r}"
+                  )
+          print("no Appium sessions remain on ports 4723 or 4724")
+          PY
+
+      - name: Dump Appium log summaries
+        if: always()
+        shell: bash
+        run: |
+          for log in artifacts/appium-ios-week21-*.log; do
+            if [[ -f "$log" ]]; then
+              echo "=== $log ==="
+              tail -n 300 "$log"
+            fi
+          done
+
+      - name: Upload Week 21 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-week21-stability-evidence
+          path: |
+            artifacts/allure-week21-current/
+            artifacts/allure-week21-parallel/
+            artifacts/allure-week21-previous/
+            artifacts/allure-week21-stability/
+            artifacts/appium-ios-week21-*.log
+            artifacts/ios-fixture-simulator-derived/
+            artifacts/ios-simulator-matrix.env
+            artifacts/ios-simulators.json
+            artifacts/ios-week20/
+            artifacts/ios-week21/
+            artifacts/week21-current-junit.xml
+            artifacts/week21-parallel-junit.xml
+          if-no-files-found: ignore

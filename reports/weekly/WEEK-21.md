@@ -7,7 +7,7 @@
 - 计划提交 / Plan Commit: 本文件首次提交 / Initial commit for this file
 - 远端分支 / Remote Branch: `origin/study/week-21-ios-stability-matrix`
 - Pull Request: 尚未创建 / Not created
-- 状态 / Status: **计划已开启，实施未开始 / PLANNED ONLY - NOT RUN**
+- 状态 / Status: **本机实现与静态验收通过，macOS 验收待运行 / IMPLEMENTED - PLATFORM RUN PENDING**
 
 ## 计划目标 / Plan Goal
 
@@ -29,17 +29,27 @@ mobile test code without weakening assertions.
 
 ## 完成状态 / Completion Status
 
-**计划已开启 / PLANNED ONLY**
+**实现完成，平台运行待验收 / IMPLEMENTED - PLATFORM RUN PENDING**
 
-本文件只定义 Week 21 的执行边界和验收方法。以下结果当前均为 `NOT RUN`：
+Windows 本机已完成以下实现和静态验收：
 
-- 50 条唯一 iOS 测试已完成盘点并真实执行。
-- 当前主版本 Simulator 的阶段回归通过。
-- 前一主版本 Simulator 的兼容性测试通过。
-- 连续运行满足 smoke 通过率和 flaky 目标。
-- 双 Simulator 稳定性重复运行通过。
-- 云真机回归通过。
-- 失败诊断包和重构后的测试结果已验收。
+- 50 条唯一 iOS 测试已建立清单并映射到真实 pytest 源码。
+- 新增 36 条 Week 21 UI、交互和框架诊断用例。
+- 测试清单校验器拒绝数量、ID、业务意图、优先级和源码映射错误。
+- JUnit 稳定性统计保留首次结果，并单独统计 skip、xfail 和 flaky 候选。
+- 失败诊断可生成截图、page source 和脱敏 JSON manifest。
+- macOS 当前版本、双 Simulator、10 轮稳定性、上一版本抽查和 session
+  泄漏检查 Workflow 已建立。
+- 云真机 smoke 使用独立手动 Workflow，避免每次 push 都消耗设备云额度。
+
+以下平台运行结果仍为 `NOT RUN`：
+
+- 当前主版本 Simulator 的 49 条本地阶段回归。
+- 前一主版本 Simulator 的兼容性抽查。
+- 10 轮稳定性是否满足通过率和 flaky 门槛。
+- 双 Simulator 稳定性重复运行。
+- 云真机 smoke。
+- macOS 上的失败诊断包和 session 泄漏检查。
 
 ### Week 20 入口核对 / Week 20 Entry Audit
 
@@ -281,11 +291,12 @@ Week 21 依赖 Week 18 的 locator、等待、键盘和 Screen/Flow 骨架，Wee
 | 检查项 / Check | 结果 / Status | 执行环境 / Environment | 证据 / Evidence |
 | --- | --- | --- | --- |
 | Plan/index validation | 通过 / PASS | Windows | `26 passed`; entry pages up to date |
-| Ruff | 未执行 / NOT RUN | Windows | 实现后执行 |
-| Mypy | 未执行 / NOT RUN | Windows | 实现后执行 |
-| iOS test inventory unit tests | 未执行 / NOT RUN | Windows | 实现后执行 |
-| Full unit regression | 未执行 / NOT RUN | Windows | 收口前执行 |
-| 50-test collection count | 未执行 / NOT RUN | Windows / macOS | 实现后执行 |
+| Ruff | 通过 / PASS | Windows | `All checks passed!` |
+| Mypy | 通过 / PASS | Windows | 173 source files, no issues |
+| iOS test inventory contract | 通过 / PASS | Windows | 50 unique, P0/P1/P2 = 20/23/7 |
+| Full unit regression | 通过 / PASS | Windows | `317 passed in 8.66s` |
+| 50-test collection count | 通过 / PASS | Windows | `50 tests collected in 0.05s` |
+| Windows iOS skip semantics | 通过 / PASS | Windows | `50 skipped in 0.09s` |
 | Current-runtime serial regression | 未执行 / NOT RUN | macOS Runner | 实现后执行 |
 | Dual-Simulator stability runs | 未执行 / NOT RUN | macOS Runner | 实现后执行 |
 | Previous-major compatibility | 未执行 / NOT RUN | macOS Runner | runtime 可用后执行 |
@@ -441,27 +452,33 @@ QA_IOS_RUNTIME=previous-major \
 
 ## 变更文件 / Files Changed
 
-计划阶段：
+2026-11-01 实现：
 
-- `reports/weekly/WEEK-21.md`
-- `reports/README.md`（自动索引 / generated index）
-
-实现阶段预计涉及：
-
-- `configs/ios-device-matrix.yaml`
 - `configs/ios-test-inventory.yaml`
-- `tests/ios/`
+- `tests/ios/fixture.py`
+- `tests/ios/conftest.py`
+- `tests/ios/test_week19_system_interactions.py`
+- `tests/ios/test_week21_fixture_interactions.py`
+- `tests/ios/test_week21_fixture_ui.py`
+- `tests/ios/test_week21_framework_diagnostics.py`
+- `tests/unit/test_ios_diagnostics.py`
+- `tests/unit/test_ios_stability.py`
 - `tests/unit/test_ios_test_inventory.py`
-- `tests/unit/test_ios_stability_report.py`
-- `packages/qa_core/platforms/ios/`
-- `packages/qa_core/mobile/`
+- `packages/qa_core/platforms/ios/__init__.py`
+- `packages/qa_core/platforms/ios/diagnostics.py`
+- `packages/qa_core/platforms/ios/inventory.py`
+- `packages/qa_core/platforms/ios/stability.py`
+- `scripts/check_ios_test_inventory.py`
 - `scripts/run_ios_stability.py`
 - `.github/workflows/ios-week21-stability.yml`
+- `.github/workflows/ios-week21-cloud.yml`
 - `docs/architecture/ios-stability-and-diagnostics.md`
 - `docs/runbooks/ios-stability-and-flaky-triage.md`
+- `docs/README.md`
 - `reports/weekly/WEEK-21.md`
 
-实际文件以最小实现和测试边界为准，不为匹配清单创建空模块。
+`configs/ios-device-matrix.yaml` 在当前实现中没有新增字段；它作为 Week 20
+已验证的设备入口被 Week 21 Workflow 复用。
 
 ## 环境 / Environment
 
