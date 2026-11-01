@@ -144,6 +144,7 @@ jobs:
           done
 
       - name: Start two Appium servers
+        id: start-appium
         shell: bash
         run: |
           set -euo pipefail
@@ -277,7 +278,7 @@ jobs:
           fi
 
       - name: Verify no Appium sessions leaked
-        if: always()
+        if: always() && steps.start-appium.outcome == 'success'
         run: |
           uv run --no-sync python - <<'PY'
           import json

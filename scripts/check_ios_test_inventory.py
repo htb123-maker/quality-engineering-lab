@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from qa_core.platforms.ios.inventory import load_ios_test_inventory
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT / "packages") not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT / "packages"))
+
+from qa_core.platforms.ios.inventory import (  # noqa: E402
+    load_ios_test_inventory,
+)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:

@@ -9,12 +9,14 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from qa_core.platforms.ios.stability import (
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT / "packages") not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT / "packages"))
+
+from qa_core.platforms.ios.stability import (  # noqa: E402
     read_junit_results,
     summarize_stability,
 )
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
