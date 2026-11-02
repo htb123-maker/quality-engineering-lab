@@ -87,6 +87,9 @@ def ios_runtime_driver(
         request.getfixturevalue("ios_worker_settings"),
     )
     driver = create_ios_driver(settings)
+    if settings.ios_device_provider == "local":
+        driver.terminate_app(settings.ios_bundle_id)
+        driver.activate_app(settings.ios_bundle_id)
     test_name = request.node.name
     diagnostics = IosDiagnostics(
         driver,

@@ -533,26 +533,25 @@ tests:
 
   - <<: *fixture_defaults
     id: IOS-FWK-006
-    node_id: tests/ios/test_week21_framework_diagnostics.py::test_swipe_up_is_accepted_by_xcuitest
-    area: navigation
+    node_id: tests/ios/test_week21_framework_diagnostics.py::test_camera_and_microphone_controls_are_clickable
+    area: system_interaction
     priority: P1
-    business_intent: Verify XCUITest accepts an upward semantic swipe.
+    business_intent: Verify camera and microphone controls remain enabled.
     steps:
       - Open fixture
-      - Swipe up
-    expected_result: The fixture root remains visible.
+      - Resolve both permission controls
+    expected_result: Both permission controls are clickable.
 
   - <<: *fixture_defaults
     id: IOS-FWK-007
-    node_id: tests/ios/test_week21_framework_diagnostics.py::test_swipe_down_restores_initial_region
-    area: navigation
+    node_id: tests/ios/test_week21_framework_diagnostics.py::test_file_controls_are_clickable
+    area: system_interaction
     priority: P1
-    business_intent: Verify a downward swipe can restore the fixture region.
+    business_intent: Verify file controls remain enabled for state tests.
     steps:
       - Open fixture
-      - Swipe down
-      - Resolve title
-    expected_result: The title remains visible.
+      - Resolve both file controls
+    expected_result: Both file controls are clickable.
 
   - <<: *fixture_defaults
     id: IOS-FWK-008

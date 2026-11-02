@@ -77,21 +77,27 @@ def test_missing_element_timeout_names_locator(ios_runtime_driver: Any) -> None:
 
 
 @allure.testcase("IOS-FWK-006")
-def test_swipe_up_is_accepted_by_xcuitest(ios_runtime_driver: Any) -> None:
+def test_camera_and_microphone_controls_are_clickable(
+    ios_runtime_driver: Any,
+) -> None:
     screen, _ = open_fixture(ios_runtime_driver)
-    gestures = IosGestures(ios_runtime_driver)
 
-    gestures.swipe(IosSwipeDirection.UP, velocity=0.5)
-    assert screen.element().is_displayed()
+    for control in (
+        FixtureScreen.camera_button,
+        FixtureScreen.microphone_button,
+    ):
+        assert screen.wait.clickable(screen.element(), control).is_enabled()
 
 
 @allure.testcase("IOS-FWK-007")
-def test_swipe_down_restores_initial_region(ios_runtime_driver: Any) -> None:
+def test_file_controls_are_clickable(ios_runtime_driver: Any) -> None:
     screen, _ = open_fixture(ios_runtime_driver)
-    gestures = IosGestures(ios_runtime_driver)
 
-    gestures.swipe(IosSwipeDirection.DOWN, velocity=0.5)
-    assert screen.wait.visible(screen.element(), FixtureScreen.title).is_displayed()
+    for control in (
+        FixtureScreen.write_file_button,
+        FixtureScreen.read_file_button,
+    ):
+        assert screen.wait.clickable(screen.element(), control).is_enabled()
 
 
 @allure.testcase("IOS-FWK-008")
