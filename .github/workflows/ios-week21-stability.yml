@@ -169,10 +169,20 @@ jobs:
       - name: Prewarm sequential WDA caches
         env:
           QA_IOS_DEVICE_IDS: simulator-current-primary,simulator-current-secondary
+        shell: bash
         run: |
-          uv run --no-sync python scripts/prewarm_ios_wda.py \
-            --matrix configs/ios-device-matrix.yaml \
-            --worker-count 2
+          set -uo pipefail
+          for attempt in 1 2; do
+            if uv run --no-sync python scripts/prewarm_ios_wda.py \
+              --matrix configs/ios-device-matrix.yaml \
+              --worker-count 2; then
+              exit 0
+            fi
+            echo "::warning::iOS WDA prewarm attempt $attempt failed"
+            sleep 15
+          done
+          echo "::error::iOS WDA prewarm failed after two bounded attempts"
+          exit 1
 
       - name: Verify dual-Simulator resource isolation
         env:
