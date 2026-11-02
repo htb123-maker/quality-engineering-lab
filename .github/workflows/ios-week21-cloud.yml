@@ -33,8 +33,8 @@ jobs:
       QA_IOS_CLOUD_REMOTE_URL: https://hub-cloud.browserstack.com/wd/hub
       QA_IOS_CLOUD_USER: ${{ secrets.IOS_CLOUD_USER }}
       QA_IOS_CLOUD_ACCESS_KEY: ${{ secrets.IOS_CLOUD_ACCESS_KEY }}
-      QA_IOS_CLOUD_DEVICE_NAME: ${{ inputs.device_name }}
-      QA_IOS_CLOUD_PLATFORM_VERSION: ${{ inputs.platform_version }}
+      QA_IOS_CLOUD_DEVICE_NAME: ${{ inputs.device_name || 'iPhone 15' }}
+      QA_IOS_CLOUD_PLATFORM_VERSION: ${{ inputs.platform_version || '17' }}
       QA_IOS_CLOUD_PROJECT_NAME: quality-engineering-lab
       QA_IOS_CLOUD_BUILD_NAME: week21-cloud-${{ github.run_id }}
       QA_IOS_CLOUD_SESSION_NAME: week21-cloud-smoke
