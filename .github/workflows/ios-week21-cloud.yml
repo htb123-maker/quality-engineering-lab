@@ -1,6 +1,10 @@
 name: iOS Week 21 Cloud Smoke
 
 on:
+  push:
+    paths:
+      - .github/workflows/ios-week21-cloud.yml
+      - tests/ios/test_cloud_session.py
   workflow_dispatch:
     inputs:
       device_name:
