@@ -81,6 +81,9 @@ def ios_driver(settings: Settings, request: pytest.FixtureRequest) -> Iterator[A
     """Create one isolated cloud or simulator session per acceptance case."""
 
     driver = create_ios_driver(settings)
+    if settings.ios_device_provider == "local":
+        driver.terminate_app(settings.ios_bundle_id)
+        driver.activate_app(settings.ios_bundle_id)
     diagnostics = IosDiagnostics(
         driver,
         Path("artifacts/ios-diagnostics") / request.node.name,
