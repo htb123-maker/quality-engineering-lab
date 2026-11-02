@@ -7,7 +7,7 @@
 - 计划提交 / Plan Commit: 本文件首次提交 / Initial commit for this file
 - 远端分支 / Remote Branch: `origin/study/week-21-ios-stability-matrix`
 - Pull Request: 尚未创建 / Not created
-- 状态 / Status: **本机实现与静态验收通过，macOS 验收待运行 / IMPLEMENTED - PLATFORM RUN PENDING**
+- 状态 / Status: **核心阶段通过，前一主版本运行环境阻塞 / PARTIAL PASS**
 
 ## 计划目标 / Plan Goal
 
@@ -29,27 +29,35 @@ mobile test code without weakening assertions.
 
 ## 完成状态 / Completion Status
 
-**实现完成，平台运行待验收 / IMPLEMENTED - PLATFORM RUN PENDING**
+**部分通过 / PARTIAL PASS**
 
-Windows 本机已完成以下实现和静态验收：
+已实际完成并验收：
 
 - 50 条唯一 iOS 测试已建立清单并映射到真实 pytest 源码。
 - 新增 36 条 Week 21 UI、交互和框架诊断用例。
 - 测试清单校验器拒绝数量、ID、业务意图、优先级和源码映射错误。
 - JUnit 稳定性统计保留首次结果，并单独统计 skip、xfail 和 flaky 候选。
 - 失败诊断可生成截图、page source 和脱敏 JSON manifest。
-- macOS 当前版本、双 Simulator、10 轮稳定性、上一版本抽查和 session
-  泄漏检查 Workflow 已建立。
-- 云真机 smoke 使用独立手动 Workflow，避免每次 push 都消耗设备云额度。
+- 当前 iOS 18.5 本地阶段套件结果为 `48 passed, 1 xfailed`。
+- BrowserStack iPhone 15 / iOS 17 云 smoke 为 `1 passed in 20.03s`。
+- 48 条本地通过 + 1 条云通过 = 49 条通过；1 条 WebView 用例保持严格
+  `xfail`，不冒充通过。
+- 双 Simulator 并行验收 `2 passed in 43.63s`，资源校验通过。
+- P0 稳定性连续 10 轮共 `60 passed`，`pass_rate=1.0`、`flaky_rate=0.0`。
+- 稳定性 p50 为 `28.528s`，p95 为 `42.974s`。
+- Appium 4723 / 4724 结束后均无残留 session。
+- 当前分支 macOS Workflow 和云 Workflow 均成功。
 
-以下平台运行结果仍为 `NOT RUN`：
+仍阻塞的范围：
 
-- 当前主版本 Simulator 的 49 条本地阶段回归。
-- 前一主版本 Simulator 的兼容性抽查。
-- 10 轮稳定性是否满足通过率和 flaky 门槛。
-- 双 Simulator 稳定性重复运行。
-- 云真机 smoke。
-- macOS 上的失败诊断包和 session 泄漏检查。
+- GitHub `macos-15` Runner 没有可选的前一主版本 iOS Simulator。
+- 上一版本兼容矩阵保持 `BLOCKED`，没有用 iOS 18.5 的另一台设备替代。
+- 本地 Apple 签名、Provisioning 和设备信任仍未验证。
+
+最终运行：
+
+- [macOS Week 21 Run 41452512333](https://github.com/htb123-maker/quality-engineering-lab/actions/runs/41452512333)
+- [BrowserStack Week 21 Cloud Run 41465860140](https://github.com/htb123-maker/quality-engineering-lab/actions/runs/41465860140)
 
 ### Week 20 入口核对 / Week 20 Entry Audit
 
@@ -297,14 +305,17 @@ Week 21 依赖 Week 18 的 locator、等待、键盘和 Screen/Flow 骨架，Wee
 | Full unit regression | 通过 / PASS | Windows | `317 passed in 8.66s` |
 | 50-test collection count | 通过 / PASS | Windows | `50 tests collected in 0.05s` |
 | Windows iOS skip semantics | 通过 / PASS | Windows | `50 skipped in 0.09s` |
-| Current-runtime serial regression | 未执行 / NOT RUN | macOS Runner | 实现后执行 |
-| Dual-Simulator stability runs | 未执行 / NOT RUN | macOS Runner | 实现后执行 |
-| Previous-major compatibility | 未执行 / NOT RUN | macOS Runner | runtime 可用后执行 |
-| Cloud real-device smoke | 未执行 / NOT RUN | BrowserStack | 实现后执行 |
-| Refactoring baseline comparison | 未执行 / NOT RUN | Windows / macOS | 重构前后执行 |
+| Current-runtime serial regression | 部分通过 / PARTIAL PASS | macOS Runner | `48 passed, 1 xfailed in 1340.41s` |
+| Dual-Simulator stability runs | 通过 / PASS | macOS Runner | `2 passed in 43.63s`; resource verifier passed |
+| Ten-run stability gate | 通过 / PASS | macOS Runner | `60 passed`; pass rate `1.0`; flaky rate `0.0` |
+| Previous-major compatibility | 阻塞 / BLOCKED | macOS Runner | Runner 无可选旧 runtime |
+| Cloud real-device smoke | 通过 / PASS | BrowserStack | iPhone 15 / iOS 17; `1 passed in 20.03s` |
+| Session leak check | 通过 / PASS | macOS Runner | 4723 / 4724 sessions empty |
+| Refactoring baseline comparison | 部分通过 / PARTIAL PASS | Windows / macOS | Test ID 集合保持 50；无重构前耗时基线 |
 
-本计划的 `NOT RUN` 是当前事实。Week 20 的 `2 passed` 不能证明 50 条阶段测试，
-Week 19 的 `9 passed, 1 xfailed` 也不能替代当前分支的 Week 21 回归。
+严格 `xfail` 是 Week 19 已记录的 WebView context 限制，不计入通过数。
+前一主版本未运行，因此 Week 21 整体结论只能是 `PARTIAL PASS`，不能写成
+完整版本矩阵通过。
 
 ## 验收方式 / Acceptance Method
 
@@ -430,25 +441,33 @@ QA_IOS_RUNTIME=previous-major \
 
 ### 证据路径 / Evidence
 
-- Test inventory: 实现后回填 / To be defined during implementation
-- Environment JSON: `artifacts/ios-week21/<run-id>/environment.json`
-- Serial Allure: `artifacts/ios-week21/<run-id>/allure-results/`
-- Parallel evidence: `artifacts/ios-week20/<run-id>/`
-- Stability result: `artifacts/ios-week21/<run-id>/stability.json`
+- Test inventory: `configs/ios-test-inventory.yaml`
+- Simulator discovery: `artifacts/ios-simulators.json`
+- Selected matrix: `artifacts/ios-simulator-matrix.env`
+- Current Allure: `artifacts/allure-week21-current/`
+- Current JUnit: `artifacts/week21-current-junit.xml`
+- Parallel Allure: `artifacts/allure-week21-parallel/`
+- Parallel JUnit: `artifacts/week21-parallel-junit.xml`
+- Parallel resource evidence: `artifacts/ios-week20/41452512333/`
+- Stability result: `artifacts/ios-week21/stability.json`
+- Stability runs: `artifacts/ios-week21/stability-runs/`
+- Previous-major result: `artifacts/ios-week21/previous-major.json`
 - Failure artifacts: `artifacts/ios-week21/<run-id>/failures/<test-id>/`
-- Cloud Allure: `artifacts/ios-week21/cloud-allure/`
-- GitHub Run: 实现后回填
-- Architecture/runbook: 实现后新增或更新
+- Cloud Allure: `artifacts/allure-week21-cloud/`
+- Cloud JUnit: `artifacts/week21-cloud-junit.xml`
+- macOS GitHub Run: `41452512333`
+- Cloud GitHub Run: `41465860140`
+- Architecture: `docs/architecture/ios-stability-and-diagnostics.md`
+- Runbook: `docs/runbooks/ios-stability-and-flaky-triage.md`
 
 ### 未验证项 / Unverified Items
 
-- 当前还没有 50 条唯一 iOS 测试清单。
-- Week 20 只验证了当前 iOS 18.5 runtime 的并行隔离。
-- 前一主版本 Simulator 是否由 Runner 提供尚未检查。
-- 50 条测试的执行时长、并行分片和基础设施费用尚未估算。
+- 前一主版本 Simulator 不在当前 `macos-15` Runner 上，兼容矩阵为 `BLOCKED`。
+- 双 Simulator 只验证 iOS 18.5；不代表跨 iOS 版本兼容。
 - BrowserStack 多真机额度尚未验证。
 - Week 19 WebView context 和通知中心系统 UI 缺口仍未闭合。
 - 本地 Apple 签名、Provisioning 和设备信任不属于云真机基线已证明内容。
+- 重构保留了 50 条 Test ID 和通过结果，但没有形成重构前耗时对照。
 
 ## 变更文件 / Files Changed
 
@@ -510,15 +529,17 @@ QA_IOS_RUNTIME=previous-major \
 
 ## 下一步 / Next Plan
 
-Week 21 的最小可执行任务是：
+Week 22 的最小任务是：
 
-1. 盘点当前 iOS 测试并建立 50 条唯一 Test ID 清单。
-2. 增加清单完整性单元测试，拒绝重复 ID、无效映射和永久 skip 凑数。
-3. 在当前主版本 Simulator 上收集并串行执行全部测试。
-4. 至少制造一条受控失败，验证截图、page source、日志和分类附件。
-5. 对 P0 smoke 连续运行 10 次，形成首次通过率和 flaky 候选。
-6. 检查前一主版本 runtime；可用则执行高风险兼容集，否则记录 `BLOCKED`。
-7. 执行一条云真机 smoke，随后再进入 Week 22 跨平台框架。
+1. 从 Week 21 的 50 条稳定用例中提取 Android/iOS 共有的 Scenario、Step 和
+   Locator Set。
+2. 建立 `PlatformAdapter` 边界，不在业务测试中散落
+   `if platform == ...`。
+3. 先迁移一条导航 Flow 和一条文件交互 Flow，证明 Android 与 iOS 可复用
+   同一业务断言。
+4. 保留 iOS 严格 `xfail`、平台 capability 和系统交互差异。
+5. 以 Week 21 的 JUnit/Allure 作为重构前基线，证明跨平台迁移没有降低覆盖。
 
-通过标准是“50 条唯一测试有来源可追溯、在当前主版本真实执行、失败可诊断、
-重复运行有统计”，而不是只存在一份 50 条清单或一个绿色测试数量。
+Week 21 的核心测试和稳定性已经通过；进入 Week 22 时必须继续携带
+previous-major runtime `BLOCKED`、WebView context 和通知中心系统 UI
+三个已知缺口。
