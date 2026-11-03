@@ -4,10 +4,10 @@
 - 日期范围 / Date Range: 2026-11-17 to 2026-11-23
 - 分支 / Branch: `study/week-22-cross-platform-framework`
 - 基线提交 / Base Commit: `465c67d`（Week 21 阶段验收证据）
-- 计划提交 / Plan Commit: 本文件首次提交 / Initial commit for this file
-- 远端分支 / Remote Branch: 尚未推送 / Not pushed
-- Pull Request: 尚未创建 / Not created
-- 状态 / Status: **计划已开启，实施未开始 / PLANNED ONLY - NOT RUN**
+- 计划提交 / Plan Commit: `a55b6bf`
+- 远端分支 / Remote Branch: `origin/study/week-22-cross-platform-framework`
+- Pull Request: [#14](https://github.com/htb123-maker/quality-engineering-lab/pull/14)
+- 状态 / Status: **核心范围通过，继承限制继续保留 / PASS - CORE SCOPE COMPLETE**
 
 ## 计划目标 / Plan Goal
 
@@ -34,18 +34,26 @@ then verify the contract with fakes and real platform smoke where available.
 
 ## 完成状态 / Completion Status
 
-**计划已开启 / PLANNED ONLY**
+**核心范围通过 / CORE SCOPE PASS**
 
-本文件只定义 Week 22 的执行边界、实施顺序和验收方法。以下结果当前均为
-`NOT RUN`：
+Week 22 的跨平台框架 v1 已完成并在真实平台验证：
 
-- `PlatformAdapter` 协议和 Android/iOS 实现。
-- 语义化 Locator Set 和缺失 locator 的契约错误。
-- Scenario/Step 元数据与统一业务断言。
-- 导航 Flow 和文件交互 Flow 的双平台迁移。
-- fake adapter 契约测试。
-- Android Emulator 和 iOS Simulator 的真实跨平台 smoke。
-- 跨平台回归后 Week 21 的 50 条 iOS 清单仍保持完整。
+- `PlatformAdapter`、`FilePort`、capability 和 adapter registry 已实现。
+- 语义化 Locator Set 已实现，缺失键会抛出 `MissingLocatorError`。
+- Scenario/Step 保留稳定 ID；失败可定位到 `scenario_id + step_id + cause`。
+- 导航和文件两条 Scenario 使用同一业务断言。
+- fake adapter 契约测试为 `10 passed`。
+- Android 真机 Redmi K50 / Android 14：`2 passed in 21.07s`。
+- iOS Simulator：`2 passed in 280.84s`。
+- Week 21 的 50 条 iOS inventory 保持 `50 unique`，P0/P1/P2 =
+  `20/23/7`。
+
+Week 22 不关闭以下继承或环境范围：
+
+- iOS 云真机 smoke 本周未执行，保持 `DEFERRED`。
+- 物理 iPhone、签名和 Provisioning 保持 `DEFERRED`。
+- 前一主版本 iOS Simulator 保持 `BLOCKED`。
+- WebView context 仍为严格 `xfail`，通知中心系统 UI 仍未执行。
 
 ### Week 21 入口核对 / Week 21 Entry Audit
 
@@ -297,17 +305,18 @@ Week 24 的故障恢复提供可替换的 adapter 边界。
 | 检查项 / Check | 结果 / Status | 执行环境 / Environment | 证据 / Evidence |
 | --- | --- | --- | --- |
 | Plan/index validation | 通过 / PASS | Windows | `entry pages are up to date.` |
-| Opening docs/inventory tests | 通过 / PASS | Windows | `29 passed in 0.28s` |
-| Full unit regression | 通过 / PASS | Windows | `317 passed in 20.36s` |
-| Ruff | 待执行 / NOT RUN | Windows | `.venv` |
-| Mypy | 待执行 / NOT RUN | Windows | `packages`, `tests` |
-| Unit tests | 待执行 / NOT RUN | Windows | adapter/scenario contract |
+| Shared contract tests | 通过 / PASS | Windows | `10 passed in 0.18s` |
+| Full unit regression | 通过 / PASS | Windows | `327 passed in 8.56s` |
+| Ruff | 通过 / PASS | Windows | `All checks passed!` |
+| Mypy | 通过 / PASS | Windows | 185 source files, no issues |
+| Cross-platform collection | 通过 / PASS | Windows | `4 tests collected` |
 | Week 21 inventory | 通过 / PASS | Windows | 50 unique Test IDs; P0/P1/P2 = 20/23/7 |
-| Android smoke | 待执行 / NOT RUN | Android Emulator | 导航 + 文件 Flow |
-| iOS smoke | 待执行 / NOT RUN | iOS Simulator | 导航 + 文件 Flow |
-| iOS cloud smoke | 待执行 / NOT RUN | Device cloud | 单设备回归 |
+| Android smoke | 通过 / PASS | Redmi K50 / Android 14 | `2 passed in 21.07s` |
+| iOS smoke | 通过 / PASS | macOS 15 / iOS 18.5 Simulator | `2 passed in 280.84s` |
+| Appium session cleanup | 通过 / PASS | Android real device | `/sessions` returned `[]` |
+| iOS cloud smoke | 延期 / DEFERRED | Device cloud | Week 22 未执行 |
 | Previous-major iOS | 继承阻塞 / BLOCKED | macOS Runner | 不属于 Week 22 解锁范围 |
-| Physical devices | 延期 / DEFERRED | Device environment | 不由 Simulator 替代 |
+| Physical devices | 部分通过 / PARTIAL | Android real device | Android PASS；iOS physical DEFERRED |
 
 `PASS`、`FAILED`、命令输出和错误信息保留原始英文，避免改变工具语义。
 
@@ -346,13 +355,19 @@ $env:PYTEST_DEBUG_TEMPROOT="$PWD\.tmp-pytest"
 
 ```powershell
 $env:PYTEST_DEBUG_TEMPROOT="$PWD\.tmp-pytest"
+$env:QA_ANDROID_UDID="<physical-device-serial>"
+$env:QA_ANDROID_DEVICE_NAME="<physical-device-model>"
+$env:QA_ANDROID_PLATFORM_VERSION="<android-version>"
+$env:QA_ANDROID_APP_PACKAGE="com.example.qaweek15"
+$env:QA_ANDROID_APP_ACTIVITY=".MainActivity"
 .\.venv\Scripts\python.exe -m pytest tests\cross_platform -m android -q `
-  --alluredir=artifacts\allure-week22-android
+  --alluredir=artifacts\allure-week22-android `
+  --junitxml=artifacts\week22-android-junit.xml
 ```
 
 通过标准：
 
-- 导航 Flow 和文件 Flow 在 Android Emulator 上真实执行。
+- 导航 Flow 和文件 Flow 在 Android 真机或 Emulator 上真实执行。
 - Scenario 业务断言与平台无关。
 - 失败时 step ID、设备、session、截图和 page source 可回溯。
 - 清理后测试文件和 Appium session 释放完成。
@@ -360,8 +375,9 @@ $env:PYTEST_DEBUG_TEMPROOT="$PWD\.tmp-pytest"
 ### iOS 跨平台 Smoke / iOS Cross-Platform Smoke
 
 ```bash
-.venv/bin/python -m pytest tests/cross_platform -m ios -q \
-  --alluredir=artifacts/allure-week22-ios
+gh workflow run week22-cross-platform.yml \
+  --repo htb123-maker/quality-engineering-lab \
+  --ref study/week-22-cross-platform-framework
 ```
 
 通过标准：
@@ -390,44 +406,42 @@ $env:PYTEST_DEBUG_TEMPROOT="$PWD\.tmp-pytest"
 - Platform adapters: `packages/qa_core/platforms/android/`、`packages/qa_core/platforms/ios/`
 - Contract tests: `tests/unit/`
 - Cross-platform smoke: `tests/cross_platform/`
+- Android JUnit: `artifacts/week22-android-junit.xml`
 - Android Allure: `artifacts/allure-week22-android/`
-- iOS Allure: `artifacts/allure-week22-ios/`
+- iOS GitHub artifact: `week22-cross-platform-ios`
 - Failure evidence: `artifacts/cross-platform/week22/<run-id>/failures/`
 - Architecture: `docs/architecture/cross-platform-framework.md`
 - Runbook: `docs/runbooks/cross-platform-failure-triage.md`
 - Weekly result: `reports/weekly/WEEK-22.md`
+- iOS Workflow: [41664160293](https://github.com/htb123-maker/quality-engineering-lab/actions/runs/41664160293)
 
 ### 未验证项 / Unverified Items
 
-以下内容在开周时为 `NOT RUN` 或继承 `BLOCKED` / `DEFERRED`：
+以下内容仍未验证，不能算入 Week 22 核心通过结果：
 
-- 任一平台上的跨平台 smoke。
-- Android 与 iOS 是否真的能共用同一业务断言。
-- 文件 Flow 的业务结果是否足以严格等价。
+- iOS 云真机 smoke，本周为 `DEFERRED`。
 - 旧主版本 iOS Simulator 兼容性。
 - WebView context 与通知中心系统 UI。
-- 物理 iOS/Android 真机复验。
+- 物理 iPhone、本地 Apple 签名、Provisioning 和设备信任。
 - 30 条跨层 E2E，属于 Week 22 到 24 的阶段目标。
 
 ## 变更文件 / Files Changed
 
-开周计划：
-
-- `reports/weekly/WEEK-22.md`
-- `reports/README.md`（由索引脚本刷新）
-
-计划实现后预计涉及：
-
-- `packages/qa_core/mobile/`：Scenario、Step、业务结果和 Locator Set 契约。
-- `packages/qa_core/platforms/android/`：Android adapter。
-- `packages/qa_core/platforms/ios/`：iOS adapter。
-- `tests/unit/`：fake adapter 和契约测试。
-- `tests/cross_platform/`：双平台导航与文件 smoke。
+- `packages/qa_core/mobile/platforms.py`：Platform、Locator Set、FilePort、
+  PlatformAdapter 和 registry。
+- `packages/qa_core/mobile/scenarios.py`：Scenario/Step 与失败身份。
+- `packages/qa_core/mobile/fixture_scenarios.py`：导航和文件业务断言。
+- `packages/qa_core/mobile/diagnostics.py`：跨平台失败证据。
+- `packages/qa_core/mobile/waits.py`：文本前缀显式等待。
+- `packages/qa_core/platforms/android/adapter.py`：Android adapter。
+- `packages/qa_core/platforms/ios/adapter.py`：iOS adapter。
+- `apps/ios-fixture/QaIosFixture/ViewController.swift`：fixture 文件删除控件。
+- `tests/unit/test_cross_platform_framework.py`：fake adapter 契约测试。
+- `tests/cross_platform/`：Android/iOS 真实 smoke。
+- `.github/workflows/week22-cross-platform.yml`：iOS Simulator smoke。
 - `docs/architecture/cross-platform-framework.md`。
 - `docs/runbooks/cross-platform-failure-triage.md`。
-- `reports/weekly/WEEK-22.md`：实测结果和证据回填。
-
-最终文件列表以实际实现为准，不在开周时虚构已完成产物。
+- `reports/weekly/WEEK-22.md` 和 `reports/README.md`。
 
 ## 环境 / Environment
 
@@ -435,13 +449,13 @@ $env:PYTEST_DEBUG_TEMPROOT="$PWD\.tmp-pytest"
 - Python 3.12，项目 `.venv`
 - Appium Python Client 5.x
 - Appium 2.19.0
-- Android：UiAutomator2，设备矩阵由现有 fixture 选择
+- Android：UiAutomator2 4.2.9；Redmi K50 `22041211AC`；Android 14 / API 34
 - iOS：XCUITest 8.4.3、Xcode 16.4、iOS 18.5 Simulator
-- Android Emulator：计划验收环境，尚未执行
-- iOS Simulator：计划验收环境，尚未执行
+- Android 真机：`2 passed in 21.07s`
+- iOS Simulator：`2 passed in 280.84s`
 - BrowserStack：Week 21 单设备 smoke 基线可用，Week 22 尚未执行
 - 前一主版本 iOS runtime：`BLOCKED`
-- 物理设备：`DEFERRED`
+- 物理 iPhone：`DEFERRED`
 
 ## 风险与限制 / Risks and Limitations
 
@@ -452,6 +466,8 @@ $env:PYTEST_DEBUG_TEMPROOT="$PWD\.tmp-pytest"
   语义；无法严格对齐时必须拆分。
 - Android 和 iOS 的真实 UI 文案、系统弹窗和等待时间不同，共享断言不能依赖
   单一平台的精确文本。
+- Android 真机首次运行暴露了中文标题问题；adapter 已改为依赖稳定
+  accessibility 标识和 deep-link URI，而不是英文文案。
 - 设备云额度、macOS Runner 时长和 WDA 冷启动会增加跨平台 smoke 成本。
 - 重构期间若删除 xfail、减少 iOS 测试或放宽断言，会造成虚假通过。
 - Week 21 的旧 iOS runtime、WebView 和通知缺口仍未闭合，不得在跨平台报告中
@@ -467,5 +483,6 @@ Week 23 在 Week 22 的 adapter 和 Scenario 契约上进入 API + UI 跨层 E2E
 4. 保持数据、账号、设备、端口和 session 隔离。
 5. 证明一次失败可以回溯 API 请求、UI step、设备和报告。
 
-Week 22 收口前必须明确：哪些能力已经双平台验证，哪些只通过 fake adapter，
-哪些仍是 `BLOCKED` 或 `DEFERRED`。
+Week 22 的核心范围已经双平台真实通过。后续扩展必须继续沿用 Scenario 和
+adapter 契约，并把 iOS 云真机、物理 iPhone 和旧 runtime 保持为显式
+`DEFERRED` / `BLOCKED`，不能用 Week 22 的 Simulator 结果替代。
