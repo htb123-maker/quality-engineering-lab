@@ -2,7 +2,7 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-共 35 篇设计文档，按主题分组。
+共 45 篇设计文档，按主题分组。
 
 ## 目标与计划 / Goals and Plan
 
@@ -36,9 +36,17 @@
 
 ## 排障手册 / Runbooks
 
+- [Android Wireless ADB Disconnect and Session Recovery](runbooks/android-adb-transport-recovery.md)
+- [Android Appium Multi-Instance and Port Isolation](runbooks/android-appium-multi-instance.md)
+- [Android Cross-Host Appium Device Pool](runbooks/android-cross-host-device-pool.md)
+- [Android Dark Mode, Font Scale, and Display Density](runbooks/android-dark-mode-font-and-density.md)
 - [Android Device Matrix Triage](runbooks/android-device-matrix-triage.md)
 - [Android Locator and Wait Triage](runbooks/android-locator-and-wait-triage.md)
+- [Android OEM Settings, Notifications, and Background Policy](runbooks/android-oem-settings-and-background-policy.md)
+- [Android Orientation, Locale, and RTL Verification](runbooks/android-orientation-locale-rtl.md)
 - [Android Permissions and Recovery Triage](runbooks/android-permissions-and-recovery-triage.md)
+- [Android Process Death and Appium Session Recovery](runbooks/android-process-death-and-session-recovery.md)
+- [Android Same-Device Multi-Session Port Isolation](runbooks/android-same-device-multi-session.md)
 - [Android Session Debugging](runbooks/android-session-debugging.md)
 - [负向、幂等与状态机失败排查 / API Negative, Idempotency, and State Failure Triage](runbooks/api-negative-and-state-failures.md)
 - [认证失败排查 / Authentication Failure Triage](runbooks/authentication-failures.md)
@@ -47,7 +55,9 @@
 - [数据库锁等待与死锁排查 / Database Lock-Wait and Deadlock Triage](runbooks/database-lock-and-deadlock-triage.md)
 - [Failed Quality Gate Triage Runbook](runbooks/failed-quality-gate.md)
 - [Fault Injection and Defect Draft Triage](runbooks/fault-injection-and-defect-drafts.md)
-- [iOS XCUITest Simulator Runbook](runbooks/ios-xcuitest-simulator.md)
+- [iOS Self-Hosted Physical Device Runner](runbooks/ios-self-hosted-device-runner.md)
+- [iOS WDA Build and Signing Triage](runbooks/ios-wda-signing-triage.md)
+- [iOS XCUITest Simulator and Device Environment Runbook](runbooks/ios-xcuitest-simulator.md)
 - [Local SUT Docker Compose Runbook](runbooks/local-sut-compose.md)
 - [并行数据隔离失败排查 / Parallel Data-Isolation Failure Triage](runbooks/parallel-data-isolation-failures.md)
 - [Redis Cache and Consistency Triage](runbooks/redis-cache-and-consistency-triage.md)

@@ -181,7 +181,7 @@ def test_deep_link_and_background_recovery(
     assert deep_link in deep_link_status.text
 
     activities.go_home()
-    activities.wait_for_package(settings.android_app_package)
+    activities.wait_for_package_not(FIXTURE_PACKAGE)
 
     activities.start(
         AndroidIntent(

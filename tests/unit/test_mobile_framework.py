@@ -11,6 +11,7 @@ from qa_core.mobile.flows import Flow, FlowStep, FlowStepFailure
 from qa_core.mobile.locators import Locator, LocatorStrategy
 from qa_core.mobile.screens import Screen
 from qa_core.mobile.waits import ElementWaitTimeout, MobileWait, SearchContext, WaitPolicy
+from qa_core.platforms.android.activities import AndroidActivities
 from qa_core.platforms.android.gestures import AndroidGestures, ScreenRect, SwipeDirection
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.remote.webelement import WebElement
@@ -178,6 +179,33 @@ class FakeGestureDriver:
     def execute_script(self, script: str, argument: object) -> object:
         self.scripts.append((script, argument))
         return None
+
+
+class FakeActivityDriver:
+    """Expose changing foreground packages to the Activity wait helper."""
+
+    def __init__(self, packages: list[str]) -> None:
+        self._packages = iter(packages)
+        self._current = packages[0]
+
+    @property
+    def current_package(self) -> str:
+        self._current = next(self._packages, self._current)
+        return self._current
+
+    @property
+    def current_activity(self) -> str:
+        return ".Launcher"
+
+
+@pytest.mark.unit
+def test_android_activities_waits_until_package_changes() -> None:
+    activities = AndroidActivities(
+        cast(WebDriver, FakeActivityDriver(["com.example.fixture", "com.miui.home"])),
+        policy=fast_wait_policy(),
+    )
+
+    assert activities.wait_for_package_not("com.example.fixture") == "com.miui.home"
 
 
 @pytest.mark.unit

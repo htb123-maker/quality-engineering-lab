@@ -1,0 +1,14 @@
+# Cross-host Android Appium device pool example.
+# Copy to an untracked local file and replace every placeholder.
+endpoints:
+  - name: physical-local
+    appium_url: http://127.0.0.1:4723
+    serial: REPLACE_WITH_PHYSICAL_SERIAL
+    system_port: 8200
+    mjpeg_server_port: 7810
+
+  - name: remote-avd
+    appium_url: http://192.0.2.10:4723
+    serial: emulator-5554
+    system_port: 8201
+    mjpeg_server_port: 7811

@@ -1,0 +1,92 @@
+name: iOS Physical Device Smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-device:
+    runs-on:
+      - self-hosted
+      - macOS
+      - ios-device
+    timeout-minutes: 45
+    env:
+      QA_IOS_DEVICE_NAME: ${{ vars.IOS_DEVICE_NAME || 'iPhone' }}
+      QA_IOS_PLATFORM_VERSION: ${{ vars.IOS_PLATFORM_VERSION }}
+      QA_IOS_UDID: ${{ vars.IOS_DEVICE_UDID }}
+      QA_IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID || 'com.apple.Preferences' }}
+      QA_IOS_XCODE_ORG_ID: ${{ vars.IOS_XCODE_ORG_ID }}
+      QA_IOS_XCODE_SIGNING_ID: ${{ vars.IOS_XCODE_SIGNING_ID || 'Apple Development' }}
+      QA_IOS_UPDATED_WDA_BUNDLE_ID: ${{ vars.IOS_UPDATED_WDA_BUNDLE_ID }}
+      QA_IOS_ALLOW_PROVISIONING_UPDATES: "true"
+      QA_IOS_SHOW_XCODE_LOG: "true"
+      QA_IOS_WDA_LOCAL_PORT: "8100"
+      QA_IOS_USE_NEW_WDA: "true"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Appium and XCUITest Driver
+        run: |
+          npm install --global appium@2.19.0
+          appium driver install xcuitest@8.4.3 || appium driver update xcuitest
+
+      - name: Record Xcode, signing, and device inventory
+        run: |
+          xcode-select -p
+          xcodebuild -version
+          xcrun xctrace list devices
+          security find-identity -v -p codesigning
+
+      - name: Start Appium Server
+        run: |
+          mkdir -p artifacts
+          nohup appium --address 127.0.0.1 --port 4723 --log-level debug \
+            > artifacts/appium-ios-device.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4723/status; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat artifacts/appium-ios-device.log
+          exit 1
+
+      - name: Check physical iOS environment
+        run: |
+          .venv/bin/python scripts/check_ios_environment.py \
+            --profile device \
+            --server-url http://127.0.0.1:4723 \
+            --json \
+            --output artifacts/ios-device-environment.json
+
+      - name: Run physical iOS smoke
+        run: |
+          mkdir -p artifacts/allure-results
+          .venv/bin/python -m pytest tests/ios -q \
+            --alluredir=artifacts/allure-results
+
+      - name: Upload physical-device diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-physical-device-diagnostics
+          path: artifacts/
+          if-no-files-found: ignore

@@ -30,15 +30,32 @@ def test_default_settings_are_local_and_safe() -> None:
     assert str(settings.appium_server_url) == "http://127.0.0.1:4723/"
     assert settings.android_ui_wait_timeout_seconds == 10.0
     assert settings.android_ui_wait_poll_seconds == 0.25
+    assert settings.android_system_port == 8200
+    assert settings.android_mjpeg_server_port == 7810
     assert settings.ios_device_name == "iPhone 16"
     assert settings.ios_platform_version is None
     assert settings.ios_udid is None
     assert settings.ios_bundle_id == "com.apple.Preferences"
+    assert settings.ios_xcode_org_id is None
+    assert settings.ios_xcode_signing_id == "Apple Development"
+    assert settings.ios_updated_wda_bundle_id is None
+    assert settings.ios_allow_provisioning_updates is False
+    assert settings.ios_show_xcode_log is False
     assert settings.ios_wda_local_port == 8100
     assert settings.ios_use_new_wda is True
     assert settings.ios_wda_launch_timeout_ms == 240_000
     assert settings.ios_wda_startup_retries == 2
     assert settings.ios_wda_startup_retry_interval_ms == 10_000
+    assert settings.ios_device_provider == "local"
+    assert settings.ios_cloud_remote_url is None
+    assert settings.ios_cloud_user is None
+    assert settings.ios_cloud_access_key is None
+    assert settings.ios_cloud_app is None
+    assert settings.ios_cloud_device_name == "iPhone 15"
+    assert settings.ios_cloud_platform_version == "17"
+    assert settings.ios_cloud_project_name == "quality-engineering-lab"
+    assert settings.ios_cloud_build_name == "ios-cloud-smoke"
+    assert settings.ios_cloud_session_name == "ios-session-smoke"
     assert str(settings.postgres_dsn) == "postgresql://qa:qa@127.0.0.1:15432/qa"
     assert str(settings.redis_url) == "redis://127.0.0.1:26379/0"
     assert settings.artifacts_dir == Path("artifacts")

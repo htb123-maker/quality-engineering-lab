@@ -15,8 +15,9 @@ $ErrorActionPreference = "Stop"
 
 $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
 $artifacts = Join-Path $root "artifacts"
-$stdoutLog = Join-Path $artifacts "appium-server.out.log"
-$stderrLog = Join-Path $artifacts "appium-server.err.log"
+$logSuffix = if ($Port -eq 4723) { "" } else { "-$Port" }
+$stdoutLog = Join-Path $artifacts "appium-server$logSuffix.out.log"
+$stderrLog = Join-Path $artifacts "appium-server$logSuffix.err.log"
 
 function Test-JavaMajorVersion {
     param(

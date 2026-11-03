@@ -473,6 +473,12 @@ AI/Agent 不作为独立第四门课程抢走传统测试时间。每周用 1 �
 - 至少 5 份 iOS runbook。
 - 能解释 Simulator 和真机失败的差异。
 
+**验收调度：** Week 17 未完成的 macOS Simulator、WDA 构建、Appium session
+和当前 iOS 分支 smoke 统一并入 Week 21 iOS 阶段验收。Week 18 继续建设
+iOS capabilities、定位器、键盘和手势，但必须保留这些运行项为显式未验证；
+Week 21 使用当时最新 iOS 分支重跑，并以环境 JSON、Appium 日志和 Allure
+作为证据，不能用历史 macOS baseline 替代。
+
 ### 6.5 第五阶段：跨平台与 E2E，Week 22 到 24
 
 #### 目标

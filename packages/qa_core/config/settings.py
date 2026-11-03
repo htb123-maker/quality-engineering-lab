@@ -4,12 +4,20 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal, Self
 
-from pydantic import AnyHttpUrl, Field, PostgresDsn, RedisDsn, model_validator
+from pydantic import (
+    AnyHttpUrl,
+    Field,
+    PostgresDsn,
+    RedisDsn,
+    SecretStr,
+    model_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Environment = Literal["local", "ci", "performance", "staging"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 AuthMode = Literal["bearer", "cookie"]
+IosDeviceProvider = Literal["local", "browserstack", "saucelabs", "lambdatest"]
 
 
 class Settings(BaseSettings):
@@ -90,12 +98,19 @@ class Settings(BaseSettings):
         le=300_000,
     )
     android_new_command_timeout_seconds: int = Field(default=300, ge=0, le=3600)
+    android_system_port: int = Field(default=8200, ge=1024, le=65535)
+    android_mjpeg_server_port: int = Field(default=7810, ge=1024, le=65535)
     android_ui_wait_timeout_seconds: float = Field(default=10.0, gt=0.0, le=120.0)
     android_ui_wait_poll_seconds: float = Field(default=0.25, gt=0.0, le=10.0)
     ios_device_name: str = Field(default="iPhone 16")
     ios_platform_version: str | None = Field(default=None)
     ios_udid: str | None = Field(default=None)
     ios_bundle_id: str = Field(default="com.apple.Preferences")
+    ios_xcode_org_id: str | None = Field(default=None)
+    ios_xcode_signing_id: str = Field(default="Apple Development")
+    ios_updated_wda_bundle_id: str | None = Field(default=None)
+    ios_allow_provisioning_updates: bool = Field(default=False)
+    ios_show_xcode_log: bool = Field(default=False)
     ios_wda_local_port: int = Field(default=8100, ge=1, le=65535)
     ios_use_new_wda: bool = Field(default=True)
     ios_wda_launch_timeout_ms: int = Field(
@@ -108,6 +123,22 @@ class Settings(BaseSettings):
         default=10_000,
         ge=1_000,
         le=60_000,
+    )
+    ios_device_provider: IosDeviceProvider = "local"
+    ios_cloud_remote_url: AnyHttpUrl | None = None
+    ios_cloud_user: str | None = None
+    ios_cloud_access_key: SecretStr | None = None
+    ios_cloud_app: str | None = None
+    ios_cloud_device_name: str = Field(default="iPhone 15", min_length=1)
+    ios_cloud_platform_version: str = Field(default="17", min_length=1)
+    ios_cloud_project_name: str = Field(
+        default="quality-engineering-lab",
+        min_length=1,
+    )
+    ios_cloud_build_name: str = Field(default="ios-cloud-smoke", min_length=1)
+    ios_cloud_session_name: str = Field(
+        default="ios-session-smoke",
+        min_length=1,
     )
     postgres_dsn: PostgresDsn = Field(
         default_factory=lambda: PostgresDsn("postgresql://qa:qa@127.0.0.1:15432/qa")

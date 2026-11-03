@@ -149,6 +149,32 @@ class AndroidActivities:
                 (policy or self.policy).timeout_seconds,
             ) from exc
 
+    def wait_for_package_not(
+        self,
+        package: str,
+        policy: WaitPolicy | None = None,
+    ) -> str:
+        """Wait until the foreground package differs from an excluded package."""
+
+        if not package.strip():
+            raise ValueError("excluded package must not be empty")
+        wait = self._wait(policy)
+        try:
+            result = wait.until(
+                lambda _: current
+                if (current := self._current_package()) and current != package
+                else False,
+                message=f"waiting to leave package {package}",
+            )
+        except TimeoutException as exc:
+            raise AndroidActivityTimeout(
+                f"package other than {package}",
+                self._current_package(),
+                self._current_activity(),
+                (policy or self.policy).timeout_seconds,
+            ) from exc
+        return result
+
     def go_home(self) -> None:
         """Send HOME without waiting for a specific launcher implementation."""
 
