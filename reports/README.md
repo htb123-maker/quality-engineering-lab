@@ -2,10 +2,11 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-最新进度：[WEEK-21 - iOS 稳定性、版本矩阵、失败诊断与重构](weekly/WEEK-21.md)
+最新进度：[WEEK-22 - 跨平台框架 v1、PlatformAdapter、公共 Flow 与 Locator Set](weekly/WEEK-22.md)
 
 ## 周报 / Weekly Reports
 
+- [WEEK-22 - 跨平台框架 v1、PlatformAdapter、公共 Flow 与 Locator Set](weekly/WEEK-22.md)
 - [WEEK-21 - iOS 稳定性、版本矩阵、失败诊断与重构](weekly/WEEK-21.md)
 - [WEEK-20 - iOS 设备矩阵、WDA 并行与 DerivedData 隔离](weekly/WEEK-20.md)
 - [WEEK-17 - iOS 环境、Xcode、XCUITest、WDA 与签名](weekly/WEEK-17.md)

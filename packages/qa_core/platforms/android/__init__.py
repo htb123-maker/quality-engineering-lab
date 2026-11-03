@@ -5,6 +5,10 @@ from qa_core.platforms.android.activities import (
     AndroidActivityTimeout,
     AndroidIntent,
 )
+from qa_core.platforms.android.adapter import (
+    AndroidFixtureAdapter,
+    AndroidFixtureFilePort,
+)
 from qa_core.platforms.android.clipboard import AndroidClipboard
 from qa_core.platforms.android.devices import (
     AndroidDeviceProfile,
@@ -27,6 +31,8 @@ __all__ = [
     "AndroidActivityTimeout",
     "AndroidClipboard",
     "AndroidDeviceProfile",
+    "AndroidFixtureAdapter",
+    "AndroidFixtureFilePort",
     "AndroidFiles",
     "AndroidGestures",
     "AndroidIntent",
