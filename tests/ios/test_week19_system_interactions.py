@@ -12,67 +12,28 @@ import allure
 import pytest
 from qa_core.config.settings import Settings
 from qa_core.driver.ios import create_ios_driver
-from qa_core.mobile.screens import Screen
-from qa_core.mobile.waits import MobileWait, WaitPolicy
 from qa_core.platforms.ios import (
     IosAlertAction,
-    IosAlertTimeout,
     IosDiagnostics,
-    IosLocator,
-    IosSystemAlerts,
 )
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 
+from tests.ios.fixture import (
+    DEEP_LINK,
+    FixtureScreen,
+    handle_optional_permission_prompt,
+    handle_permission_prompt,
+    relaunch_fixture,
+)
+from tests.ios.fixture import (
+    open_fixture as _open_fixture,
+)
+from tests.ios.fixture import (
+    reset_permission as _reset_permission,
+)
+
 CLOUD_PROVIDERS = {"browserstack", "saucelabs", "lambdatest"}
-DEEP_LINK = "qaweek19://system-interactions?case=external-cold-start"
-
-
-class FixtureScreen(Screen):
-    """Stable root and controls from the Week 19 iOS fixture."""
-
-    root_locator = IosLocator.class_chain(
-        "**/XCUIElementTypeWindow[1]",
-        "Application window",
-    )
-    title = IosLocator.accessibility_id("fixture-title", "Fixture title")
-    camera_button = IosLocator.accessibility_id("request-camera", "Camera button")
-    microphone_button = IosLocator.accessibility_id(
-        "request-microphone",
-        "Microphone button",
-    )
-    camera_status = IosLocator.accessibility_id("camera-status", "Camera status")
-    microphone_status = IosLocator.accessibility_id(
-        "microphone-status",
-        "Microphone status",
-    )
-    notification_button = IosLocator.accessibility_id(
-        "request-notifications",
-        "Notification permission button",
-    )
-    send_notification_button = IosLocator.accessibility_id(
-        "send-notification",
-        "Send notification button",
-    )
-    notification_status = IosLocator.accessibility_id(
-        "notification-status",
-        "Notification status",
-    )
-    deep_link_button = IosLocator.accessibility_id(
-        "simulate-deep-link",
-        "Deep link button",
-    )
-    deep_link_status = IosLocator.accessibility_id(
-        "deep-link-status",
-        "Deep link status",
-    )
-    write_file_button = IosLocator.accessibility_id("write-file", "Write file button")
-    read_file_button = IosLocator.accessibility_id("read-file", "Read file button")
-    file_status = IosLocator.accessibility_id("file-status", "File status")
-    background_status = IosLocator.accessibility_id(
-        "background-status",
-        "Background status",
-    )
 
 
 pytestmark = [
@@ -120,6 +81,9 @@ def ios_driver(settings: Settings, request: pytest.FixtureRequest) -> Iterator[A
     """Create one isolated cloud or simulator session per acceptance case."""
 
     driver = create_ios_driver(settings)
+    if settings.ios_device_provider == "local":
+        driver.terminate_app(settings.ios_bundle_id)
+        driver.activate_app(settings.ios_bundle_id)
     diagnostics = IosDiagnostics(
         driver,
         Path("artifacts/ios-diagnostics") / request.node.name,
@@ -134,21 +98,8 @@ def ios_driver(settings: Settings, request: pytest.FixtureRequest) -> Iterator[A
         driver.quit()
 
 
-def _open_fixture(driver: Any) -> tuple[FixtureScreen, MobileWait]:
-    screen = FixtureScreen(driver, wait_policy=WaitPolicy(timeout_seconds=30.0))
-    wait = MobileWait(driver, WaitPolicy(timeout_seconds=30.0))
-    screen.wait_ready()
-    wait.text_is(screen.element(), FixtureScreen.title, "QA iOS Fixture")
-    return screen, wait
-
-
-def _reset_permission(driver: Any, service: str) -> None:
-    driver.execute_script("mobile: resetPermission", {"service": service})
-
-
 def _relaunch_fixture(driver: Any, settings: Settings) -> None:
-    driver.terminate_app(settings.ios_bundle_id)
-    driver.activate_app(settings.ios_bundle_id)
+    relaunch_fixture(driver, settings.ios_bundle_id)
 
 
 def _handle_permission_prompt(
@@ -157,19 +108,15 @@ def _handle_permission_prompt(
     *,
     timeout_seconds: float = 15.0,
 ) -> None:
-    IosSystemAlerts(driver, timeout_seconds=timeout_seconds).handle(action)
+    handle_permission_prompt(
+        driver,
+        action,
+        timeout_seconds=timeout_seconds,
+    )
 
 
 def _handle_optional_permission_prompt(driver: Any) -> bool:
-    try:
-        _handle_permission_prompt(
-            driver,
-            IosAlertAction.ACCEPT,
-            timeout_seconds=3.0,
-        )
-    except IosAlertTimeout:
-        return False
-    return True
+    return handle_optional_permission_prompt(driver)
 
 
 @allure.feature("iOS System Interactions")

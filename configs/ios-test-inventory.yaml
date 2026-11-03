@@ -1,0 +1,587 @@
+version: 1
+expected_count: 50
+
+defaults: &fixture_defaults
+  preconditions:
+    - QA iOS fixture is installed
+    - Appium and XCUITest are ready
+  device_scope:
+    - current
+    - previous-major
+  automation_status: automated
+  evidence_path: artifacts/ios-week21/<run-id>/
+
+tests:
+  - <<: *fixture_defaults
+    id: IOS-CLOUD-001
+    node_id: tests/ios/test_cloud_session.py::test_cloud_ios_session_starts_and_quits
+    area: session
+    priority: P1
+    business_intent: Verify a configured real-device cloud provider creates an iOS session.
+    steps:
+      - Create a cloud session
+      - Read the platform and window size
+    expected_result: The cloud session is valid and exits cleanly.
+    device_scope:
+      - cloud
+
+  - <<: *fixture_defaults
+    id: IOS-FRAMEWORK-001
+    node_id: tests/ios/test_screen_framework.py::test_ios_screen_and_gesture_framework
+    area: navigation
+    priority: P0
+    business_intent: Verify the Screen and Flow skeleton can wait for the application window and swipe.
+    steps:
+      - Resolve the application window
+      - Run the two-step flow
+      - Swipe up and record window size
+    expected_result: The flow state and screenshot evidence are produced.
+    device_scope:
+      - current
+      - cloud
+
+  - <<: *fixture_defaults
+    id: IOS-SESSION-001
+    node_id: tests/ios/test_session.py::test_ios_session_starts_and_quits
+    area: session
+    priority: P0
+    business_intent: Verify a local iOS session exposes platformName and a positive window size.
+    steps:
+      - Create a local session
+      - Read platformName and window size
+      - Quit the session
+    expected_result: The session is valid and leaves no active driver.
+
+  - <<: *fixture_defaults
+    id: IOS-SYSTEM-001
+    node_id: tests/ios/test_week19_system_interactions.py::test_01_fixture_launches
+    area: navigation
+    priority: P0
+    business_intent: Verify the QA iOS fixture reaches its stable root after launch.
+    steps:
+      - Open the fixture
+      - Wait for its title
+    expected_result: The fixture root is visible and displayed.
+
+  - <<: *fixture_defaults
+    id: IOS-SYSTEM-002
+    node_id: tests/ios/test_week19_system_interactions.py::test_02_camera_permission_can_be_granted
+    area: system_interaction
+    priority: P0
+    business_intent: Verify camera permission can move from not-determined to granted.
+    steps:
+      - Reset camera permission
+      - Request camera access
+      - Accept the system alert
+    expected_result: The camera status reports granted.
+
+  - <<: *fixture_defaults
+    id: IOS-SYSTEM-003
+    node_id: tests/ios/test_week19_system_interactions.py::test_03_microphone_permission_can_be_denied
+    area: system_interaction
+    priority: P0
+    business_intent: Verify microphone permission denial is reflected in fixture state.
+    steps:
+      - Reset microphone permission
+      - Request microphone access
+      - Dismiss the system alert
+    expected_result: The microphone status reports denied.
+
+  - <<: *fixture_defaults
+    id: IOS-SYSTEM-004
+    node_id: tests/ios/test_week19_system_interactions.py::test_04_permission_state_survives_relaunch
+    area: system_interaction
+    priority: P0
+    business_intent: Verify an accepted camera permission survives app relaunch.
+    steps:
+      - Grant camera access
+      - Relaunch the fixture
+      - Read camera status
+    expected_result: Camera access remains granted.
+
+  - <<: *fixture_defaults
+    id: IOS-SYSTEM-005
+    node_id: tests/ios/test_week19_system_interactions.py::test_05_notification_authorization_and_scheduling
+    area: system_interaction
+    priority: P1
+    business_intent: Verify notification authorization and local notification scheduling.
+    steps:
+      - Request notification authorization
+      - Schedule a local notification
+    expected_result: Notification state reports authorized and scheduled.
+    device_scope:
+      - current
+      - cloud
+
+  - <<: *fixture_defaults
+    id: IOS-SYSTEM-006
+    node_id: tests/ios/test_week19_system_interactions.py::test_06_in_app_deep_link_opens
+    area: system_interaction
+    priority: P0
+    business_intent: Verify the fixture handles its built-in deep link action.
+    steps:
+      - Tap the in-app deep link button
+      - Wait for the deep link status
+    expected_result: The expected deep link URL is displayed.
+
+  - <<: *fixture_defaults
+    id: IOS-SYSTEM-007
+    node_id: tests/ios/test_week19_system_interactions.py::test_07_external_cold_start_deep_link_opens
+    area: system_interaction
+    priority: P0
+    business_intent: Verify an external deep link starts a terminated fixture with the target URL.
+    steps:
+      - Terminate the fixture
+      - Send an external deep link
+      - Wait for fixture state
+    expected_result: The external URL is visible after cold start.
+
+  - <<: *fixture_defaults
+    id: IOS-SYSTEM-008
+    node_id: tests/ios/test_week19_system_interactions.py::test_08_file_write_and_read
+    area: system_interaction
+    priority: P0
+    business_intent: Verify fixture file content can be written and read in one session.
+    steps:
+      - Write the fixture file
+      - Read the fixture file
+    expected_result: The exact fixture content is returned.
+
+  - <<: *fixture_defaults
+    id: IOS-WEBVIEW-001
+    node_id: tests/ios/test_week19_system_interactions.py::test_09_webview_context_is_available
+    area: webview
+    priority: P1
+    business_intent: Verify a WebView context can be discovered and switched back to native context.
+    steps:
+      - Probe available contexts
+      - Switch to a WebView when exposed
+      - Return to NATIVE_APP
+    expected_result: A WebView is exercised or a strict xfail records the provider limitation.
+    device_scope:
+      - current
+      - cloud
+    known_limitation: BrowserStack iPhone 15 on iOS 17 exposed only NATIVE_APP after 70 seconds.
+
+  - <<: *fixture_defaults
+    id: IOS-SYSTEM-009
+    node_id: tests/ios/test_week19_system_interactions.py::test_10_background_and_foreground_recovery
+    area: system_interaction
+    priority: P1
+    business_intent: Verify the fixture reports a resumed state after backgrounding.
+    steps:
+      - Open the fixture
+      - Background the app for one second
+      - Wait for foreground recovery
+    expected_result: The background status reports a resumed count.
+
+  - <<: *fixture_defaults
+    id: IOS-MATRIX-001
+    node_id: tests/ios/test_week20_device_matrix.py::test_week20_parallel_simulator_session
+    area: device_matrix
+    priority: P0
+    business_intent: Verify two workers use unique Simulator, Appium port, WDA port, and DerivedData.
+    steps:
+      - Allocate worker resources
+      - Start both sessions
+      - Verify overlap and cleanup
+    expected_result: Two sessions overlap with fully unique device resources.
+
+  - <<: *fixture_defaults
+    id: IOS-INTERACTION-001
+    node_id: tests/ios/test_week21_fixture_interactions.py::test_in_app_deep_link_updates_status
+    area: system_interaction
+    priority: P1
+    business_intent: Verify the Week 21 in-app deep link updates visible state.
+    steps:
+      - Tap the deep link control
+      - Wait for the target URL
+    expected_result: The in-app deep link URL is displayed.
+
+  - <<: *fixture_defaults
+    id: IOS-INTERACTION-002
+    node_id: tests/ios/test_week21_fixture_interactions.py::test_write_fixture_file_updates_status
+    area: system_interaction
+    priority: P1
+    business_intent: Verify writing the fixture file has an observable success state.
+    steps:
+      - Tap Write Fixture File
+      - Wait for status
+    expected_result: The status reports file written.
+
+  - <<: *fixture_defaults
+    id: IOS-INTERACTION-003
+    node_id: tests/ios/test_week21_fixture_interactions.py::test_read_file_after_write_returns_fixture_content
+    area: system_interaction
+    priority: P0
+    business_intent: Verify the fixture file round trip returns the known payload.
+    steps:
+      - Write the known payload
+      - Read the file
+    expected_result: The status reports file read week19-file.
+
+  - <<: *fixture_defaults
+    id: IOS-INTERACTION-004
+    node_id: tests/ios/test_week21_fixture_interactions.py::test_file_content_survives_relaunch
+    area: system_interaction
+    priority: P0
+    business_intent: Verify written fixture content survives app termination and relaunch.
+    steps:
+      - Write the file
+      - Relaunch the fixture
+      - Read the file
+    expected_result: The known payload remains readable.
+
+  - <<: *fixture_defaults
+    id: IOS-INTERACTION-005
+    node_id: tests/ios/test_week21_fixture_interactions.py::test_deep_link_state_survives_relaunch
+    area: system_interaction
+    priority: P1
+    business_intent: Verify the last in-app deep link survives app relaunch.
+    steps:
+      - Open the in-app deep link
+      - Relaunch the fixture
+      - Read the persisted URL
+    expected_result: The same deep link URL remains visible.
+
+  - <<: *fixture_defaults
+    id: IOS-INTERACTION-006
+    node_id: tests/ios/test_week21_fixture_interactions.py::test_external_deep_link_accepts_week21_case
+    area: system_interaction
+    priority: P0
+    business_intent: Verify a second external URL shape is accepted by the fixture.
+    steps:
+      - Terminate the fixture
+      - Send the Week 21 external URL
+    expected_result: The Week 21 URL appears after cold start.
+
+  - <<: *fixture_defaults
+    id: IOS-INTERACTION-007
+    node_id: tests/ios/test_week21_fixture_interactions.py::test_background_and_foreground_updates_resume_state
+    area: system_interaction
+    priority: P1
+    business_intent: Verify a short background transition produces resumed evidence.
+    steps:
+      - Background the fixture
+      - Wait for foreground state
+    expected_result: The background status reports resumed.
+
+  - <<: *fixture_defaults
+    id: IOS-INTERACTION-008
+    node_id: tests/ios/test_week21_fixture_interactions.py::test_terminate_and_activate_recovers_fixture
+    area: system_interaction
+    priority: P0
+    business_intent: Verify terminate and activate returns to a usable fixture screen.
+    steps:
+      - Launch the fixture
+      - Terminate and activate it
+      - Reopen the root
+    expected_result: The fixture root is visible after recovery.
+
+  - <<: *fixture_defaults
+    id: IOS-INTERACTION-009
+    node_id: tests/ios/test_week21_fixture_interactions.py::test_camera_permission_reset_restores_not_determined
+    area: system_interaction
+    priority: P1
+    business_intent: Verify camera permission reset returns to not-determined.
+    steps:
+      - Reset camera permission
+      - Relaunch the fixture
+    expected_result: The camera status reports not-determined.
+
+  - <<: *fixture_defaults
+    id: IOS-INTERACTION-010
+    node_id: tests/ios/test_week21_fixture_interactions.py::test_microphone_permission_reset_restores_not_determined
+    area: system_interaction
+    priority: P1
+    business_intent: Verify microphone permission reset returns to not-determined.
+    steps:
+      - Reset microphone permission
+      - Relaunch the fixture
+    expected_result: The microphone status reports not-determined.
+
+  - <<: *fixture_defaults
+    id: IOS-INTERACTION-011
+    node_id: tests/ios/test_week21_fixture_interactions.py::test_notification_permission_controls_are_clickable
+    area: system_interaction
+    priority: P2
+    business_intent: Verify notification authorization and scheduling controls are enabled.
+    steps:
+      - Open the fixture
+      - Resolve both notification controls
+    expected_result: Both controls are displayed and enabled.
+
+  - <<: *fixture_defaults
+    id: IOS-INTERACTION-012
+    node_id: tests/ios/test_week21_fixture_interactions.py::test_repeated_file_write_remains_idempotent
+    area: system_interaction
+    priority: P1
+    business_intent: Verify repeated identical file writes leave readable content.
+    steps:
+      - Write the file twice
+      - Read the file
+    expected_result: The file is readable and contains the known payload.
+
+  - <<: *fixture_defaults
+    id: IOS-UI-001
+    node_id: tests/ios/test_week21_fixture_ui.py::test_fixture_title_is_visible
+    area: navigation
+    priority: P1
+    business_intent: Verify the fixture exposes a visible titled root.
+    steps:
+      - Open fixture
+      - Resolve title
+    expected_result: The title is displayed with the expected text.
+
+  - <<: *fixture_defaults
+    id: IOS-UI-002
+    node_id: tests/ios/test_week21_fixture_ui.py::test_fixture_status_is_ready
+    area: navigation
+    priority: P1
+    business_intent: Verify the fixture publishes its ready state.
+    steps:
+      - Open fixture
+      - Read status
+    expected_result: The status is exactly ready.
+
+  - <<: *fixture_defaults
+    id: IOS-UI-003
+    node_id: tests/ios/test_week21_fixture_ui.py::test_camera_status_is_rendered
+    area: system_interaction
+    priority: P2
+    business_intent: Verify camera permission state has a stable visible field.
+    steps:
+      - Open fixture
+      - Read camera status
+    expected_result: The status starts with camera.
+
+  - <<: *fixture_defaults
+    id: IOS-UI-004
+    node_id: tests/ios/test_week21_fixture_ui.py::test_microphone_status_is_rendered
+    area: system_interaction
+    priority: P2
+    business_intent: Verify microphone permission state has a stable visible field.
+    steps:
+      - Open fixture
+      - Read microphone status
+    expected_result: The status starts with microphone.
+
+  - <<: *fixture_defaults
+    id: IOS-UI-005
+    node_id: tests/ios/test_week21_fixture_ui.py::test_notification_status_is_rendered
+    area: system_interaction
+    priority: P2
+    business_intent: Verify notification state has a stable visible field.
+    steps:
+      - Open fixture
+      - Read notification status
+    expected_result: The status starts with notifications.
+
+  - <<: *fixture_defaults
+    id: IOS-UI-006
+    node_id: tests/ios/test_week21_fixture_ui.py::test_deep_link_status_is_rendered
+    area: system_interaction
+    priority: P2
+    business_intent: Verify deep link state has a stable visible field.
+    steps:
+      - Open fixture
+      - Read deep link status
+    expected_result: The status starts with deep link.
+
+  - <<: *fixture_defaults
+    id: IOS-UI-007
+    node_id: tests/ios/test_week21_fixture_ui.py::test_file_status_starts_idle
+    area: system_interaction
+    priority: P1
+    business_intent: Verify file operations start from the idle state on a fresh fixture launch.
+    steps:
+      - Open fixture
+      - Read file status
+    expected_result: The status is exactly file idle.
+
+  - <<: *fixture_defaults
+    id: IOS-UI-008
+    node_id: tests/ios/test_week21_fixture_ui.py::test_background_status_starts_with_launch_count
+    area: system_interaction
+    priority: P2
+    business_intent: Verify background state exposes a launch-count field.
+    steps:
+      - Open fixture
+      - Read background status
+    expected_result: The status starts with background launches.
+
+  - <<: *fixture_defaults
+    id: IOS-UI-009
+    node_id: tests/ios/test_week21_fixture_ui.py::test_webview_title_is_visible
+    area: webview
+    priority: P1
+    business_intent: Verify the native WebView section has a visible heading.
+    steps:
+      - Open fixture
+      - Resolve WebView heading
+    expected_result: The WebView heading is displayed.
+
+  - <<: *fixture_defaults
+    id: IOS-UI-010
+    node_id: tests/ios/test_week21_fixture_ui.py::test_webview_native_container_is_visible
+    area: webview
+    priority: P1
+    business_intent: Verify the WebView container is visible in the native hierarchy.
+    steps:
+      - Open fixture
+      - Resolve WebView container
+    expected_result: The container is displayed.
+
+  - <<: *fixture_defaults
+    id: IOS-UI-011
+    node_id: tests/ios/test_week21_fixture_ui.py::test_primary_control_buttons_are_visible
+    area: navigation
+    priority: P0
+    business_intent: Verify every primary fixture control is visible.
+    steps:
+      - Open fixture
+      - Resolve all primary controls
+    expected_result: Seven controls are displayed.
+
+  - <<: *fixture_defaults
+    id: IOS-UI-012
+    node_id: tests/ios/test_week21_fixture_ui.py::test_page_source_contains_stable_identifiers
+    area: locator_wait
+    priority: P0
+    business_intent: Verify native hierarchy preserves stable accessibility identifiers.
+    steps:
+      - Open fixture
+      - Read page source
+    expected_result: Five critical identifiers are present.
+
+  - <<: *fixture_defaults
+    id: IOS-UI-013
+    node_id: tests/ios/test_week21_fixture_ui.py::test_window_dimensions_are_positive
+    area: session
+    priority: P1
+    business_intent: Verify the active iOS window reports usable dimensions.
+    steps:
+      - Open fixture
+      - Read window size
+    expected_result: Width and height are positive.
+
+  - <<: *fixture_defaults
+    id: IOS-UI-014
+    node_id: tests/ios/test_week21_fixture_ui.py::test_screenshot_contains_png_bytes
+    area: negative_diagnostics
+    priority: P1
+    business_intent: Verify screenshot diagnostics return a non-empty PNG.
+    steps:
+      - Open fixture
+      - Capture screenshot
+    expected_result: The PNG signature and payload are present.
+
+  - <<: *fixture_defaults
+    id: IOS-FWK-001
+    node_id: tests/ios/test_week21_framework_diagnostics.py::test_predicate_locator_finds_fixture_title
+    area: locator_wait
+    priority: P1
+    business_intent: Verify an XCUITest predicate locator resolves the fixture title.
+    steps:
+      - Build the title predicate
+      - Resolve and read it
+    expected_result: The title text is returned.
+
+  - <<: *fixture_defaults
+    id: IOS-FWK-002
+    node_id: tests/ios/test_week21_framework_diagnostics.py::test_accessibility_locator_finds_ready_status
+    area: locator_wait
+    priority: P0
+    business_intent: Verify an accessibility identifier resolves the ready status.
+    steps:
+      - Build the status locator
+      - Resolve and read it
+    expected_result: The ready text is returned.
+
+  - <<: *fixture_defaults
+    id: IOS-FWK-003
+    node_id: tests/ios/test_week21_framework_diagnostics.py::test_class_chain_locator_finds_application_window
+    area: locator_wait
+    priority: P0
+    business_intent: Verify the class-chain application root is visible.
+    steps:
+      - Open fixture
+      - Resolve the class-chain root
+    expected_result: The application window is displayed.
+
+  - <<: *fixture_defaults
+    id: IOS-FWK-004
+    node_id: tests/ios/test_week21_framework_diagnostics.py::test_explicit_wait_finds_file_button
+    area: locator_wait
+    priority: P1
+    business_intent: Verify explicit visibility wait resolves the file button.
+    steps:
+      - Open fixture
+      - Run a bounded visibility wait
+    expected_result: The file button is visible and enabled.
+
+  - <<: *fixture_defaults
+    id: IOS-FWK-005
+    node_id: tests/ios/test_week21_framework_diagnostics.py::test_missing_element_timeout_names_locator
+    area: negative_diagnostics
+    priority: P0
+    business_intent: Verify a missing locator produces a bounded diagnostic timeout.
+    steps:
+      - Wait for a deliberately absent locator
+      - Inspect the exception
+    expected_result: ElementWaitTimeout names the locator and visible state.
+
+  - <<: *fixture_defaults
+    id: IOS-FWK-006
+    node_id: tests/ios/test_week21_framework_diagnostics.py::test_camera_and_microphone_controls_are_clickable
+    area: system_interaction
+    priority: P1
+    business_intent: Verify camera and microphone controls remain enabled.
+    steps:
+      - Open fixture
+      - Resolve both permission controls
+    expected_result: Both permission controls are clickable.
+
+  - <<: *fixture_defaults
+    id: IOS-FWK-007
+    node_id: tests/ios/test_week21_framework_diagnostics.py::test_file_controls_are_clickable
+    area: system_interaction
+    priority: P1
+    business_intent: Verify file controls remain enabled for state tests.
+    steps:
+      - Open fixture
+      - Resolve both file controls
+    expected_result: Both file controls are clickable.
+
+  - <<: *fixture_defaults
+    id: IOS-FWK-008
+    node_id: tests/ios/test_week21_framework_diagnostics.py::test_scroll_down_keeps_fixture_root
+    area: navigation
+    priority: P2
+    business_intent: Verify semantic scroll keeps the fixture root addressable.
+    steps:
+      - Open fixture
+      - Scroll down
+    expected_result: The fixture root remains visible.
+
+  - <<: *fixture_defaults
+    id: IOS-FWK-009
+    node_id: tests/ios/test_week21_framework_diagnostics.py::test_native_context_is_always_available
+    area: webview
+    priority: P0
+    business_intent: Verify every iOS session exposes a native application context.
+    steps:
+      - Open fixture
+      - Read available contexts
+    expected_result: NATIVE_APP is present.
+
+  - <<: *fixture_defaults
+    id: IOS-FWK-010
+    node_id: tests/ios/test_week21_framework_diagnostics.py::test_page_source_is_parseable_xml
+    area: negative_diagnostics
+    priority: P1
+    business_intent: Verify native page source is well-formed XML for diagnostics.
+    steps:
+      - Open fixture
+      - Parse page source
+    expected_result: XML parsing succeeds and contains the fixture title identifier.

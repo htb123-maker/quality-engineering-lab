@@ -1,9 +1,16 @@
 """Shared iOS device-matrix fixtures."""
 
-from pathlib import Path
+# mypy: disable-error-code="untyped-decorator,no-untyped-call"
 
+from collections.abc import Iterator
+from pathlib import Path
+from typing import Any, cast
+
+import allure
 import pytest
 from qa_core.config.settings import Settings
+from qa_core.driver.ios import create_ios_driver
+from qa_core.platforms.ios import IosDiagnostics
 from qa_core.platforms.ios.devices import (
     IosDeviceMatrix,
     IosDeviceProfile,
@@ -13,6 +20,8 @@ from qa_core.platforms.ios.devices import (
     ios_xdist_worker_context,
     load_ios_device_matrix,
 )
+
+from tests.ios.fixture import ios_runtime_is_configured
 
 
 @pytest.fixture(scope="session")
@@ -61,3 +70,61 @@ def ios_worker_settings(
         ios_worker_profile,
         ios_worker_resources,
     )
+
+
+@pytest.fixture
+def ios_runtime_driver(
+    request: pytest.FixtureRequest,
+    project_root: Path,
+) -> Iterator[Any]:
+    """Create one isolated iOS session and capture sanitized failure evidence."""
+
+    if not ios_runtime_is_configured():
+        pytest.skip("iOS runtime requires macOS or a configured cloud provider")
+
+    settings = cast(
+        Settings,
+        request.getfixturevalue("ios_worker_settings"),
+    )
+    driver = create_ios_driver(settings)
+    if settings.ios_device_provider == "local":
+        driver.terminate_app(settings.ios_bundle_id)
+        driver.activate_app(settings.ios_bundle_id)
+    test_name = request.node.name
+    diagnostics = IosDiagnostics(
+        driver,
+        project_root
+        / "artifacts"
+        / "ios-week21"
+        / settings.ios_run_id
+        / "failures"
+        / test_name,
+    )
+    context = {
+        "provider": settings.ios_device_provider,
+        "device_name": settings.ios_device_name,
+        "platform_version": settings.ios_platform_version,
+        "bundle_id": settings.ios_bundle_id,
+        "appium_server_url": str(settings.appium_server_url),
+        "run_id": settings.ios_run_id,
+    }
+    try:
+        yield driver
+    except Exception as exc:
+        try:
+            failure = diagnostics.capture_failure(
+                f"{test_name}-failure",
+                test_id=test_name,
+                error=exc,
+                context=context,
+            )
+            allure.attach.file(
+                str(failure.manifest_path),
+                name="iOS failure manifest",
+                attachment_type=allure.attachment_type.JSON,
+            )
+        except Exception:
+            pass
+        raise
+    finally:
+        driver.quit()
