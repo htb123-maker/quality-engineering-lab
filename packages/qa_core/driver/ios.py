@@ -148,6 +148,11 @@ def build_ios_options(settings: Settings) -> XCUITestOptions:
     options.wda_launch_timeout = settings.ios_wda_launch_timeout_ms
     options.wda_startup_retries = settings.ios_wda_startup_retries
     options.wda_startup_retry_interval = settings.ios_wda_startup_retry_interval_ms
+    if settings.ios_derived_data_path is not None:
+        options.set_capability(
+            "appium:derivedDataPath",
+            str(settings.ios_derived_data_path),
+        )
     return _apply_webview_options(options, settings)
 
 

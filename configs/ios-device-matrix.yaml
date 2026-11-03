@@ -1,0 +1,43 @@
+version: 1
+appium_port_base: 4723
+wda_port_base: 8100
+derived_data_root: artifacts/ios-derived
+devices:
+  - id: simulator-current-primary
+    role: primary-simulator
+    provider: local
+    capability_profile: simulator
+    device_name_env: QA_IOS_SIM_CURRENT_DEVICE
+    default_device_name: iPhone 16
+    platform_version_env: QA_IOS_SIM_CURRENT_VERSION
+    udid_env: QA_IOS_SIM_CURRENT_UDID
+    required: true
+
+  - id: simulator-current-secondary
+    role: parallel-simulator
+    provider: local
+    capability_profile: simulator
+    device_name_env: QA_IOS_SIM_SECONDARY_DEVICE
+    default_device_name: iPhone 16
+    platform_version_env: QA_IOS_SIM_SECONDARY_VERSION
+    udid_env: QA_IOS_SIM_SECONDARY_UDID
+    required: false
+
+  - id: simulator-previous-major
+    role: compatibility-simulator
+    provider: local
+    capability_profile: simulator
+    device_name_env: QA_IOS_SIM_PREVIOUS_DEVICE
+    platform_version_env: QA_IOS_SIM_PREVIOUS_VERSION
+    udid_env: QA_IOS_SIM_PREVIOUS_UDID
+    required: false
+
+  - id: cloud-iphone
+    role: real-device-cloud
+    provider: browserstack
+    capability_profile: device
+    device_name_env: QA_IOS_CLOUD_DEVICE_NAME
+    default_device_name: iPhone 15
+    platform_version_env: QA_IOS_CLOUD_PLATFORM_VERSION
+    default_platform_version: "17"
+    required: false

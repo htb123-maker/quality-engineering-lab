@@ -1,0 +1,176 @@
+name: iOS Week 20 Parallel Matrix
+
+on:
+  push:
+    paths:
+      - .github/workflows/ios-week20-matrix.yml
+      - configs/ios-device-matrix.yaml
+      - packages/qa_core/config/settings.py
+      - packages/qa_core/driver/ios.py
+      - packages/qa_core/platforms/ios/devices.py
+      - scripts/select_ios_simulator_matrix.py
+      - scripts/verify_ios_parallel_resources.py
+      - tests/ios/conftest.py
+      - scripts/prewarm_ios_wda.py
+      - tests/ios/test_week20_device_matrix.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-parallel-simulator:
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      QA_IOS_DEVICE_PROVIDER: local
+      QA_IOS_DEVICE_IDS: simulator-current-primary,simulator-current-secondary
+      QA_IOS_DEVICE_MATRIX: configs/ios-device-matrix.yaml
+      QA_IOS_RUN_ID: ${{ github.run_id }}
+      QA_IOS_BUNDLE_ID: com.apple.Preferences
+      QA_IOS_USE_NEW_WDA: "false"
+      QA_IOS_SHOW_XCODE_LOG: "true"
+      QA_IOS_WDA_LAUNCH_TIMEOUT_MS: "600000"
+      QA_IOS_WDA_STARTUP_RETRIES: "1"
+      QA_IOS_WDA_STARTUP_RETRY_INTERVAL_MS: "10000"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16.4
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+          xcodebuild -version
+          xcrun simctl list runtimes
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Appium and XCUITest Driver
+        run: |
+          npm install --global appium@2.19.0
+          appium driver install xcuitest@8.4.3
+
+      - name: Select two current-major Simulators
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          SDK_VERSION="$(xcrun --sdk iphonesimulator --show-sdk-version)"
+          echo "Selected Xcode simulator SDK: $SDK_VERSION"
+          xcrun simctl list devices available -j \
+            > artifacts/ios-simulators.json
+          python3 scripts/select_ios_simulator_matrix.py \
+            --input artifacts/ios-simulators.json \
+            --runtime-version "$SDK_VERSION" \
+            --output-env artifacts/ios-simulator-matrix.env \
+            --json
+          cat artifacts/ios-simulator-matrix.env >> "$GITHUB_ENV"
+
+      - name: Boot selected Simulators
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcrun simctl boot "$QA_IOS_SIM_CURRENT_UDID" || true
+          xcrun simctl boot "$QA_IOS_SIM_SECONDARY_UDID" || true
+          open -a Simulator
+          for device_udid in \
+            "$QA_IOS_SIM_CURRENT_UDID" \
+            "$QA_IOS_SIM_SECONDARY_UDID"; do
+            booted=0
+            for attempt in {1..120}; do
+              if xcrun simctl list devices |
+                grep -F "$device_udid" |
+                grep -q "(Booted)"; then
+                booted=1
+                break
+              fi
+              sleep 2
+            done
+            if [[ "$booted" -ne 1 ]]; then
+              echo "::error::Simulator $device_udid did not reach Booted state"
+              xcrun simctl list devices
+              exit 1
+            fi
+          done
+          xcrun simctl list devices
+
+      - name: Start two Appium Servers
+        shell: bash
+        run: |
+          set -euo pipefail
+          for port in 4723 4724; do
+            nohup appium --address 127.0.0.1 --port "$port" --log-level debug \
+              > "artifacts/appium-ios-matrix-$port.log" 2>&1 &
+          done
+          for port in 4723 4724; do
+            ready=0
+            for attempt in {1..30}; do
+              if curl --fail --silent "http://127.0.0.1:$port/status"; then
+                ready=1
+                break
+              fi
+              sleep 2
+            done
+            if [[ "$ready" -ne 1 ]]; then
+              cat "artifacts/appium-ios-matrix-$port.log"
+              exit 1
+            fi
+          done
+
+      - name: Prewarm WDA caches sequentially
+        run: |
+          PYTHONPATH=packages .venv/bin/python scripts/prewarm_ios_wda.py \
+            --matrix configs/ios-device-matrix.yaml \
+            --worker-count 2
+
+      - name: Run two isolated iOS workers
+        run: |
+          mkdir -p artifacts/allure-results
+          .venv/bin/python -m pytest \
+            tests/ios/test_week20_device_matrix.py \
+            -q -n 2 --dist=each \
+            --alluredir=artifacts/allure-results \
+            --junitxml=artifacts/week20-junit.xml
+
+      - name: Verify parallel resource overlap
+        run: |
+          .venv/bin/python scripts/verify_ios_parallel_resources.py \
+            --run-dir "artifacts/ios-week20/${{ github.run_id }}" \
+            --expected-workers 2
+
+      - name: Dump Appium log summaries
+        if: always()
+        shell: bash
+        run: |
+          for log in artifacts/appium-ios-matrix-*.log; do
+            if [[ -f "$log" ]]; then
+              echo "=== $log ==="
+              tail -n 300 "$log"
+            fi
+          done
+
+      - name: Upload Week 20 matrix diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-week20-matrix-diagnostics
+          path: |
+            artifacts/appium-ios-matrix-*.log
+            artifacts/allure-results/
+            artifacts/ios-week20/
+            artifacts/ios-simulators.json
+            artifacts/ios-simulator-matrix.env
+            artifacts/week20-junit.xml
+          if-no-files-found: ignore
