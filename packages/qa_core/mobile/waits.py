@@ -163,3 +163,25 @@ class MobileWait:
             WebElement,
             self._until(locator, f"text {expected!r}", matching_text),
         )
+
+    def text_starts_with(
+        self,
+        scope: SearchContext,
+        locator: LocatorLike,
+        prefix: str,
+    ) -> WebElement:
+        """Wait until one visible element starts with the expected text."""
+
+        if not prefix:
+            raise ValueError("text prefix must not be empty")
+
+        def matching_prefix() -> WebElement | bool:
+            element = scope.find_element(*locator.as_tuple())
+            if element.is_displayed() and element.text.startswith(prefix):
+                return element
+            return False
+
+        return cast(
+            WebElement,
+            self._until(locator, f"text starting with {prefix!r}", matching_prefix),
+        )

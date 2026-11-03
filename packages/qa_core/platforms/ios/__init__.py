@@ -1,5 +1,6 @@
 """iOS-specific Appium framework primitives."""
 
+from qa_core.platforms.ios.adapter import IosFixtureAdapter, IosFixtureFilePort
 from qa_core.platforms.ios.devices import (
     IosDeviceMatrix,
     IosDeviceProfile,
@@ -45,6 +46,8 @@ __all__ = [
     "IosDiagnosticsCapture",
     "IosFailureCapture",
     "IosFailureClass",
+    "IosFixtureAdapter",
+    "IosFixtureFilePort",
     "IosGestures",
     "IosKeyboard",
     "IosLocator",

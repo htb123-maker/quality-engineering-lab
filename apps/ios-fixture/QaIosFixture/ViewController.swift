@@ -80,6 +80,9 @@ final class ViewController: UIViewController {
         addButton("Read Fixture File", identifier: "read-file") {
             self.readFixtureFile()
         }
+        addButton("Delete Fixture File", identifier: "delete-file") {
+            self.deleteFixtureFile()
+        }
         addLabel("file: idle", identifier: "file-status", into: fileLabel)
         addLabel("background: idle", identifier: "background-status", into: backgroundLabel)
         addLabel("WebView", identifier: "webview-title", style: .headline)
@@ -273,6 +276,17 @@ final class ViewController: UIViewController {
         do {
             let value = try String(contentsOf: fileURL, encoding: .utf8)
             fileLabel.text = "file: read \(value)"
+        } catch {
+            fileLabel.text = "file: error \(error.localizedDescription)"
+        }
+    }
+
+    private func deleteFixtureFile() {
+        do {
+            if FileManager.default.fileExists(atPath: fileURL.path) {
+                try FileManager.default.removeItem(at: fileURL)
+            }
+            fileLabel.text = "file: deleted"
         } catch {
             fileLabel.text = "file: error \(error.localizedDescription)"
         }

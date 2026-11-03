@@ -1,0 +1,145 @@
+name: Week 22 Cross-Platform Smoke
+
+on:
+  push:
+    paths:
+      - .github/workflows/week22-cross-platform.yml
+      - apps/ios-fixture/**
+      - packages/qa_core/mobile/**
+      - packages/qa_core/platforms/android/adapter.py
+      - packages/qa_core/platforms/ios/adapter.py
+      - tests/cross_platform/**
+      - tests/unit/test_cross_platform_framework.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONPATH: packages
+  QA_IOS_DEVICE_PROVIDER: local
+  QA_IOS_DEVICE_NAME: iPhone 16
+  QA_IOS_BUNDLE_ID: com.example.qaweek19
+  QA_IOS_RUN_ID: ${{ github.run_id }}
+  QA_IOS_WDA_LOCAL_PORT: "8100"
+  QA_IOS_USE_NEW_WDA: "false"
+  QA_IOS_SHOW_XCODE_LOG: "true"
+  QA_IOS_WDA_LAUNCH_TIMEOUT_MS: "600000"
+  QA_IOS_WDA_STARTUP_RETRIES: "1"
+  QA_IOS_WDA_STARTUP_RETRY_INTERVAL_MS: "10000"
+
+jobs:
+  ios-shared-scenarios:
+    runs-on: macos-15
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 16.4
+        shell: bash
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+          xcodebuild -version
+          xcrun simctl list runtimes
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Validate shared contracts
+        run: |
+          uv run --no-sync python scripts/check_ios_test_inventory.py
+          uv run --no-sync pytest \
+            tests/unit/test_cross_platform_framework.py \
+            -q
+          uv run --no-sync pytest tests/cross_platform --collect-only -q
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Appium and XCUITest Driver
+        run: |
+          npm install --global appium@2.19.0
+          appium driver install xcuitest@8.4.3
+
+      - name: Select and boot iOS Simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          DEVICE_UDID="$(
+            xcrun simctl list devices available -j |
+              python3 scripts/select_ios_simulator.py \
+                --device-name "$QA_IOS_DEVICE_NAME" \
+                --fallback-prefix iPhone
+          )"
+          echo "QA_IOS_UDID=$DEVICE_UDID" >> "$GITHUB_ENV"
+          xcrun simctl boot "$DEVICE_UDID" || true
+          open -a Simulator
+          for attempt in {1..120}; do
+            if xcrun simctl list devices | grep -F "$DEVICE_UDID" | grep -q "(Booted)"; then
+              break
+            fi
+            if [[ "$attempt" -eq 120 ]]; then
+              xcrun simctl list devices
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Build and install QA fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project apps/ios-fixture/QaIosFixture.xcodeproj \
+            -scheme QaIosFixture \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,id=$QA_IOS_UDID" \
+            -derivedDataPath artifacts/ios-fixture-simulator-derived \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+          app_path="artifacts/ios-fixture-simulator-derived/Build/Products/Debug-iphonesimulator/QaIosFixture.app"
+          test -d "$app_path"
+          xcrun simctl install "$QA_IOS_UDID" "$app_path"
+
+      - name: Start Appium server
+        shell: bash
+        run: |
+          set -euo pipefail
+          nohup appium --address 127.0.0.1 --port 4723 --log-level debug \
+            > artifacts/appium-week22-ios.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:4723/status; then
+              exit 0
+            fi
+            if [[ "$attempt" -eq 30 ]]; then
+              cat artifacts/appium-week22-ios.log
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Run shared iOS scenarios
+        run: |
+          uv run --no-sync pytest tests/cross_platform -m ios -q \
+            --alluredir=artifacts/allure-week22-ios \
+            --junitxml=artifacts/week22-ios-junit.xml
+
+      - name: Upload cross-platform evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: week22-cross-platform-ios
+          path: artifacts/
+          if-no-files-found: ignore
