@@ -15,7 +15,7 @@ from selenium.common.exceptions import (
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support.ui import WebDriverWait
 
-from qa_core.mobile.locators import Locator
+from qa_core.mobile.locators import LocatorLike
 
 ResultT = TypeVar("ResultT")
 
@@ -46,7 +46,7 @@ class ElementWaitTimeout(TimeoutError):
 
     def __init__(
         self,
-        locator: Locator,
+        locator: LocatorLike,
         expected_state: str,
         timeout_seconds: float,
     ) -> None:
@@ -80,7 +80,7 @@ class MobileWait:
 
     def _until(
         self,
-        locator: Locator,
+        locator: LocatorLike,
         expected_state: str,
         predicate: Callable[[], ResultT | bool],
     ) -> ResultT | bool:
@@ -97,7 +97,7 @@ class MobileWait:
                 self.policy.timeout_seconds,
             ) from exc
 
-    def visible(self, scope: SearchContext, locator: Locator) -> WebElement:
+    def visible(self, scope: SearchContext, locator: LocatorLike) -> WebElement:
         """Wait until the element exists and is displayed."""
 
         def find_visible() -> WebElement | bool:
@@ -109,7 +109,7 @@ class MobileWait:
             self._until(locator, "visible", find_visible),
         )
 
-    def present(self, scope: SearchContext, locator: Locator) -> WebElement:
+    def present(self, scope: SearchContext, locator: LocatorLike) -> WebElement:
         """Wait until the element exists in the current UI hierarchy."""
 
         return cast(
@@ -121,7 +121,7 @@ class MobileWait:
             ),
         )
 
-    def clickable(self, scope: SearchContext, locator: Locator) -> WebElement:
+    def clickable(self, scope: SearchContext, locator: LocatorLike) -> WebElement:
         """Wait until the element is displayed and enabled."""
 
         def find_clickable() -> WebElement | bool:
@@ -133,7 +133,7 @@ class MobileWait:
             self._until(locator, "clickable", find_clickable),
         )
 
-    def gone(self, scope: SearchContext, locator: Locator) -> None:
+    def gone(self, scope: SearchContext, locator: LocatorLike) -> None:
         """Wait until the element no longer exists in the current hierarchy."""
 
         def missing() -> bool:

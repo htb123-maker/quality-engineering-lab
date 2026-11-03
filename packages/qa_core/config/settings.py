@@ -18,6 +18,7 @@ Environment = Literal["local", "ci", "performance", "staging"]
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR"]
 AuthMode = Literal["bearer", "cookie"]
 IosDeviceProvider = Literal["local", "browserstack", "saucelabs", "lambdatest"]
+IosCapabilityProfile = Literal["simulator", "device"]
 
 
 class Settings(BaseSettings):
@@ -125,6 +126,7 @@ class Settings(BaseSettings):
         le=60_000,
     )
     ios_device_provider: IosDeviceProvider = "local"
+    ios_capability_profile: IosCapabilityProfile = "simulator"
     ios_cloud_remote_url: AnyHttpUrl | None = None
     ios_cloud_user: str | None = None
     ios_cloud_access_key: SecretStr | None = None

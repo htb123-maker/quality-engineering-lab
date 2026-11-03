@@ -49,8 +49,7 @@ jobs:
       - name: Run BrowserStack sample iOS session
         run: |
           mkdir -p artifacts/allure-results
-          uv run --no-sync pytest \
-            tests/ios/test_cloud_session.py -q \
+          uv run --no-sync pytest tests/ios -q \
             --alluredir=artifacts/allure-results
 
       - name: Upload cloud sample diagnostics

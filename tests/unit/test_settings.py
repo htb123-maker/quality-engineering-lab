@@ -47,6 +47,7 @@ def test_default_settings_are_local_and_safe() -> None:
     assert settings.ios_wda_startup_retries == 2
     assert settings.ios_wda_startup_retry_interval_ms == 10_000
     assert settings.ios_device_provider == "local"
+    assert settings.ios_capability_profile == "simulator"
     assert settings.ios_cloud_remote_url is None
     assert settings.ios_cloud_user is None
     assert settings.ios_cloud_access_key is None

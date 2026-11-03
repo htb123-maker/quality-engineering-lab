@@ -100,6 +100,13 @@ def build_ios_options(settings: Settings) -> XCUITestOptions:
     if settings.ios_device_provider != "local":
         return _build_cloud_ios_options(settings)
 
+    is_device = settings.ios_capability_profile == "device"
+    if is_device:
+        if not settings.ios_udid:
+            raise ValueError("local iOS device profile requires ios_udid")
+        if not settings.ios_xcode_org_id:
+            raise ValueError("local iOS device profile requires ios_xcode_org_id")
+
     options = XCUITestOptions()
     options.platform_name = "iOS"
     options.automation_name = "XCUITest"
@@ -109,12 +116,12 @@ def build_ios_options(settings: Settings) -> XCUITestOptions:
     if settings.ios_udid:
         options.udid = settings.ios_udid
     options.bundle_id = settings.ios_bundle_id
-    if settings.ios_xcode_org_id:
+    if is_device and settings.ios_xcode_org_id:
         options.xcode_org_id = settings.ios_xcode_org_id
         options.xcode_signing_id = settings.ios_xcode_signing_id
-    if settings.ios_updated_wda_bundle_id:
+    if is_device and settings.ios_updated_wda_bundle_id:
         options.updated_wda_bundle_id = settings.ios_updated_wda_bundle_id
-    if settings.ios_allow_provisioning_updates:
+    if is_device and settings.ios_allow_provisioning_updates:
         options.set_capability("appium:allowProvisioningUpdates", True)
     options.show_xcode_log = settings.ios_show_xcode_log
     options.no_reset = True
