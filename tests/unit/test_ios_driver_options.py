@@ -26,6 +26,8 @@ def test_ios_options_map_project_settings_to_xcuitest_capabilities() -> None:
         ios_wda_launch_timeout_ms=300_000,
         ios_wda_startup_retries=1,
         ios_wda_startup_retry_interval_ms=5_000,
+        ios_webview_connect_timeout_ms=45_000,
+        ios_webview_connect_retries=4,
     )
 
     capabilities = build_ios_options(settings).to_capabilities()
@@ -50,6 +52,8 @@ def test_ios_options_map_project_settings_to_xcuitest_capabilities() -> None:
     assert capabilities["appium:wdaLaunchTimeout"] == 300_000
     assert capabilities["appium:wdaStartupRetries"] == 1
     assert capabilities["appium:wdaStartupRetryInterval"] == 5_000
+    assert capabilities["appium:webviewConnectTimeout"] == 45_000
+    assert capabilities["appium:webviewConnectRetries"] == 4
 
 
 @pytest.mark.unit
@@ -116,7 +120,10 @@ def test_browserstack_options_use_nested_vendor_capabilities() -> None:
     assert "app" not in vendor_options
     assert vendor_options["deviceName"] == "iPhone 15"
     assert vendor_options["platformVersion"] == "17"
+    assert vendor_options["appiumVersion"] == "2.19.0"
     assert vendor_options["networkLogs"] is True
+    assert capabilities["appium:webviewConnectTimeout"] == 60_000
+    assert capabilities["appium:webviewConnectRetries"] == 3
     assert "cloud-secret" not in repr(settings)
 
 

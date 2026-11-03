@@ -125,6 +125,12 @@ class Settings(BaseSettings):
         ge=1_000,
         le=60_000,
     )
+    ios_webview_connect_timeout_ms: int = Field(
+        default=60_000,
+        ge=5_000,
+        le=180_000,
+    )
+    ios_webview_connect_retries: int = Field(default=3, ge=1, le=10)
     ios_device_provider: IosDeviceProvider = "local"
     ios_capability_profile: IosCapabilityProfile = "simulator"
     ios_cloud_remote_url: AnyHttpUrl | None = None
@@ -142,6 +148,7 @@ class Settings(BaseSettings):
         default="ios-session-smoke",
         min_length=1,
     )
+    ios_cloud_appium_version: str = Field(default="2.19.0", min_length=1)
     postgres_dsn: PostgresDsn = Field(
         default_factory=lambda: PostgresDsn("postgresql://qa:qa@127.0.0.1:15432/qa")
     )

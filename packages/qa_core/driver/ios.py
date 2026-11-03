@@ -50,6 +50,7 @@ def _cloud_capabilities(settings: Settings) -> tuple[str, dict[str, Any], str]:
                 "projectName": settings.ios_cloud_project_name,
                 "buildName": settings.ios_cloud_build_name,
                 "sessionName": settings.ios_cloud_session_name,
+                "appiumVersion": settings.ios_cloud_appium_version,
                 "debug": True,
                 "networkLogs": True,
             },
@@ -82,6 +83,23 @@ def _cloud_capabilities(settings: Settings) -> tuple[str, dict[str, Any], str]:
     )
 
 
+def _apply_webview_options(
+    options: XCUITestOptions,
+    settings: Settings,
+) -> XCUITestOptions:
+    """Apply bounded remote-debugger waits to local and cloud sessions."""
+
+    options.set_capability(
+        "appium:webviewConnectTimeout",
+        settings.ios_webview_connect_timeout_ms,
+    )
+    options.set_capability(
+        "appium:webviewConnectRetries",
+        settings.ios_webview_connect_retries,
+    )
+    return options
+
+
 def _build_cloud_ios_options(settings: Settings) -> XCUITestOptions:
     """Build options for a real iOS device hosted by a vendor cloud."""
 
@@ -91,7 +109,7 @@ def _build_cloud_ios_options(settings: Settings) -> XCUITestOptions:
     namespace, capabilities, app = _cloud_capabilities(settings)
     options.set_capability(namespace, capabilities)
     options.app = app
-    return options
+    return _apply_webview_options(options, settings)
 
 
 def build_ios_options(settings: Settings) -> XCUITestOptions:
@@ -130,7 +148,7 @@ def build_ios_options(settings: Settings) -> XCUITestOptions:
     options.wda_launch_timeout = settings.ios_wda_launch_timeout_ms
     options.wda_startup_retries = settings.ios_wda_startup_retries
     options.wda_startup_retry_interval = settings.ios_wda_startup_retry_interval_ms
-    return options
+    return _apply_webview_options(options, settings)
 
 
 def create_ios_driver(settings: Settings) -> WebDriver:
