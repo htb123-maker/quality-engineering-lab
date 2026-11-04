@@ -134,7 +134,13 @@ Verify that:
   explicit local change awaiting approval.
 
 When the user keeps one IDE project open for the main checkout, a local
-`weekly-view/` directory may aggregate read-only copies from multiple Git
-worktrees for convenience. It must be excluded through `.git/info/exclude`, is
-not a source of truth, and must never replace the canonical
-`reports/weekly/WEEK-XX.md` file on its owning branch.
+`reports-view/` directory may aggregate read-only copies from multiple Git
+worktrees for convenience:
+
+```text
+reports-view/weekly/WEEK-XX.md
+reports-view/daily/DAY-XX.md
+```
+
+It must be excluded through `.git/info/exclude`, is not a source of truth, and
+must never replace the canonical weekly or daily report on its owning branch.
