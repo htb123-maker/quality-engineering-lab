@@ -80,3 +80,55 @@ Before reporting completion:
 2. Report exact commands and results.
 3. List files changed.
 4. State what was not verified.
+
+## Durable Project Memory
+
+### Open Gaps Inherited from Week 22
+
+Last reviewed: 2026-11-04. Source:
+`reports/weekly/WEEK-22.md`.
+
+Keep these items open until new execution evidence explicitly changes their
+status. Do not rewrite `BLOCKED`, `NOT RUN`, or `xfail` as `PASS`.
+
+1. Previous-major iOS Simulator compatibility is `BLOCKED`: the GitHub
+   `macos-15` Runner has no previous-major iOS runtime. This is an environment
+   blocker, not a confirmed product defect. iOS 18.6 and iOS 26.x must not be
+   treated as the previous major when the current runtime is iOS 18.5.
+2. iOS WebView context exposes only `NATIVE_APP` in both the local Simulator
+   suite and the BrowserStack run. The WebView test remains strict `xfail`.
+   Root cause is not confirmed; WDA/WebKit context attachment and provider
+   behavior remain candidates. The xfail message must identify the actual
+   environment instead of assuming BrowserStack.
+3. Notification authorization and scheduling are tested, but Notification
+   Center system UI interaction is `NOT RUN`. This is a test-coverage and
+   system-UI automation gap, not a confirmed product defect.
+4. Week 21 has no pre-refactor duration baseline. Existing p50/p95 values
+   describe the post-change stability subset and cannot be used as a
+   before/after comparison. This is a process and measurement gap.
+
+### Weekly Report Location
+
+For this repository only, every weekly plan, status update, and completion
+report must use:
+
+```text
+reports/weekly/WEEK-XX.md
+```
+
+This rule also applies inside Git worktrees. Never create or update a weekly
+report as `reports/WEEK-XX.md`, `WEEK-XX.md`, or a similarly shortened path.
+
+After creating or updating a weekly report:
+
+```powershell
+uv run python scripts/build_doc_index.py
+uv run python scripts/build_doc_index.py --check
+```
+
+Verify that:
+
+- the report exists at `reports/weekly/WEEK-XX.md`;
+- `reports/README.md` links to the same path;
+- the report is committed on the intended study branch or present as an
+  explicit local change awaiting approval.
