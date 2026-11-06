@@ -7,7 +7,56 @@
 - 计划提交 / Plan Commit: `923a67e`
 - 远端分支 / Remote Branch: `origin/study/week-23-e2e`
 - Pull Request: 尚未创建 / Not created
-- 状态 / Status: **计划已开启，实施未开始 / PLANNED ONLY - NOT RUN**
+- 验收日期 / Acceptance Date: 2026-11-06
+- 状态 / Status: **验收未通过 / ACCEPTANCE NOT PASSED**
+
+## 验收结论 / Acceptance Verdict
+
+**验收未通过 / ACCEPTANCE NOT PASSED**
+
+Week 23 的现有工程基线没有退化，但本计划要求的跨层 E2E 实现尚不存在，因此
+不能进入完成或部分完成状态：
+
+- 当前分支相对 Week 22 基线的文件变化只有 `AGENTS.md`、
+  `reports/README.md` 和本计划文件。
+- `packages/qa_core/e2e/`、`tests/e2e/`、
+  `configs/e2e-test-inventory.yaml`、跨层架构文档、排障 runbook 和 Workflow
+  均不存在。
+- Week 23 E2E Test ID 为 `0/30`。
+- 现有 `tests/cross_platform/` 只能收集到 Week 22 的 4 条流程，不能代替
+  API 建数、UI 操作和 API 验证的跨层 E2E。
+- 没有 Android 或 iOS 跨层真实执行，也没有 API/UI/session/设备证据关联。
+
+验收判定：
+
+```text
+Week 22 基线: PASS
+Week 23 计划入口: PASS
+Week 23 E2E implementation: FAILED
+Week 23 30-test inventory: FAILED (0/30)
+Week 23 Android execution: NOT RUN
+Week 23 iOS execution: NOT RUN
+Week 23 acceptance: ACCEPTANCE NOT PASSED
+```
+
+### 正式验收命令 / Acceptance Commands
+
+| 命令 / Command | 结果 / Result | 解释 / Interpretation |
+| --- | --- | --- |
+| `python scripts/build_doc_index.py --check` | `PASS` | `entry pages are up to date.` |
+| `python -m ruff check .` | `PASS` | `All checks passed!` |
+| `python -m mypy packages tests` | `PASS` | 185 个源文件无错误 |
+| `python -m pytest tests/unit -q -p no:cacheprovider` | `PASS` | `327 passed in 8.97s` |
+| `python -m pytest tests/e2e --collect-only -q` | `FAILED` | 目录不存在，`0` 条 Week 23 E2E |
+| `python -m pytest tests/cross_platform --collect-only -q` | `4 collected` | 仅 Week 22 的 Android/iOS 导航和文件流程 |
+| Week 23 Test ID inventory | `FAILED` | `0/30` 唯一 Test ID |
+| Android cross-layer smoke | `NOT RUN` | 没有测试实现，不能执行 |
+| iOS cross-layer smoke | `NOT RUN` | 没有测试实现，不能执行 |
+| Failure evidence correlation | `NOT RUN` | 没有失败 manifest 或跨层证据 |
+
+通过上述命令说明项目原有质量基线可运行，但不能证明 Week 23 的交付目标完成。
+本次验收没有生成设备运行、Allure、JUnit 或缺陷草稿证据，因为这些产物尚未
+实现。
 
 ## Week 22 入口核对 / Week 22 Entry Audit
 
@@ -57,7 +106,7 @@ cross-layer E2E tests.
 
 ## 完成状态 / Completion Status
 
-**计划已开启 / PLANNED ONLY**
+**验收未通过 / ACCEPTANCE NOT PASSED**
 
 本文件只定义 Week 23 的执行边界和验收方式。以下结果当前均为 `NOT RUN`：
 
@@ -245,18 +294,18 @@ Week 23 依赖 Week 22 的双平台 adapter、Locator Set、Scenario/Step 身份
 
 | 检查项 / Check | 结果 / Status | 执行环境 / Environment | 证据 / Evidence |
 | --- | --- | --- | --- |
-| Plan/index validation | 通过 / PASS | Windows | `26 passed in 0.09s`; entry pages up to date |
-| Journey contract tests | 待执行 / NOT RUN | Windows | fake API/mobile ports |
-| Ruff | 待执行 / NOT RUN | Windows | `packages`, `tests` |
-| Mypy | 待执行 / NOT RUN | Windows | `packages`, `tests` |
-| Full unit regression | 待执行 / NOT RUN | Windows | project `.venv` |
-| E2E collection contract | 待执行 / NOT RUN | Windows | `tests/e2e` |
-| 30-test inventory | 待执行 / NOT RUN | Windows | unique test IDs |
+| Plan/index validation | 通过 / PASS | Windows | `entry pages are up to date.` |
+| Journey contract tests | 缺失 / FAILED | Windows | `packages/qa_core/e2e` 和 `tests/e2e` 不存在 |
+| Ruff | 通过 / PASS | Windows | `All checks passed!` |
+| Mypy | 通过 / PASS | Windows | `Success: no issues found in 185 source files` |
+| Full unit regression | 通过 / PASS | Windows | `327 passed in 8.97s` |
+| E2E collection contract | 失败 / FAILED | Windows | `tests\e2e` 不存在，`0` 条收集 |
+| 30-test inventory | 失败 / FAILED | Windows | `0/30` 唯一 Test ID |
 | API + database setup | 待执行 / NOT RUN | Linux container | Compose SUT |
-| Android cross-layer smoke | 待执行 / NOT RUN | Android device | set UI, verify UI |
-| iOS cross-layer smoke | 待执行 / NOT RUN | iOS Simulator | set UI, verify UI |
-| Failure evidence correlation | 待执行 / NOT RUN | Platform run | manifest + Allure |
-| Session and namespace cleanup | 待执行 / NOT RUN | Platform/API | no residue |
+| Android cross-layer smoke | 未执行 / NOT RUN | Android device | 没有 Week 23 E2E 测试可执行 |
+| iOS cross-layer smoke | 未执行 / NOT RUN | iOS Simulator | 没有 Week 23 E2E 测试可执行 |
+| Failure evidence correlation | 未执行 / NOT RUN | Platform run | 没有 manifest/Allure 跨层证据 |
+| Session and namespace cleanup | 未执行 / NOT RUN | Platform/API | 没有真实 E2E 运行可清理 |
 | iOS cloud real device | 延期 / DEFERRED | Device cloud | Week 23 初始范围 |
 | Previous-major iOS | 继承阻塞 / BLOCKED | macOS Runner | Week 21 限制 |
 
