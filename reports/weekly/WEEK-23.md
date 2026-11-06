@@ -7,36 +7,39 @@
 - 计划提交 / Plan Commit: `923a67e`
 - 远端分支 / Remote Branch: `origin/study/week-23-e2e`
 - Pull Request: 尚未创建 / Not created
-- 验收日期 / Acceptance Date: 2026-11-06
-- 状态 / Status: **验收未通过 / ACCEPTANCE NOT PASSED**
+- 验收日期 / Acceptance Date: 2026-11-07
+- 状态 / Status: **核心交付完成，iOS 未执行 / PARTIAL PASS - IOS NOT RUN**
 
 ## 验收结论 / Acceptance Verdict
 
-**验收未通过 / ACCEPTANCE NOT PASSED**
+**核心交付完成，iOS 未执行 / PARTIAL PASS - IOS NOT RUN**
 
-Week 23 的现有工程基线没有退化，但本计划要求的跨层 E2E 实现尚不存在，因此
-不能进入完成或部分完成状态：
+Week 23 的 API 建数、真实 Android UI 操作、普通 API 最终状态验证和证据关联
+已经实现并真实执行：
 
-- 当前分支相对 Week 22 基线的文件变化只有 `AGENTS.md`、
-  `reports/README.md` 和本计划文件。
-- `packages/qa_core/e2e/`、`tests/e2e/`、
-  `configs/e2e-test-inventory.yaml`、跨层架构文档、排障 runbook 和 Workflow
-  均不存在。
-- Week 23 E2E Test ID 为 `0/30`。
-- 现有 `tests/cross_platform/` 只能收集到 Week 22 的 4 条流程，不能代替
-  API 建数、UI 操作和 API 验证的跨层 E2E。
-- 没有 Android 或 iOS 跨层真实执行，也没有 API/UI/session/设备证据关联。
+- 新增短生命周期、单 item、单动作的 fixture session API。
+- Android/iOS fixture 都通过真实 HTTP API 读取并归档 catalog item。
+- Android Emulator 实际执行 30 条唯一 Test ID，结果为 `30 passed`。
+- 完整 API 回归为 `237 passed, 1 xfailed`；既有 xfail 保持原语义。
+- 完整单元回归为 `332 passed`。
+- 每条用例保存 Test ID、run ID、session、API request ID、UI 状态、服务端状态
+  和结构化 manifest。
+- 清理检查确认 test namespace 为 0，Appium `/sessions` 为空，ADB reverse 已清除。
+- iOS fixture、adapter、共享 Scenario 和 smoke 测试已实现；当前 Windows 主机
+  不能执行 XCUITest，iOS 结果为 `1 skipped`，不能计为通过。
 
 验收判定：
 
 ```text
 Week 22 基线: PASS
 Week 23 计划入口: PASS
-Week 23 E2E implementation: FAILED
-Week 23 30-test inventory: FAILED (0/30)
-Week 23 Android execution: NOT RUN
-Week 23 iOS execution: NOT RUN
-Week 23 acceptance: ACCEPTANCE NOT PASSED
+Week 23 E2E implementation: PASS
+Week 23 30-test inventory: PASS (30 unique Test IDs)
+Week 23 Android execution: PASS (30 passed)
+Week 23 iOS execution: NOT RUN (Windows host, 1 skipped)
+Week 23 cleanup: PASS
+Week 23 acceptance: PARTIAL PASS - IOS NOT RUN
+Week 23 completion: NOT COMPLETE
 ```
 
 ### 正式验收命令 / Acceptance Commands
@@ -45,18 +48,20 @@ Week 23 acceptance: ACCEPTANCE NOT PASSED
 | --- | --- | --- |
 | `python scripts/build_doc_index.py --check` | `PASS` | `entry pages are up to date.` |
 | `python -m ruff check .` | `PASS` | `All checks passed!` |
-| `python -m mypy packages tests` | `PASS` | 185 个源文件无错误 |
-| `python -m pytest tests/unit -q -p no:cacheprovider` | `PASS` | `327 passed in 8.97s` |
-| `python -m pytest tests/e2e --collect-only -q` | `FAILED` | 目录不存在，`0` 条 Week 23 E2E |
-| `python -m pytest tests/cross_platform --collect-only -q` | `4 collected` | 仅 Week 22 的 Android/iOS 导航和文件流程 |
-| Week 23 Test ID inventory | `FAILED` | `0/30` 唯一 Test ID |
-| Android cross-layer smoke | `NOT RUN` | 没有测试实现，不能执行 |
-| iOS cross-layer smoke | `NOT RUN` | 没有测试实现，不能执行 |
-| Failure evidence correlation | `NOT RUN` | 没有失败 manifest 或跨层证据 |
+| `python -m mypy packages tests` | `PASS` | 196 个源文件无错误 |
+| `python -m pytest tests/unit -q -p no:cacheprovider` | `PASS` | `332 passed in 8.57s` |
+| `python -m pytest tests/api -q -p no:cacheprovider` | `PASS` | `237 passed, 1 xfailed in 63.90s` |
+| `python -m pytest tests/e2e --collect-only -q` | `PASS` | `31 tests collected`（30 Android + 1 iOS） |
+| Week 23 Test ID inventory | `PASS` | `30/30` 唯一 Test ID |
+| `python -m pytest tests/e2e/test_catalog_cross_layer.py -q` | `PASS` | `30 passed in 135.05s` |
+| Android fixture build/install | `PASS` | APK 构建并安装到 `emulator-5554` |
+| iOS cross-layer smoke | `NOT RUN` | `1 skipped`：当前 Windows 主机没有 macOS/Simulator |
+| Failure evidence correlation | `PASS` | E2E manifest、request ID、UI 状态和 API 状态已关联 |
+| Session/namespace cleanup | `PASS` | namespace 0、Appium sessions `[]`、无 ADB reverse |
 
-通过上述命令说明项目原有质量基线可运行，但不能证明 Week 23 的交付目标完成。
-本次验收没有生成设备运行、Allure、JUnit 或缺陷草稿证据，因为这些产物尚未
-实现。
+本次验收证明 Android 核心纵向链路成立；iOS 不因代码存在或测试收集成功而记为
+通过。按项目新的 Weekly Completion Gate，Week 23 当前是 `PARTIAL PASS`，
+不是 `COMPLETE`。
 
 ## Week 22 入口核对 / Week 22 Entry Audit
 
@@ -106,17 +111,27 @@ cross-layer E2E tests.
 
 ## 完成状态 / Completion Status
 
-**验收未通过 / ACCEPTANCE NOT PASSED**
+**核心交付完成，iOS 未执行 / PARTIAL PASS - IOS NOT RUN**
 
-本文件只定义 Week 23 的执行边界和验收方式。以下结果当前均为 `NOT RUN`：
+已完成：
 
-- API-backed mobile Scenario 与 E2E Journey 编排器。
-- fixture 的最小 catalog 操作和对应 Android/iOS locator。
-- Namespace、账号、设备、端口、session 和 Redis 状态隔离。
-- API request -> UI step -> API verification 的证据关联。
-- Android 和 iOS 的真实跨层 smoke。
-- 30 条跨层 E2E 测试及覆盖率清单。
-- 缺陷草稿、追踪链接和人工审批边界。
+- `E2eContext`、API setup、移动 Journey、API verification、稳定 step ID 和
+  cleanup 编排。
+- 短生命周期 fixture session：单 workspace、单 item、TTL、角色只读边界和
+  `catalog:write` 权限。
+- Android/iOS fixture 的真实 HTTP catalog 读取和归档操作。
+- Android 30 条唯一跨层 E2E；角色、状态、删除、无效/过期 session、重复归档、
+  缓存预热和请求关联均有独立断言。
+- API request ID、UI 状态、服务端状态和 Allure/JUnit/manifest 证据关联。
+- 失败时 adapter 保存截图、page source 和脱敏 failure manifest。
+- Android APK 构建、Emulator 执行和最终清理。
+
+未完成：
+
+- iOS Simulator 或云真机尚未真实执行；当前结果仅为 `1 skipped`。
+- 30 条用例尚未在 iOS 重跑。
+- 多 worker 并发矩阵、物理 iPhone 和旧主版本 runtime 不在本次已执行范围。
+- 没有把任何测试失败自动升级为正式缺陷；人工审批边界保持有效。
 
 ## 计划范围 / Planned Scope
 
@@ -295,17 +310,19 @@ Week 23 依赖 Week 22 的双平台 adapter、Locator Set、Scenario/Step 身份
 | 检查项 / Check | 结果 / Status | 执行环境 / Environment | 证据 / Evidence |
 | --- | --- | --- | --- |
 | Plan/index validation | 通过 / PASS | Windows | `entry pages are up to date.` |
-| Journey contract tests | 缺失 / FAILED | Windows | `packages/qa_core/e2e` 和 `tests/e2e` 不存在 |
+| Journey contract tests | 通过 / PASS | Windows | `tests/unit/test_e2e_journey.py` |
 | Ruff | 通过 / PASS | Windows | `All checks passed!` |
-| Mypy | 通过 / PASS | Windows | `Success: no issues found in 185 source files` |
-| Full unit regression | 通过 / PASS | Windows | `327 passed in 8.97s` |
-| E2E collection contract | 失败 / FAILED | Windows | `tests\e2e` 不存在，`0` 条收集 |
-| 30-test inventory | 失败 / FAILED | Windows | `0/30` 唯一 Test ID |
-| API + database setup | 待执行 / NOT RUN | Linux container | Compose SUT |
-| Android cross-layer smoke | 未执行 / NOT RUN | Android device | 没有 Week 23 E2E 测试可执行 |
-| iOS cross-layer smoke | 未执行 / NOT RUN | iOS Simulator | 没有 Week 23 E2E 测试可执行 |
-| Failure evidence correlation | 未执行 / NOT RUN | Platform run | 没有 manifest/Allure 跨层证据 |
-| Session and namespace cleanup | 未执行 / NOT RUN | Platform/API | 没有真实 E2E 运行可清理 |
+| Mypy | 通过 / PASS | Windows | `Success: no issues found in 196 source files` |
+| Full unit regression | 通过 / PASS | Windows | `332 passed in 8.57s` |
+| Full API regression | 通过 / PASS | Windows + Linux container | `237 passed, 1 xfailed in 63.90s` |
+| E2E collection contract | 通过 / PASS | Windows | `31 tests collected` |
+| 30-test inventory | 通过 / PASS | Windows | `30/30` 唯一 Test ID |
+| Fixture session API | 通过 / PASS | Linux container | `tests/api/test_e2e_fixture_sessions.py`：`4 passed` |
+| Android fixture build/install | 通过 / PASS | Windows + Android Emulator | APK built and installed |
+| Android cross-layer execution | 通过 / PASS | Android Emulator | `30 passed in 135.05s` |
+| iOS cross-layer smoke | 未执行 / NOT RUN | iOS Simulator | `1 skipped`，无 macOS |
+| Failure evidence correlation | 通过 / PASS | Android Emulator | manifest + screenshot/page source + request IDs |
+| Session and namespace cleanup | 通过 / PASS | Platform/API | sessions `[]`; test namespaces `0` |
 | iOS cloud real device | 延期 / DEFERRED | Device cloud | Week 23 初始范围 |
 | Previous-major iOS | 继承阻塞 / BLOCKED | macOS Runner | Week 21 限制 |
 
@@ -344,9 +361,9 @@ $env:PYTEST_DEBUG_TEMPROOT="$PWD\.tmp-pytest"
 ### API 建数与验证 / API Setup and Verification
 
 ```powershell
-docker compose -f apps\compose\compose.yaml up -d
-uv run pytest tests\e2e -m "e2e and api" -q `
-  --alluredir=artifacts\allure-week23-api
+.\scripts\start_sut.ps1 -WaitSeconds 180
+.\.venv\Scripts\python.exe -m pytest tests\api -q `
+  -p no:cacheprovider --junitxml=artifacts\week23-api-junit.xml
 ```
 
 通过标准：
@@ -359,7 +376,8 @@ uv run pytest tests\e2e -m "e2e and api" -q `
 
 ```powershell
 $env:PYTEST_DEBUG_TEMPROOT="$PWD\.tmp-pytest"
-uv run pytest tests\e2e -m "e2e and android" -q `
+.\.venv\Scripts\python.exe -m pytest tests\e2e\test_catalog_cross_layer.py -q `
+  -p no:cacheprovider `
   --alluredir=artifacts\allure-week23-android `
   --junitxml=artifacts\week23-android-junit.xml
 ```
@@ -374,7 +392,7 @@ uv run pytest tests\e2e -m "e2e and android" -q `
 ### iOS 跨层 Smoke / iOS Cross-Layer Smoke
 
 ```bash
-.venv/bin/python -m pytest tests/e2e -m "e2e and ios" -q \
+.venv/bin/python -m pytest tests/e2e/test_ios_catalog_cross_layer.py -q \
   --alluredir=artifacts/allure-week23-ios \
   --junitxml=artifacts/week23-ios-junit.xml
 ```
@@ -404,37 +422,33 @@ uv run pytest tests\e2e -m "e2e and android" -q `
 
 ### 未验证项 / Unverified Items
 
-- 任何 Android/iOS E2E 真实执行。
-- API 创建的数据是否能被 App 稳定读取和操作。
-- 30 条 E2E 的最终业务覆盖和去重结果。
-- API、UI、设备、session、Allure 和缺陷草稿能否完整关联。
-- 多 worker 下的 namespace、设备、端口和 session 隔离。
+- iOS Simulator 和 iOS 云真机上的 30 条 E2E。
+- iOS fixture 的 Xcode 编译与 WDA 实际运行；Windows 主机不能执行。
+- Android 物理设备上的同一套 30 条 E2E；本次只执行 Emulator。
+- 多 worker 下的设备、端口、ADB reverse 和 session 并发矩阵。
+- 自动生成正式缺陷；当前只保留人工审核草稿边界。
 - iOS 云真机、物理 iPhone 和旧主版本 runtime。
 - WebView context、通知中心系统 UI 和本地 Apple 签名。
 
 ## 变更文件 / Files Changed
 
-开周计划：
+核心实现：
 
-- `reports/weekly/WEEK-23.md`
-- `reports/README.md`（由索引脚本刷新）
-- `docs/README.md`（如索引脚本检测到日期或内容变化）
-
-实施后预计涉及：
-
-- `packages/qa_core/e2e/`：Journey、ports 和证据上下文。
-- `packages/qa_core/mobile/`：catalog Scenario 和规范化结果。
-- `packages/qa_core/platforms/android/adapter.py`：Android catalog 能力。
-- `packages/qa_core/platforms/ios/adapter.py`：iOS catalog 能力。
-- `apps/android-fixture/`、`apps/ios-fixture/`：最小 API-backed catalog UI。
-- `tests/unit/`、`tests/e2e/`：契约、纵向 smoke 和 30 条清单。
-- `configs/e2e-test-inventory.yaml`。
+- `packages/qa_core/e2e/`：fixture API、Journey、结果模型和 manifest。
+- `packages/qa_core/contracts/`：fixture session 契约和 OpenAPI 描述。
+- `packages/qa_core/mobile/`：catalog port、快照和共享归档 Scenario。
+- `packages/qa_core/platforms/android/adapter.py`：真实 Android catalog 操作。
+- `packages/qa_core/platforms/ios/adapter.py`：真实 iOS catalog 操作。
+- `apps/android-fixture/`、`apps/ios-fixture/`：API-backed catalog UI。
+- `apps/compose/api/app.py`：短生命周期、单 item、角色边界 session API。
+- `tests/api/test_e2e_fixture_sessions.py`：真实 fixture session API 测试。
+- `tests/e2e/`：Android 30 条和 iOS smoke。
+- `tests/unit/test_e2e_journey.py`：编排、清单和清理契约。
+- `configs/e2e-test-inventory.yaml`：30 条唯一 Test ID。
 - `docs/architecture/cross-layer-e2e.md`。
 - `docs/runbooks/cross-layer-e2e-triage.md`。
-- `.github/workflows/week23-e2e.yml`。
-- `reports/weekly/WEEK-23.md`：实测结果和证据回填。
-
-最终文件列表以实际实现为准，不在开周时虚构已完成产物。
+- `AGENTS.md`：Weekly Completion Gate。
+- `reports/weekly/WEEK-23.md`：实测结果和证据。
 
 ## 环境 / Environment
 
@@ -442,7 +456,7 @@ uv run pytest tests\e2e -m "e2e and android" -q `
 - Python 3.12，项目 `.venv`
 - Appium Python Client 5.x
 - Appium 2.19.0
-- Android：UiAutomator2，Redmi K50 / Android 14 基线可用
+- Android：UiAutomator2，Android Emulator `emulator-5554` 实际执行
 - iOS：XCUITest 8.4.3、Xcode 16.4、iOS 18.5 Simulator 基线可用
 - SUT：本地 Docker Compose、PostgreSQL、Redis
 - iOS 云真机：Week 23 初始范围 `DEFERRED`
@@ -451,9 +465,8 @@ uv run pytest tests\e2e -m "e2e and android" -q `
 
 ## 风险与限制 / Risks and Limitations
 
-- fixture 当前只覆盖本地导航和文件语义，尚未连接 SUT；Week 23 必须补真实
-  API-backed UI 行为，不能只把 API 断言和 UI 断言放在同一个测试文件里。
-- Android Emulator 访问宿主机 API 的地址与 iOS Simulator 不同，必须配置化。
+- iOS 尚未在 macOS 环境执行，不能把 Windows collect-only 或 skip 写成通过。
+- Android Emulator 使用 `adb reverse`；物理设备或设备云仍需独立网络策略。
 - 在 capability、日志或 UI 中传递凭据会造成泄漏，测试会话必须短生命周期并脱敏。
 - 30 条测试若只改 SKU、用户名或设备参数，会产生虚假规模。
 - Appium session、namespace 和 Redis 清理不完整会放大并行 flaky。
