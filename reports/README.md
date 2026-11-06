@@ -2,10 +2,11 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-最新进度：[WEEK-23 - API 建数、UI 操作与 API 验证的跨层 E2E](weekly/WEEK-23.md)
+最新进度：[WEEK-24 - 网络、服务、App、WDA 与 ADB 故障注入和恢复](weekly/WEEK-24.md)
 
 ## 周报 / Weekly Reports
 
+- [WEEK-24 - 网络、服务、App、WDA 与 ADB 故障注入和恢复](weekly/WEEK-24.md)
 - [WEEK-23 - API 建数、UI 操作与 API 验证的跨层 E2E](weekly/WEEK-23.md)
 - [WEEK-22 - 跨平台框架 v1、PlatformAdapter、公共 Flow 与 Locator Set](weekly/WEEK-22.md)
 - [WEEK-21 - iOS 稳定性、版本矩阵、失败诊断与重构](weekly/WEEK-21.md)
