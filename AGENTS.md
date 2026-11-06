@@ -72,6 +72,31 @@ by default.
   acceptance changes and `docs/PLAN.md` for execution changes.
 - Do not commit generated reports, device artifacts, secrets, or local IDE files.
 
+## Weekly Completion Gate
+
+A week is complete only when its core deliverables are implemented and verified.
+The following do not count as completion:
+
+- a plan document or a statement that implementation has started;
+- static checks, Ruff, Mypy, collect-only, or an unchanged inherited baseline;
+- fake-only contracts when the weekly acceptance requires a real platform;
+- tests skipped, xfailed, blocked, or deferred because the required environment
+  is unavailable;
+- a chat claim without repository evidence.
+
+For every weekly acceptance:
+
+1. Map every core deliverable to implemented code, test, configuration, or
+   documentation.
+2. Execute the smallest real acceptance path required by the week.
+3. Preserve `PASS`, `PARTIAL`, `FAILED`, `NOT RUN`, `BLOCKED`, and `DEFERRED`
+   with the actual evidence.
+4. Mark the week `COMPLETE` only when all required core deliverables exist and
+   the available target environments have executed their required evidence.
+5. If a required platform cannot run, keep the week incomplete and use
+   `PARTIAL`, `BLOCKED`, or `NOT RUN`; never promote the missing execution to
+   `PASS`.
+
 ## Verification
 
 Before reporting completion:
