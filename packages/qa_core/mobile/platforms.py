@@ -29,6 +29,7 @@ class PlatformCapability(StrEnum):
 
     NAVIGATION = "navigation"
     FILES = "files"
+    CATALOG = "catalog"
     DIAGNOSTICS = "diagnostics"
 
 
@@ -36,6 +37,26 @@ class NavigationOutcome(StrEnum):
     """Normalized result of one fixture navigation action."""
 
     COMPLETED = "completed"
+
+
+@dataclass(frozen=True, slots=True)
+class CatalogSnapshot:
+    """Normalized result observed from an API-backed fixture catalog view."""
+
+    session_id: str
+    item_id: int
+    name: str
+    status: str
+
+    def __post_init__(self) -> None:
+        if len(self.session_id) < 32:
+            raise ValueError("catalog session ID is too short")
+        if self.item_id < 0:
+            raise ValueError("catalog item ID must not be negative")
+        if not self.name.strip():
+            raise ValueError("catalog item name must not be empty")
+        if self.status not in {"active", "archived", "error"}:
+            raise ValueError("catalog status must be active, archived, or error")
 
 
 class MissingLocatorError(KeyError):
@@ -124,6 +145,16 @@ class FilePort(Protocol):
         """Delete temporary state without failing if it is already absent."""
 
 
+class CatalogPort(Protocol):
+    """Business-level API-backed catalog operations for one fixture."""
+
+    def open(self, *, base_url: str, session_id: str) -> CatalogSnapshot:
+        """Load the bound item through the mobile app."""
+
+    def archive(self) -> CatalogSnapshot:
+        """Archive the bound item through the mobile app."""
+
+
 class PlatformAdapter(Protocol):
     """Platform-specific implementation consumed by shared business scenarios."""
 
@@ -142,6 +173,10 @@ class PlatformAdapter(Protocol):
     @property
     def files(self) -> FilePort:
         """Return the fixture file interaction port."""
+
+    @property
+    def catalog(self) -> CatalogPort:
+        """Return the API-backed catalog interaction port."""
 
     def launch_fixture(self) -> None:
         """Launch or reset the fixture to a deterministic root state."""

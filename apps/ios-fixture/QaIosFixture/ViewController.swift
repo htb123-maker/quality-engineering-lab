@@ -12,7 +12,11 @@ final class ViewController: UIViewController {
     private let deepLinkLabel = UILabel()
     private let fileLabel = UILabel()
     private let backgroundLabel = UILabel()
+    private let catalogStatusLabel = UILabel()
+    private let catalogItemLabel = UILabel()
     private let webView = WKWebView()
+    private var catalogBaseURL: URL?
+    private var catalogSessionID: String?
 
     private let fileURL = FileManager.default.urls(
         for: .documentDirectory,
@@ -53,6 +57,19 @@ final class ViewController: UIViewController {
 
         addLabel("QA iOS Fixture", identifier: "fixture-title", style: .title1)
         addLabel("ready", identifier: "fixture-status")
+        addLabel("catalog: idle", identifier: "catalog-status", into: catalogStatusLabel)
+        addLabel("catalog item: none", identifier: "catalog-item", into: catalogItemLabel)
+        let refreshCatalogButton = addButton("Refresh Catalog", identifier: "catalog-refresh") {
+            self.loadCatalog(archive: false)
+        }
+        refreshCatalogButton.accessibilityIdentifier = "catalog-refresh"
+        let archiveCatalogButton = addButton(
+            "Archive Catalog Item",
+            identifier: "catalog-archive"
+        ) {
+            self.loadCatalog(archive: true)
+        }
+        archiveCatalogButton.isEnabled = false
         addButton("Request Camera Permission", identifier: "request-camera") {
             self.requestCamera()
         }
@@ -106,17 +123,19 @@ final class ViewController: UIViewController {
         stack.addArrangedSubview(label)
     }
 
+    @discardableResult
     private func addButton(
         _ title: String,
         identifier: String,
         action: @escaping () -> Void
-    ) {
+    ) -> UIButton {
         let button = UIButton(type: .system)
         button.setTitle(title, for: .normal)
         button.accessibilityIdentifier = identifier
         button.contentHorizontalAlignment = .leading
         button.addAction(UIAction { _ in action() }, for: .touchUpInside)
         stack.addArrangedSubview(button)
+        return button
     }
 
     private func configureObservers() {
@@ -261,6 +280,76 @@ final class ViewController: UIViewController {
     func handleDeepLink(_ url: URL) {
         UserDefaults.standard.set(url.absoluteString, forKey: "fixture.lastDeepLink")
         deepLinkLabel.text = "deep link: opened \(url.absoluteString)"
+        if url.host == "e2e" {
+            let token = url.pathComponents.dropFirst().first ?? ""
+            var encoded = token
+                .replacingOccurrences(of: "-", with: "+")
+                .replacingOccurrences(of: "_", with: "/")
+            encoded += String(repeating: "=", count: (4 - encoded.count % 4) % 4)
+            if let data = Data(base64Encoded: encoded),
+               let object = try? JSONSerialization.jsonObject(with: data),
+               let payload = object as? [String: String],
+               let baseValue = payload["e2eBaseUrl"],
+               let sessionValue = payload["sessionId"],
+               let baseURL = URL(string: baseValue) {
+                catalogBaseURL = baseURL
+                catalogSessionID = sessionValue
+                loadCatalog(archive: false)
+            }
+        }
+    }
+
+    private func loadCatalog(archive: Bool) {
+        guard let catalogBaseURL, let catalogSessionID else {
+            catalogStatusLabel.text = "catalog: error|missing-session"
+            return
+        }
+        let base = catalogBaseURL.absoluteString.trimmingCharacters(
+            in: CharacterSet(charactersIn: "/")
+        )
+        let suffix = "/api/v1/e2e/sessions/\(catalogSessionID)"
+            + (archive ? "/archive" : "")
+        guard let endpoint = URL(string: base + suffix) else {
+            catalogStatusLabel.text = "catalog: error|invalid-url"
+            return
+        }
+
+        catalogStatusLabel.text = "catalog: loading"
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = archive ? "POST" : "GET"
+        request.timeoutInterval = 5
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if let error {
+                    self.catalogStatusLabel.text =
+                        "catalog: error|\(type(of: error))"
+                    return
+                }
+                guard let http = response as? HTTPURLResponse,
+                      (200..<300).contains(http.statusCode),
+                      let data,
+                      let object = try? JSONSerialization.jsonObject(with: data),
+                      let payload = object as? [String: Any],
+                      let itemID = payload["id"] as? Int,
+                      let itemName = payload["name"] as? String,
+                      let itemStatus = payload["status"] as? String else {
+                    self.catalogStatusLabel.text = "catalog: error|invalid-response"
+                    return
+                }
+                self.catalogStatusLabel.text =
+                    "catalog: \(itemStatus)|\(itemID)|\(itemName)"
+                self.catalogItemLabel.text = "catalog item: \(itemName)"
+                self.findButton(identifier: "catalog-archive")?.isEnabled =
+                    itemStatus == "active"
+            }
+        }.resume()
+    }
+
+    private func findButton(identifier: String) -> UIButton? {
+        stack.arrangedSubviews
+            .compactMap { $0 as? UIButton }
+            .first { $0.accessibilityIdentifier == identifier }
     }
 
     private func writeFixtureFile() {

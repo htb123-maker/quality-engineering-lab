@@ -103,6 +103,9 @@ class Settings(BaseSettings):
     android_mjpeg_server_port: int = Field(default=7810, ge=1024, le=65535)
     android_ui_wait_timeout_seconds: float = Field(default=10.0, gt=0.0, le=120.0)
     android_ui_wait_poll_seconds: float = Field(default=0.25, gt=0.0, le=10.0)
+    android_e2e_api_base_url: AnyHttpUrl = Field(
+        default_factory=lambda: AnyHttpUrl("http://127.0.0.1:18000")
+    )
     ios_device_name: str = Field(default="iPhone 16")
     ios_platform_version: str | None = Field(default=None)
     ios_udid: str | None = Field(default=None)
@@ -110,6 +113,9 @@ class Settings(BaseSettings):
         default=Path("configs/ios-device-matrix.yaml")
     )
     ios_run_id: str = Field(default="local", min_length=1)
+    ios_e2e_api_base_url: AnyHttpUrl = Field(
+        default_factory=lambda: AnyHttpUrl("http://127.0.0.1:18000")
+    )
     ios_bundle_id: str = Field(default="com.apple.Preferences")
     ios_xcode_org_id: str | None = Field(default=None)
     ios_xcode_signing_id: str = Field(default="Apple Development")

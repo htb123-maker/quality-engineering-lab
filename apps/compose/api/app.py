@@ -40,6 +40,8 @@ from qa_core.contracts import (
     CatalogResponse,
     CatalogWorkspace,
     ContractValidationError,
+    E2eFixtureSession,
+    E2eFixtureSessionCreate,
     FieldError,
     HealthCheck,
     HealthLiveResponse,
@@ -96,6 +98,10 @@ CATALOG_ITEMS_PATH = re.compile(r"^/api/v1/workspaces/([^/]+)/catalog/items$")
 CATALOG_ITEM_PATH = re.compile(
     r"^/api/v1/workspaces/([^/]+)/catalog/items/([0-9]+)$"
 )
+E2E_SESSION_PATH = re.compile(r"^/api/v1/e2e/sessions/([A-Za-z0-9_-]+)$")
+E2E_SESSION_ARCHIVE_PATH = re.compile(
+    r"^/api/v1/e2e/sessions/([A-Za-z0-9_-]+)/archive$"
+)
 CACHE_REFRESH_PATH = re.compile(
     r"^/api/v1/workspaces/([^/]+)/catalog/cache/refresh$"
 )
@@ -132,6 +138,16 @@ AUTH_SIGNIN_FAILURE_WINDOW_SECONDS = float(
 )
 AUTH_SIGNIN_FAILURE_PREFIX = "auth:signin-failures:"
 MAX_REQUEST_BYTES = int(os.getenv("QA_MAX_REQUEST_BYTES", "65536"))
+E2E_FIXTURE_ENABLED = os.getenv("QA_E2E_FIXTURE_ENABLED", "0").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
+E2E_SESSION_TTL_SECONDS = max(
+    1,
+    int(os.getenv("QA_E2E_SESSION_TTL_SECONDS", "120")),
+)
+E2E_SESSION_PREFIX = "e2e:fixture-session:"
 
 # Capability registry: one place decides what a role may do, and every handler
 # asks for a capability instead of comparing role strings. Roles are ordered by
@@ -1082,6 +1098,131 @@ def _delete_catalog_item(workspace_id: int, item_id: int) -> bool:
             return cursor.rowcount > 0
 
 
+class E2eStateConflict(RuntimeError):
+    """A fixture session requested an invalid catalog state transition."""
+
+
+class E2ePermissionDenied(RuntimeError):
+    """A fixture session does not carry permission for the requested action."""
+
+
+def _e2e_session_key(session_id: str) -> str:
+    return f"{E2E_SESSION_PREFIX}{session_id}"
+
+
+def _create_e2e_fixture_session(
+    *,
+    workspace_id: int,
+    workspace_slug: str,
+    item_id: int,
+    can_archive: bool,
+) -> tuple[str, CatalogItem]:
+    item = _catalog_item_by_id(workspace_id, item_id)
+    if item is None:
+        raise LookupError("item_not_found")
+
+    session_id = secrets.token_urlsafe(32)
+    payload = {
+        "workspace_id": workspace_id,
+        "workspace_slug": workspace_slug,
+        "item_id": item_id,
+        "can_archive": can_archive,
+    }
+    client = _redis_client()
+    try:
+        client.setex(
+            _e2e_session_key(session_id),
+            E2E_SESSION_TTL_SECONDS,
+            json.dumps(payload, sort_keys=True),
+        )
+    finally:
+        _close_quietly(client)
+    return session_id, CatalogItem.model_validate(item)
+
+
+def _load_e2e_fixture_session(session_id: str) -> dict[str, Any] | None:
+    client = _redis_client()
+    try:
+        raw = client.get(_e2e_session_key(session_id))
+    finally:
+        _close_quietly(client)
+    if raw is None:
+        return None
+    payload = _decode_cached_json(raw)
+    if payload is None:
+        return None
+    try:
+        return {
+            "workspace_id": int(payload["workspace_id"]),
+            "workspace_slug": str(payload["workspace_slug"]),
+            "item_id": int(payload["item_id"]),
+            "can_archive": bool(payload["can_archive"]),
+        }
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _read_e2e_fixture_item(session_id: str) -> CatalogItem | None:
+    context = _load_e2e_fixture_session(session_id)
+    if context is None:
+        return None
+    item = _catalog_item_by_id(context["workspace_id"], context["item_id"])
+    return CatalogItem.model_validate(item) if item is not None else None
+
+
+def _archive_e2e_fixture_item(session_id: str) -> CatalogItem | None:
+    context = _load_e2e_fixture_session(session_id)
+    if context is None:
+        return None
+    if not context["can_archive"]:
+        raise E2ePermissionDenied(
+            "This fixture session is read-only for the authenticated role."
+        )
+
+    workspace_id = context["workspace_id"]
+    item_id = context["item_id"]
+    with _postgres_connection() as connection:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                """
+                SELECT id, sku, name, price_cents, status
+                FROM catalog_items
+                WHERE workspace_id = %s AND id = %s
+                FOR UPDATE
+                """,
+                (workspace_id, item_id),
+            )
+            current = cursor.fetchone()
+            if current is None:
+                return None
+            if current["status"] != "active":
+                raise E2eStateConflict(
+                    f"Cannot archive catalog item {item_id} from "
+                    f"'{current['status']}'."
+                )
+            cursor.execute(
+                """
+                UPDATE catalog_items
+                SET status = 'archived'
+                WHERE workspace_id = %s AND id = %s
+                RETURNING id, sku, name, price_cents, status
+                """,
+                (workspace_id, item_id),
+            )
+            updated = cursor.fetchone()
+
+    if updated is None:
+        return None
+    archived = CatalogItem.model_validate(updated)
+    _invalidate_catalog_cache(context["workspace_slug"])
+    EVENT_BROKER.publish(
+        context["workspace_slug"],
+        "catalog.item.updated",
+        {"item": archived.model_dump(mode="json"), "cache_invalidated": True},
+    )
+    return archived
+
+
 def _validation_error_payload(exc: ContractValidationError) -> ValidationErrorResponse:
     return ValidationErrorResponse(
         error="validation_failed",
@@ -1671,6 +1812,7 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                         "/api/v1/workspaces/{slug}/events",
                         "/api/v1/jobs",
                         "/api/v1/jobs/{job_id}",
+                        "/api/v1/e2e/sessions/{session_id}",
                     ],
                 ),
             )
@@ -1735,6 +1877,11 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             self._handle_job(job_match.group(1))
             return
 
+        e2e_session_match = E2E_SESSION_PATH.fullmatch(path)
+        if e2e_session_match:
+            self._handle_e2e_fixture_read(e2e_session_match.group(1))
+            return
+
         item_match = CATALOG_ITEM_PATH.fullmatch(path)
         if item_match:
             self._handle_catalog_item_read(
@@ -1765,6 +1912,15 @@ class SutRequestHandler(BaseHTTPRequestHandler):
 
         if path == "/oauth/revoke":
             self._handle_revoke()
+            return
+
+        if path == "/api/v1/e2e/sessions":
+            self._handle_e2e_fixture_create()
+            return
+
+        e2e_archive_match = E2E_SESSION_ARCHIVE_PATH.fullmatch(path)
+        if e2e_archive_match:
+            self._handle_e2e_fixture_archive(e2e_archive_match.group(1))
             return
 
         items_match = CATALOG_ITEMS_PATH.fullmatch(path)
@@ -1869,6 +2025,138 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                 checks=checks,
             ),
         )
+
+    def _require_e2e_fixture_enabled(self) -> bool:
+        if E2E_FIXTURE_ENABLED:
+            return True
+        self._send_json(
+            HTTPStatus.NOT_FOUND,
+            ApiError(
+                error="not_found",
+                message="The mobile fixture session API is disabled.",
+            ),
+        )
+        return False
+
+    def _handle_e2e_fixture_create(self) -> None:
+        if not self._require_e2e_fixture_enabled():
+            return
+        user = self._authenticated_user()
+        if user is None:
+            return
+        payload = self._read_json_payload()
+        if payload is None:
+            return
+        try:
+            request = validate_contract(E2eFixtureSessionCreate, payload)
+        except ContractValidationError as exc:
+            self._send_json(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                _validation_error_payload(exc),
+            )
+            return
+
+        try:
+            session_id, item = _create_e2e_fixture_session(
+                workspace_id=int(user["workspace_id"]),
+                workspace_slug=str(user["workspace_slug"]),
+                item_id=request.item_id,
+                can_archive=has_capability(str(user["role"]), "catalog:write"),
+            )
+        except LookupError:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(
+                    error="item_not_found",
+                    message=f"Catalog item {request.item_id} was not found.",
+                ),
+            )
+            return
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Creating mobile fixture session failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(
+                    error="fixture_session_unavailable",
+                    message=type(exc).__name__,
+                ),
+            )
+            return
+
+        self._send_json(
+            HTTPStatus.CREATED,
+            E2eFixtureSession(
+                session_id=session_id,
+                item=item,
+                expires_in=E2E_SESSION_TTL_SECONDS,
+                can_archive=has_capability(str(user["role"]), "catalog:write"),
+            ),
+            headers={"Cache-Control": "no-store"},
+        )
+
+    def _handle_e2e_fixture_read(self, session_id: str) -> None:
+        if not self._require_e2e_fixture_enabled():
+            return
+        try:
+            item = _read_e2e_fixture_item(session_id)
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Reading mobile fixture session failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(
+                    error="fixture_session_unavailable",
+                    message=type(exc).__name__,
+                ),
+            )
+            return
+        if item is None:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(
+                    error="fixture_session_not_found",
+                    message="The fixture session or its item is no longer available.",
+                ),
+            )
+            return
+        self._send_json(HTTPStatus.OK, item)
+
+    def _handle_e2e_fixture_archive(self, session_id: str) -> None:
+        if not self._require_e2e_fixture_enabled():
+            return
+        try:
+            item = _archive_e2e_fixture_item(session_id)
+        except E2eStateConflict as exc:
+            self._send_json(
+                HTTPStatus.CONFLICT,
+                ApiError(error="invalid_state_transition", message=str(exc)),
+            )
+            return
+        except E2ePermissionDenied as exc:
+            self._send_json(
+                HTTPStatus.FORBIDDEN,
+                ApiError(error="permission_denied", message=str(exc)),
+            )
+            return
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Archiving mobile fixture item failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(
+                    error="fixture_session_unavailable",
+                    message=type(exc).__name__,
+                ),
+            )
+            return
+        if item is None:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(
+                    error="fixture_session_not_found",
+                    message="The fixture session or its item is no longer available.",
+                ),
+            )
+            return
+        self._send_json(HTTPStatus.OK, item)
 
     def _handle_catalog(self, slug: str) -> None:
         try:
@@ -3121,6 +3409,7 @@ class SutRequestHandler(BaseHTTPRequestHandler):
         self.send_response(status.value)
         self.send_header("Content-Length", "0")
         self.send_header("Cache-Control", "no-store")
+        self.send_header("X-QA-Request-Id", uuid4().hex)
         self.end_headers()
 
     def _send_json(
@@ -3140,11 +3429,15 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             ensure_ascii=True,
             sort_keys=True,
         ).encode("utf-8")
+        response_headers = {
+            "X-QA-Request-Id": uuid4().hex,
+            **(headers or {}),
+        }
         self.send_response(status.value)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
-        for name, value in (headers or {}).items():
+        for name, value in response_headers.items():
             self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)

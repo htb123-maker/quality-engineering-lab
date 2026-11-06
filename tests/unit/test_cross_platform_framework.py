@@ -8,13 +8,16 @@ from pathlib import Path
 import pytest
 from qa_core.mobile.diagnostics import MobileFailureEvidence
 from qa_core.mobile.fixture_scenarios import (
+    CATALOG_ARCHIVE_SCENARIO,
     FILE_SCENARIO,
     NAVIGATION_SCENARIO,
+    CatalogInteractionState,
     FileState,
     NavigationState,
 )
 from qa_core.mobile.locators import Locator, LocatorStrategy
 from qa_core.mobile.platforms import (
+    CatalogSnapshot,
     LocatorSet,
     MissingLocatorError,
     MobilePlatform,
@@ -53,6 +56,37 @@ class FakeFilePort:
         self.content = None
 
 
+class FakeCatalogPort:
+    """In-memory API-backed catalog port for shared scenario contracts."""
+
+    def __init__(self) -> None:
+        self.session_id = ""
+        self.base_url = ""
+        self.item_id = 41
+        self.name = "API item"
+        self.status = "active"
+        self.calls: list[str] = []
+
+    def open(self, *, base_url: str, session_id: str) -> CatalogSnapshot:
+        self.calls.append("open")
+        self.base_url = base_url
+        self.session_id = session_id
+        return self._snapshot()
+
+    def archive(self) -> CatalogSnapshot:
+        self.calls.append("archive")
+        self.status = "archived"
+        return self._snapshot()
+
+    def _snapshot(self) -> CatalogSnapshot:
+        return CatalogSnapshot(
+            session_id=self.session_id,
+            item_id=self.item_id,
+            name=self.name,
+            status=self.status,
+        )
+
+
 class FakeAdapter:
     """Small adapter double used by both platform-neutral scenarios."""
 
@@ -65,6 +99,7 @@ class FakeAdapter:
         self._platform = platform
         self._navigation_outcome = navigation_outcome
         self.files = FakeFilePort()
+        self.catalog = FakeCatalogPort()
         self.calls: list[str] = []
         self.locators = LocatorSet(
             platform,
@@ -201,6 +236,30 @@ def test_same_file_scenario_preserves_content_and_cleanup(
     )
     assert adapter.files.calls == ["write", "read", "cleanup"]
     assert adapter.files.content is None
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("platform", [MobilePlatform.ANDROID, MobilePlatform.IOS])
+def test_catalog_archive_scenario_uses_the_shared_catalog_port(
+    platform: MobilePlatform,
+) -> None:
+    adapter = FakeAdapter(platform)
+    session_id = "s" * 43
+
+    state = CATALOG_ARCHIVE_SCENARIO.run(
+        adapter,
+        CatalogInteractionState(
+            base_url="http://127.0.0.1:18000",
+            session_id=session_id,
+            expected_name="API item",
+        ),
+    )
+
+    assert state.initial is not None
+    assert state.archived is not None
+    assert state.initial.status == "active"
+    assert state.archived.status == "archived"
+    assert adapter.catalog.calls == ["open", "archive"]
 
 
 @pytest.mark.unit

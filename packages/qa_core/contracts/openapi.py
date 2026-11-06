@@ -15,6 +15,8 @@ from qa_core.contracts.api import (
     CatalogItemCreate,
     CatalogItemStatusUpdate,
     CatalogResponse,
+    E2eFixtureSession,
+    E2eFixtureSessionCreate,
     FieldError,
     HealthLiveResponse,
     JobAcceptedResponse,
@@ -54,6 +56,8 @@ class _ContractBundle(BaseModel):
     catalog_item: CatalogItem
     catalog_item_create: CatalogItemCreate
     catalog_item_status_update: CatalogItemStatusUpdate
+    e2e_fixture_session_create: E2eFixtureSessionCreate
+    e2e_fixture_session: E2eFixtureSession
     cache_refresh: CacheRefreshRequest
     job_accepted: JobAcceptedResponse
     job: JobResponse
@@ -310,6 +314,47 @@ def openapi_document() -> dict[str, Any]:
                         },
                         "404": _response("Workspace not found", ApiError),
                         "503": _response("Database unavailable", ApiError),
+                    },
+                }
+            },
+            "/api/v1/e2e/sessions": {
+                "post": {
+                    "summary": "Create a short-lived mobile fixture session",
+                    "security": [{"bearerAuth": []}],
+                    "requestBody": _json_request_body(
+                        E2eFixtureSessionCreate,
+                    ),
+                    "responses": {
+                        "201": _response(
+                            "Fixture session",
+                            E2eFixtureSession,
+                        ),
+                        "401": _response(
+                            "Authentication required",
+                            ApiError,
+                        ),
+                        "404": _response("Item or feature not found", ApiError),
+                    },
+                }
+            },
+            "/api/v1/e2e/sessions/{session_id}": {
+                "get": {
+                    "summary": "Read the item bound to a fixture session",
+                    "parameters": [_path_parameter("session_id")],
+                    "responses": {
+                        "200": _response("Fixture item", CatalogItem),
+                        "404": _response("Session not found", ApiError),
+                    },
+                }
+            },
+            "/api/v1/e2e/sessions/{session_id}/archive": {
+                "post": {
+                    "summary": "Archive the item bound to a fixture session",
+                    "parameters": [_path_parameter("session_id")],
+                    "responses": {
+                        "200": _response("Archived fixture item", CatalogItem),
+                        "404": _response("Session not found", ApiError),
+                        "409": _response("Invalid state transition", ApiError),
                     },
                 }
             },

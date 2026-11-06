@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import base64
+import json
+import time
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -9,6 +12,7 @@ from appium.webdriver.webdriver import WebDriver
 
 from qa_core.mobile.diagnostics import MobileDiagnostics, MobileFailureEvidence
 from qa_core.mobile.platforms import (
+    CatalogSnapshot,
     LocatorSet,
     MobilePlatform,
     NavigationOutcome,
@@ -48,6 +52,33 @@ class IosFixtureFilePort:
         self._adapter.wait_text("fixture.file_status", "file: deleted")
 
 
+class IosFixtureCatalogPort:
+    """API-backed catalog operations implemented by the iOS fixture."""
+
+    def __init__(self, adapter: IosFixtureAdapter) -> None:
+        self._adapter = adapter
+
+    def open(self, *, base_url: str, session_id: str) -> CatalogSnapshot:
+        payload = base64.urlsafe_b64encode(
+            json.dumps(
+                {"e2eBaseUrl": base_url, "sessionId": session_id},
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+        ).decode("ascii").rstrip("=")
+        url = f"qaweek19://e2e/{payload}"
+        self._adapter._driver.execute_script(  # noqa: SLF001
+            "mobile: deepLink",
+            {"url": url, "bundleId": self._adapter._bundle_id},  # noqa: SLF001
+        )
+        self._adapter.catalog_session_id = session_id
+        return self._adapter.wait_catalog_snapshot(session_id)
+
+    def archive(self) -> CatalogSnapshot:
+        self._adapter.tap("fixture.catalog_archive")
+        return self._adapter.wait_catalog_snapshot(self._adapter.catalog_session_id)
+
+
 class IosFixtureAdapter:
     """Cross-platform fixture operations backed by XCUITest."""
 
@@ -68,6 +99,8 @@ class IosFixtureAdapter:
         self._policy = wait_policy or WaitPolicy()
         self._wait = MobileWait(driver, self._policy)
         self._files = IosFixtureFilePort(self)
+        self._catalog = IosFixtureCatalogPort(self)
+        self.catalog_session_id = ""
         self._diagnostics = (
             MobileDiagnostics(driver, diagnostics_directory)
             if diagnostics_directory is not None
@@ -108,6 +141,14 @@ class IosFixtureAdapter:
                     "file-status",
                     "iOS file status",
                 ),
+                "fixture.catalog_status": IosLocator.accessibility_id(
+                    "catalog-status",
+                    "iOS API-backed catalog status",
+                ),
+                "fixture.catalog_archive": IosLocator.accessibility_id(
+                    "catalog-archive",
+                    "iOS archive catalog item button",
+                ),
             },
         )
 
@@ -121,6 +162,7 @@ class IosFixtureAdapter:
             {
                 PlatformCapability.NAVIGATION,
                 PlatformCapability.FILES,
+                PlatformCapability.CATALOG,
                 PlatformCapability.DIAGNOSTICS,
             }
         )
@@ -132,6 +174,10 @@ class IosFixtureAdapter:
     @property
     def files(self) -> IosFixtureFilePort:
         return self._files
+
+    @property
+    def catalog(self) -> IosFixtureCatalogPort:
+        return self._catalog
 
     def launch_fixture(self) -> None:
         self._driver.terminate_app(self._bundle_id)
@@ -169,6 +215,18 @@ class IosFixtureAdapter:
             prefix,
         ).text
 
+    def wait_catalog_snapshot(self, session_id: str) -> CatalogSnapshot:
+        deadline = time.monotonic() + self._policy.timeout_seconds
+        last_status = ""
+        while time.monotonic() < deadline:
+            last_status = self.text("fixture.catalog_status")
+            if last_status.startswith(
+                ("catalog: active|", "catalog: archived|", "catalog: error|")
+            ):
+                return _snapshot_from_status(last_status, session_id)
+            time.sleep(self._policy.poll_interval_seconds)
+        raise TimeoutError(f"iOS catalog status did not settle: {last_status!r}")
+
     def trigger_navigation(self) -> NavigationOutcome:
         self.tap("fixture.navigation_button")
         self.wait_text(
@@ -198,3 +256,24 @@ class IosFixtureAdapter:
             error=error,
             context=payload,
         )
+
+
+def _snapshot_from_status(status: str, session_id: str) -> CatalogSnapshot:
+    payload = status.removeprefix("catalog: ")
+    if payload.startswith("error|"):
+        return CatalogSnapshot(
+            session_id=session_id,
+            item_id=0,
+            name=payload.removeprefix("error|") or "unknown",
+            status="error",
+        )
+    parts = payload.split("|", 2)
+    if len(parts) != 3:
+        raise RuntimeError(f"invalid iOS catalog status: {status!r}")
+    state, raw_item_id, name = parts
+    return CatalogSnapshot(
+        session_id=session_id,
+        item_id=int(raw_item_id),
+        name=name,
+        status=state,
+    )

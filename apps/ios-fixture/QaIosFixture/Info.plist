@@ -37,6 +37,13 @@
     <true/>
     <key>NSCameraUsageDescription</key>
     <string>QA fixture requests camera access for permission testing.</string>
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>QA fixture connects to the local test API.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>QA fixture requests microphone access for permission testing.</string>
     <key>UILaunchScreen</key>

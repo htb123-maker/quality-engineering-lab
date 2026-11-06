@@ -3,6 +3,7 @@
 from dataclasses import dataclass, replace
 
 from qa_core.mobile.platforms import (
+    CatalogSnapshot,
     MobilePlatform,
     NavigationOutcome,
     PlatformAdapter,
@@ -34,6 +35,17 @@ class FileState:
     write_completed: bool = False
     read_content: str | None = None
     cleanup_completed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class CatalogInteractionState:
+    """Observed state of an API-backed catalog fixture interaction."""
+
+    base_url: str
+    session_id: str
+    expected_name: str
+    initial: CatalogSnapshot | None = None
+    archived: CatalogSnapshot | None = None
 
 
 def _launch_fixture(
@@ -99,6 +111,55 @@ def _cleanup_file(
     return replace(state, cleanup_completed=True)
 
 
+def _open_catalog(
+    state: CatalogInteractionState,
+    adapter: PlatformAdapter,
+) -> CatalogInteractionState:
+    return replace(
+        state,
+        initial=adapter.catalog.open(
+            base_url=state.base_url,
+            session_id=state.session_id,
+        ),
+    )
+
+
+def _assert_catalog_open(
+    state: CatalogInteractionState,
+    adapter: PlatformAdapter,
+) -> CatalogInteractionState:
+    del adapter
+    assert state.initial is not None, "catalog session must load before assertion"
+    assert state.initial.name == state.expected_name, (
+        "mobile catalog must load the API-created item; "
+        f"expected {state.expected_name!r}, observed {state.initial.name!r}"
+    )
+    assert state.initial.status == "active", (
+        f"mobile catalog item must start active, observed {state.initial.status!r}"
+    )
+    return state
+
+
+def _archive_catalog(
+    state: CatalogInteractionState,
+    adapter: PlatformAdapter,
+) -> CatalogInteractionState:
+    return replace(state, archived=adapter.catalog.archive())
+
+
+def _assert_catalog_archived(
+    state: CatalogInteractionState,
+    adapter: PlatformAdapter,
+) -> CatalogInteractionState:
+    del adapter
+    assert state.archived is not None, "catalog archive must return a snapshot"
+    assert state.initial is not None, "catalog must be opened before archive assertion"
+    assert state.archived.item_id == state.initial.item_id
+    assert state.archived.name == state.expected_name
+    assert state.archived.status == "archived"
+    return state
+
+
 NAVIGATION_SCENARIO = MobileScenario(
     scenario_id="CP-FIXTURE-NAV-001",
     name="fixture navigation completes",
@@ -123,5 +184,26 @@ FILE_SCENARIO = MobileScenario(
             _assert_file_round_trip,
         ),
         ScenarioStep("cleanup", "delete fixture text", _cleanup_file),
+    ),
+)
+
+
+CATALOG_ARCHIVE_SCENARIO = MobileScenario(
+    scenario_id="E2E-CATALOG-ARCHIVE-001",
+    name="API-backed catalog item is archived through the mobile app",
+    platforms=SUPPORTED_PLATFORMS,
+    steps=(
+        ScenarioStep("open", "open API-backed catalog item", _open_catalog),
+        ScenarioStep(
+            "assert-open",
+            "verify API-created item is visible",
+            _assert_catalog_open,
+        ),
+        ScenarioStep("archive", "archive item through mobile UI", _archive_catalog),
+        ScenarioStep(
+            "assert-archived",
+            "verify mobile archive result",
+            _assert_catalog_archived,
+        ),
     ),
 )

@@ -15,9 +15,12 @@ import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.LocaleList;
 import android.text.InputType;
 import android.text.TextUtils;
+import android.util.Base64;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
@@ -27,7 +30,17 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity {
     private static final int CAMERA_REQUEST_CODE = 1501;
@@ -39,9 +52,16 @@ public final class MainActivity extends Activity {
     private TextView resumeView;
     private TextView formStatusView;
     private TextView counterView;
+    private TextView catalogStatusView;
+    private TextView catalogItemView;
+    private Button catalogArchiveButton;
     private EditText inputView;
+    private String catalogBaseUrl = "";
+    private String catalogSessionId = "";
     private int resumeCount;
     private int counter;
+    private final ExecutorService catalogExecutor = Executors.newSingleThreadExecutor();
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,6 +88,41 @@ public final class MainActivity extends Activity {
         statusView.setTextSize(18);
         statusView.setPadding(0, 36, 0, 36);
         root.addView(statusView);
+
+        catalogStatusView = textDirection(new TextView(this));
+        catalogStatusView.setText("catalog: idle");
+        catalogStatusView.setContentDescription("catalog-status");
+        catalogStatusView.setTextSize(16);
+        root.addView(catalogStatusView);
+
+        catalogItemView = textDirection(new TextView(this));
+        catalogItemView.setText("catalog item: none");
+        catalogItemView.setContentDescription("catalog-item");
+        catalogItemView.setTextSize(16);
+        root.addView(catalogItemView);
+
+        Button refreshCatalog = textDirection(new Button(this));
+        refreshCatalog.setText("Refresh catalog");
+        refreshCatalog.setContentDescription("catalog-refresh");
+        refreshCatalog.setOnClickListener(new android.view.View.OnClickListener() {
+            @Override
+            public void onClick(android.view.View view) {
+                requestCatalog(false);
+            }
+        });
+        root.addView(refreshCatalog);
+
+        catalogArchiveButton = textDirection(new Button(this));
+        catalogArchiveButton.setText("Archive catalog item");
+        catalogArchiveButton.setContentDescription("catalog-archive");
+        catalogArchiveButton.setEnabled(false);
+        catalogArchiveButton.setOnClickListener(new android.view.View.OnClickListener() {
+            @Override
+            public void onClick(android.view.View view) {
+                requestCatalog(true);
+            }
+        });
+        root.addView(catalogArchiveButton);
 
         resumeView = textDirection(new TextView(this));
         resumeView.setText(t("Resume count: 0", "恢复次数：0", "عدد الاستئناف: 0"));
@@ -276,6 +331,12 @@ public final class MainActivity extends Activity {
     }
 
     @Override
+    protected void onDestroy() {
+        catalogExecutor.shutdownNow();
+        super.onDestroy();
+    }
+
+    @Override
     public void onRequestPermissionsResult(
             int requestCode,
             String[] permissions,
@@ -346,8 +407,106 @@ public final class MainActivity extends Activity {
         if (data == null) {
             return;
         }
+        if ("e2e".equals(data.getHost())) {
+            String baseUrl = null;
+            String sessionId = null;
+            if (!data.getPathSegments().isEmpty()) {
+                try {
+                    byte[] decoded = Base64.decode(
+                            data.getPathSegments().get(0),
+                            Base64.URL_SAFE | Base64.NO_WRAP | Base64.NO_PADDING
+                    );
+                    JSONObject payload = new JSONObject(
+                            new String(decoded, StandardCharsets.UTF_8)
+                    );
+                    baseUrl = payload.getString("e2eBaseUrl");
+                    sessionId = payload.getString("sessionId");
+                } catch (Exception ignored) {
+                    baseUrl = null;
+                    sessionId = null;
+                }
+            }
+            if (baseUrl != null && !baseUrl.isEmpty()
+                    && sessionId != null && !sessionId.isEmpty()) {
+                catalogBaseUrl = baseUrl;
+                catalogSessionId = sessionId;
+                catalogArchiveButton.setEnabled(false);
+                requestCatalog(false);
+                return;
+            }
+        }
         statusView.setText(t("Deep link: ", "深链接：", "رابط عميق: ") + data);
         statusView.setContentDescription("fixture-status:deep-link:" + data);
+    }
+
+    private void requestCatalog(boolean archive) {
+        if (catalogBaseUrl.isEmpty() || catalogSessionId.isEmpty()) {
+            catalogStatusView.setText("catalog: error|missing-session");
+            return;
+        }
+        catalogStatusView.setText("catalog: loading");
+        catalogArchiveButton.setEnabled(false);
+        catalogExecutor.execute(new Runnable() {
+            @Override
+            public void run() {
+                HttpURLConnection connection = null;
+                try {
+                    String suffix = "/api/v1/e2e/sessions/"
+                            + URLEncoder.encode(catalogSessionId, "UTF-8")
+                            + (archive ? "/archive" : "");
+                    URL url = new URL(catalogBaseUrl.replaceAll("/+$", "") + suffix);
+                    connection = (HttpURLConnection) url.openConnection();
+                    connection.setConnectTimeout(5000);
+                    connection.setReadTimeout(5000);
+                    connection.setRequestMethod(archive ? "POST" : "GET");
+                    int statusCode = connection.getResponseCode();
+                    if (statusCode < 200 || statusCode >= 300) {
+                        throw new IllegalStateException("HTTP " + statusCode);
+                    }
+                    String body;
+                    try (BufferedReader reader = new BufferedReader(
+                            new InputStreamReader(
+                                    connection.getInputStream(),
+                                    StandardCharsets.UTF_8
+                            )
+                    )) {
+                        StringBuilder builder = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            builder.append(line);
+                        }
+                        body = builder.toString();
+                    }
+                    JSONObject item = new JSONObject(body);
+                    String itemStatus = item.getString("status");
+                    String itemName = item.getString("name");
+                    int itemId = item.getInt("id");
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            catalogStatusView.setText(
+                                    "catalog: " + itemStatus + "|" + itemId + "|" + itemName
+                            );
+                            catalogItemView.setText("catalog item: " + itemName);
+                            catalogArchiveButton.setEnabled("active".equals(itemStatus));
+                        }
+                    });
+                } catch (Exception error) {
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            catalogStatusView.setText(
+                                    "catalog: error|" + error.getClass().getSimpleName()
+                            );
+                        }
+                    });
+                } finally {
+                    if (connection != null) {
+                        connection.disconnect();
+                    }
+                }
+            }
+        });
     }
 
     private void requestOrPostNotification() {

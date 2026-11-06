@@ -203,6 +203,21 @@ class CatalogResponse(ContractModel):
     count: int = Field(ge=0)
 
 
+class E2eFixtureSessionCreate(ContractModel):
+    """Create a short-lived fixture session for one catalog item."""
+
+    item_id: int = Field(gt=0)
+
+
+class E2eFixtureSession(ContractModel):
+    """Opaque, short-lived fixture capability returned by the local SUT."""
+
+    session_id: str = Field(min_length=32)
+    item: CatalogItem
+    expires_in: int = Field(gt=0)
+    can_archive: bool
+
+
 class CacheRefreshRequest(ContractModel):
     """Request body for an asynchronous catalog cache refresh."""
 
