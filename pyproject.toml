@@ -33,6 +33,7 @@ pythonpath = ["packages", "src"]
 markers = [
     "api: API tests requiring the local SUT",
     "android: Android Appium tests requiring an emulator or real device",
+    "e2e: cross-layer API and mobile end-to-end tests",
     "fault_injection: tests that require the optional Toxiproxy service",
     "integration: tests requiring the local Docker Compose SUT",
     "ios: iOS Appium tests requiring macOS, Xcode, and an iOS simulator or device",

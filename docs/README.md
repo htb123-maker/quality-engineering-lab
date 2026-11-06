@@ -2,7 +2,7 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-共 51 篇设计文档，按主题分组。
+共 53 篇设计文档，按主题分组。
 
 ## 目标与计划 / Goals and Plan
 
@@ -14,6 +14,7 @@
 - [Android Device Matrix and Parallel Evidence](architecture/android-device-matrix.md)
 - [Android Screen Framework](architecture/android-screen-framework.md)
 - [Android System Interactions](architecture/android-system-interactions.md)
+- [Week 23 Cross-Layer E2E / 跨层 E2E](architecture/cross-layer-e2e.md)
 - [Cross-Platform Mobile Framework v1 / 跨平台移动框架 v1](architecture/cross-platform-framework.md)
 - [iOS Device Matrix and Parallel Isolation](architecture/ios-device-matrix.md)
 - [iOS Stability, Inventory, and Failure Diagnostics](architecture/ios-stability-and-diagnostics.md)
@@ -55,6 +56,7 @@
 - [认证失败排查 / Authentication Failure Triage](runbooks/authentication-failures.md)
 - [Authorization and Input Security Triage](runbooks/authorization-and-input-security-triage.md)
 - [API 契约失败排查 / API Contract Failure Triage](runbooks/contract-test-failures.md)
+- [Cross-Layer E2E Triage / 跨层 E2E 排障](runbooks/cross-layer-e2e-triage.md)
 - [Cross-Platform Scenario Failure Triage / 跨平台场景失败排查](runbooks/cross-platform-failure-triage.md)
 - [数据库锁等待与死锁排查 / Database Lock-Wait and Deadlock Triage](runbooks/database-lock-and-deadlock-triage.md)
 - [Failed Quality Gate Triage Runbook](runbooks/failed-quality-gate.md)

@@ -1,0 +1,217 @@
+version: 1
+tests:
+  - id: E2E-CAT-001
+    role: owner
+    item_state: active
+    session_state: valid
+    action: archive
+    expected_ui: archived
+    expected_api: archived
+  - id: E2E-CAT-002
+    role: owner
+    item_state: active
+    session_state: valid
+    action: read
+    expected_ui: active
+    expected_api: active
+  - id: E2E-CAT-003
+    role: admin
+    item_state: active
+    session_state: valid
+    action: archive
+    expected_ui: archived
+    expected_api: archived
+  - id: E2E-CAT-004
+    role: admin
+    item_state: active
+    session_state: valid
+    action: read
+    expected_ui: active
+    expected_api: active
+  - id: E2E-CAT-005
+    role: member
+    item_state: active
+    session_state: valid
+    action: archive
+    expected_ui: archived
+    expected_api: archived
+  - id: E2E-CAT-006
+    role: member
+    item_state: active
+    session_state: valid
+    action: read
+    expected_ui: active
+    expected_api: active
+  - id: E2E-CAT-007
+    role: viewer
+    item_state: active
+    session_state: valid
+    action: read
+    expected_ui: active
+    expected_api: active
+  - id: E2E-CAT-008
+    role: viewer
+    item_state: active
+    session_state: valid
+    action: archive
+    expected_ui: error
+    expected_api: active
+  - id: E2E-CAT-009
+    role: owner
+    item_state: archived
+    session_state: valid
+    action: read
+    expected_ui: archived
+    expected_api: archived
+  - id: E2E-CAT-010
+    role: owner
+    item_state: archived
+    session_state: valid
+    action: archive
+    expected_ui: error
+    expected_api: archived
+  - id: E2E-CAT-011
+    role: admin
+    item_state: archived
+    session_state: valid
+    action: read
+    expected_ui: archived
+    expected_api: archived
+  - id: E2E-CAT-012
+    role: admin
+    item_state: archived
+    session_state: valid
+    action: archive
+    expected_ui: error
+    expected_api: archived
+  - id: E2E-CAT-013
+    role: member
+    item_state: archived
+    session_state: valid
+    action: read
+    expected_ui: archived
+    expected_api: archived
+  - id: E2E-CAT-014
+    role: member
+    item_state: archived
+    session_state: valid
+    action: archive
+    expected_ui: error
+    expected_api: archived
+  - id: E2E-CAT-015
+    role: viewer
+    item_state: archived
+    session_state: valid
+    action: read
+    expected_ui: archived
+    expected_api: archived
+  - id: E2E-CAT-016
+    role: owner
+    item_state: deleted
+    session_state: valid
+    action: read
+    expected_ui: error
+    expected_api: not-found
+  - id: E2E-CAT-017
+    role: owner
+    item_state: deleted
+    session_state: valid
+    action: archive
+    expected_ui: error
+    expected_api: not-found
+  - id: E2E-CAT-018
+    role: admin
+    item_state: deleted
+    session_state: valid
+    action: read
+    expected_ui: error
+    expected_api: not-found
+  - id: E2E-CAT-019
+    role: admin
+    item_state: deleted
+    session_state: valid
+    action: archive
+    expected_ui: error
+    expected_api: not-found
+  - id: E2E-CAT-020
+    role: owner
+    item_state: active
+    session_state: invalid
+    action: read
+    expected_ui: error
+    expected_api: active
+  - id: E2E-CAT-021
+    role: owner
+    item_state: active
+    session_state: expired
+    action: read
+    expected_ui: error
+    expected_api: active
+  - id: E2E-CAT-022
+    role: admin
+    item_state: active
+    session_state: invalid
+    action: archive
+    expected_ui: error
+    expected_api: active
+  - id: E2E-CAT-023
+    role: admin
+    item_state: active
+    session_state: expired
+    action: archive
+    expected_ui: error
+    expected_api: active
+  - id: E2E-CAT-024
+    role: member
+    item_state: active
+    session_state: valid
+    action: repeat-archive
+    expected_ui: error
+    expected_api: archived
+  - id: E2E-CAT-025
+    role: viewer
+    item_state: archived
+    session_state: valid
+    action: archive
+    expected_ui: error
+    expected_api: archived
+  - id: E2E-CAT-026
+    role: owner
+    item_state: active
+    session_state: valid
+    action: archive
+    expected_ui: archived
+    expected_api: archived
+    warm_cache: true
+  - id: E2E-CAT-027
+    role: member
+    item_state: active
+    session_state: valid
+    action: archive
+    expected_ui: archived
+    expected_api: archived
+    warm_cache: true
+  - id: E2E-CAT-028
+    role: owner
+    item_state: active
+    session_state: valid
+    action: archive
+    expected_ui: archived
+    expected_api: archived
+    request_id_required: true
+  - id: E2E-CAT-029
+    role: admin
+    item_state: active
+    session_state: valid
+    action: archive
+    expected_ui: archived
+    expected_api: archived
+    request_id_required: true
+  - id: E2E-CAT-030
+    role: owner
+    item_state: active
+    session_state: valid
+    action: read
+    expected_ui: active
+    expected_api: active
+    request_id_required: true
