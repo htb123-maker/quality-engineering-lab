@@ -105,9 +105,20 @@ item, authenticated read, and Toxiproxy:
 | `W24-API-NET-003` | reset peer | a new connection reads the same item |
 | `W24-API-NET-004` | disabled proxy | re-enabled proxy reads the same item |
 | `W24-API-SVC-001` | unavailable upstream `api:8999` | proxy is restored to `api:8000` and reads the item |
+| `W24-API-SVC-002` | exhausted write budget | `429` plus `Retry-After`, then a valid write succeeds after the window |
 
-These cases execute on Windows against the local Compose test environment. They
-do not prove Android ADB, iOS WDA, or device-cloud recovery.
+These API cases execute on Windows against the local Compose test environment.
+They do not prove mobile recovery by themselves.
+
+## Android Cases / Android 用例
+
+| Test ID | Fault | Recovery proof |
+| --- | --- | --- |
+| `W24-AND-001` | fixture process force-stopped | relaunch in the same Appium session and read the same item |
+| `W24-AND-002` | ADB server stopped | ADB restarted, reverse tunnel recreated, new Appium session reads the item |
+
+`W24-AND-002` covers the ADB server control plane. It does not replace wireless
+ADB transport loss, iOS WDA recovery, or device-cloud recovery.
 
 ## Failure Boundaries / 失败边界
 
@@ -125,8 +136,9 @@ do not prove Android ADB, iOS WDA, or device-cloud recovery.
 As of 2026-11-07:
 
 - Gate G0: `PASS` on Android 15 Emulator with one API + UI + API case.
-- API network/service recovery: `5 passed`.
+- API network/service/rate-limit recovery: `6 passed`.
+- Android process and ADB/session recovery: `2 passed`.
+- Combined recovery suite: `8 passed in 90.29s`.
 - Recovery contract tests: `8 passed`.
-- Android process/ADB/session recovery: `NOT RUN` in Week 24.
 - iOS App/WDA/session recovery: `NOT RUN` on Windows.
-- Week 24 completion: `IN PROGRESS`.
+- Week 24 status: `PARTIAL PASS - IOS NOT RUN`.

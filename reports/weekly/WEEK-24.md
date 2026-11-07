@@ -8,7 +8,7 @@
 - 实施提交 / Implementation Commits: `d6ebb3b`, `891bdd4`
 - 远端分支 / Remote Branch: `origin/study/week-24-recovery`
 - Pull Request: 尚未创建 / Not created
-- 状态 / Status: **实施中，API 恢复与 Gate G0 已通过 / IN PROGRESS**
+- 状态 / Status: **核心 8 条恢复通过，iOS 未运行 / PARTIAL PASS - IOS NOT RUN**
 
 ## Week 23 入口核对 / Week 23 Entry Audit
 
@@ -70,27 +70,29 @@ recovery with bounded waits and structured evidence.
 
 ## 完成状态 / Completion Status
 
-**实施中 / IN PROGRESS**
+**核心恢复用例完成，iOS 未运行 / PARTIAL PASS - IOS NOT RUN**
 
 已完成并有执行证据：
 
 - `FaultSpec`、`FaultType`、`RecoveryContext`、`RecoveryJourney`、
   `RecoveryPolicy`、`RecoveryResult` 和结构化 recovery manifest。
 - 8 条恢复契约单元测试：基线、注入、观察、恢复轮询、超时、清理和脱敏。
-- 5 条真实 API 恢复用例：latency、timeout、reset peer、proxy disabled、
-  upstream unavailable；全部通过，且恢复后重新读取同一 catalog item。
+- 6 条真实 API 恢复用例：latency、timeout、reset peer、proxy disabled、
+  upstream unavailable、rate-limit window；全部通过并复核业务状态。
+- 2 条真实 Android 恢复用例：App 进程死亡后重启，以及 ADB server 中断后
+  重建 reverse tunnel 和 Appium session。
+- 8 条恢复用例合并执行：`8 passed in 90.29s`。
 - Gate G0：Android 15 Emulator 上 `E2E-CAT-001` 真实通过。
 - 清理检查：test namespace `0`、Appium sessions `[]`、ADB reverse 无输出。
+- 物理 Redmi fixture 已恢复安装，临时 `adb_install_need_confirm` 设置已还原。
 
 仍未完成：
 
-- Android App 进程死亡、ADB 掉线和 Week 24 Appium session 重建用例。
 - iOS App terminate/activate、WDA/Appium session 恢复。
-- 限流窗口恢复用例；当前服务不可用已由真实 upstream 切换覆盖。
-- 双平台 UI 故障恢复、并发 worker 矩阵和正式缺陷闭环。
-- Week 24 最终至少 8 条非重复恢复执行的完整清单。
+- 无线 ADB 物理设备重连；本次 Android 用例覆盖 ADB server 控制面中断。
+- 多 worker 并发矩阵、iOS 云真机和正式缺陷关闭闭环。
 
-因此 Week 24 仍为 **IN PROGRESS**，不是 COMPLETE。
+因此 Week 24 为 **PARTIAL PASS - IOS NOT RUN**，不是 COMPLETE。
 
 ## 计划范围 / Planned Scope
 
@@ -342,21 +344,28 @@ Week 24 依赖 Week 12 的真实 API 故障注入、Week 15/16/19/21 的移动�
 | Plan/index validation | 通过 / PASS | Windows | `entry pages are up to date.` |
 | Fault contract tests | 通过 / PASS | Windows | `8 passed in 0.23s` |
 | Ruff | 通过 / PASS | Windows | `All checks passed!` |
-| Mypy | 通过 / PASS | Windows | `200 source files`, no issues |
-| Full unit regression | 通过 / PASS | Windows | `340 passed in 8.76s` |
-| E2E collection | 通过 / PASS | Windows | `36 tests collected` |
+| Mypy | 通过 / PASS | Windows | `201 source files`, no issues |
+| Full unit regression | 通过 / PASS | Windows | `340 passed in 9.09s` |
+| E2E collection | 通过 / PASS | Windows | `39 tests collected` |
 | API transport recovery | 通过 / PASS | Windows + Linux container | `W24-API-NET-001..004` |
 | API service recovery | 通过 / PASS | Linux container | `W24-API-SVC-001` |
-| API rate-limit recovery | 待执行 / NOT RUN | Linux container | no recovery pass claim |
-| Android process/session recovery | 待执行 / NOT RUN | Android device | Appium + ADB |
-| Android ADB reconnect | 待执行 / NOT RUN | Android device | wireless ADB |
+| API rate-limit recovery | 通过 / PASS | Linux container | `W24-API-SVC-002`, `61.28s` |
+| Android process/session recovery | 通过 / PASS | Android 15 Emulator | `W24-AND-001`, `1 passed` |
+| Android ADB server/session rebuild | 通过 / PASS | Android 15 Emulator | `W24-AND-002`, final `1 passed` after one `FAILED` attempt |
+| Combined Week 24 recovery suite | 通过 / PASS | API + Android Emulator | `8 passed in 90.29s` |
 | iOS App/session recovery | 待执行 / NOT RUN | macOS / Simulator | XCUITest + WDA |
 | Namespace/session cleanup | 通过 / PASS | Platform/API | namespace `0`, sessions `[]`, no reverse |
-| Defect draft approval boundary | 待执行 / NOT RUN | Platform run | human approval |
+| Defect draft approval boundary | 通过 / PASS | Platform run | `state=draft`, approval=true, auto_issue=false |
+| Redmi fixture restore | 通过 / PASS | Physical Android 14 | `pm path com.example.qaweek15` succeeds |
+| SUT startup readiness | 通过 / PASS | Windows + Compose | all checks `PASS`, `SUT ready: True` |
 | iOS cloud real device | 延期 / DEFERRED | Device cloud | inherited scope |
 | Previous-major iOS | 继承阻塞 / BLOCKED | macOS Runner | Week 21 limitation |
 
 `PASS`、`FAILED`、`NOT RUN`、`BLOCKED` 和 `DEFERRED` 保留原始语义。
+
+`W24-AND-002` 的首次执行保留为 `FAILED`：ADB server 重启后 reverse tunnel
+缺失，App 内 API 读取出现 `ConnectException`。修复恢复步骤后重新执行通过；
+这证明“会话重建成功”不能替代“App 到 SUT 的业务连接恢复”。
 
 ## 验收方式 / Acceptance Method
 
@@ -476,7 +485,7 @@ Defects: drafts only; requires_human_approval=true
 - Fault models: `packages/qa_core/e2e/faults.py`
 - API recovery tests: `tests/e2e/test_week24_network_recovery.py`
 - Android recovery tests: `tests/e2e/test_week24_android_recovery.py`
-- iOS recovery tests: `tests/e2e/test_week24_ios_recovery.py`
+- iOS recovery: `NOT RUN`; no macOS test file is claimed as executed
 - Contract tests: `tests/unit/`
 - Allure: `artifacts/allure-week24-{api,android,ios}/`
 - JUnit: `artifacts/week24-{api,android,ios}-junit.xml`
@@ -488,12 +497,9 @@ Defects: drafts only; requires_human_approval=true
 
 ### 未验证项 / Unverified Items
 
-- Android App 进程死亡、ADB 掉线和 Week 24 Appium session 重建。
 - iOS App terminate/activate、WDA 和 Appium session 恢复。
-- 限流窗口耗尽后的真实恢复等待。
-- 故障注入下的 Android/iOS API + UI 跨层恢复。
-- 当前 fixture 是否能稳定支持进程死亡后的跨层业务状态验证。
-- ADB 断线后的旧 session 是否能确定性恢复，还是必须重建 session。
+- 无线 ADB 物理设备断连和重连；本次只覆盖 ADB server 控制面中断。
+- 故障注入下的 iOS API + UI 跨层恢复。
 - WDA 内部故障的可控注入方式和恢复边界。
 - 多 worker 下的 namespace、设备、ADB、WDA、Appium 和代理端口隔离。
 - iOS 云真机、物理 iPhone 和前一主版本 runtime。
@@ -508,7 +514,9 @@ Defects: drafts only; requires_human_approval=true
 - `packages/qa_core/e2e/__init__.py`：公开恢复契约。
 - `tests/unit/test_recovery_journey.py`：8 条恢复契约测试。
 - `tests/e2e/conftest.py`：Week 24 Toxiproxy fixture。
-- `tests/e2e/test_week24_network_recovery.py`：5 条真实 API 恢复用例。
+- `tests/e2e/test_week24_network_recovery.py`：6 条真实 API 恢复用例。
+- `tests/e2e/test_week24_android_recovery.py`：2 条 Android 恢复用例。
+- `pyproject.toml`：注册 `recovery` pytest marker。
 - `docs/architecture/fault-recovery.md`。
 - `docs/runbooks/fault-recovery-triage.md`。
 - `reports/weekly/WEEK-24.md`。
@@ -520,11 +528,14 @@ Defects: drafts only; requires_human_approval=true
 
 - Windows + PowerShell
 - Python 3.12，项目 `.venv`
+- 本轮 worktree 的 `uv sync` 仍受 PyPI TLS 连接问题影响；验证使用主工作区
+  已同步的 `.venv`，并通过 `PYTHONPATH` 指向 Week 24 worktree。`start_sut.ps1`
+  复用该依赖路径后可完整通过 readiness 检查。
 - Appium Python Client 5.x
 - Appium 2.19.0
 - Android：UiAutomator2、ADB、Android 15 ATD Emulator 已执行
-- Android 物理设备：Redmi K50 / Android 14 已识别，但 MIUI 安装确认阻止覆盖
-  当前 fixture，因此本次 `NOT RUN`
+- Android 物理设备：Redmi K50 / Android 14，fixture 已恢复安装；本周恢复执行
+  仍使用 Emulator
 - iOS：XCUITest 8.4.3、Xcode 16.4、iOS 18.5 Simulator
 - SUT：本地 Docker Compose、PostgreSQL、Redis
 - Fault injection：Toxiproxy 2.9.0，控制端口 `18474`
@@ -536,6 +547,9 @@ Defects: drafts only; requires_human_approval=true
 ## 风险与限制 / Risks and Limitations
 
 - 物理 Android 的 USB 安装确认可能在 `adb install` 阶段阻止 fixture 更新。
+- `W24-AND-002` 首次执行 `FAILED`：ADB server 重启后未恢复 reverse tunnel，
+  App 内出现 `ConnectException`。补充 reverse 重建后最终执行通过。
+- ADB server 中断会影响同一测试主机上的其他 ADB 测试，必须串行执行。
 - 网络代理地址在 Android Emulator、物理 Android、iOS Simulator 和设备云中
   不同，必须配置化，不能写死 `localhost`。
 - 停止 Compose 服务会影响同一环境中的其他测试，必须使用专用 project name
@@ -556,10 +570,10 @@ Week 25 的性能 Smoke 已在独立分支完成，但 Week 24 不以性能阶�
 
 Week 24 收口前必须明确：
 
-1. Gate G0 已通过；下一步基于 `E2E-CAT-001` 接入 Android 进程和 session 恢复。
-2. API 网络/服务恢复已有 5 条真实通过；限流恢复仍未执行。
+1. Gate G0、6 条 API 恢复和 2 条 Android 恢复已通过。
+2. 合并恢复套件为 `8 passed in 90.29s`，已达到本周最少 8 条非重复用例。
 3. iOS 恢复必须在 macOS、Simulator 或合法设备云执行，Windows 保持 `NOT RUN`。
-4. 移动恢复必须重新验证同一 namespace、item 和 session 的业务事实。
+4. iOS 执行成功前，Week 24 保持 `PARTIAL PASS - IOS NOT RUN`。
 5. 失败只生成人工审批缺陷草稿，不自动创建正式 Issue。
 
 Week 25 之后进入 Baseline/Load 时，故障恢复证据可以作为性能失败分析输入，

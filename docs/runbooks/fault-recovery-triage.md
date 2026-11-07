@@ -5,9 +5,10 @@
 1. Start the local SUT with the fault-injection profile.
 2. Verify API, PostgreSQL, Redis, and Toxiproxy health.
 3. Run the recovery contract tests.
-4. Run the five API fault cases.
-5. Run one Week 23 cross-layer Gate G0 case.
-6. Verify test namespace, proxy, Appium session, and ADB reverse cleanup.
+4. Run the six API network/service/rate-limit cases.
+5. Run the two Android process and ADB/session cases.
+6. Run one Week 23 cross-layer Gate G0 case.
+7. Verify test namespace, proxy, Appium session, and ADB reverse cleanup.
 
 ```powershell
 .\scripts\start_sut.ps1 -FaultInjection -WaitSeconds 180
@@ -79,6 +80,25 @@ Check in this order:
 
 Attach Allure/JUnit and the command that produced the run. Never paste access
 tokens, passwords, full UDIDs, or provider credentials into a draft or report.
+
+## Rate Limit Recovery / 限流恢复
+
+`W24-API-SVC-002` exhausts one client's write budget, verifies `429` and
+`Retry-After`, then polls with a valid write until the natural window expires.
+The recovery budget must exceed the advertised rate-limit window. Do not delete
+the Redis counter to manufacture recovery.
+
+## Android Recovery / Android 恢复
+
+`W24-AND-001` force-stops the fixture and relaunches it in the same Appium
+session. `W24-AND-002` stops the ADB server, verifies port `5037` is closed,
+restarts ADB, recreates the reverse tunnel, and builds a new Appium session on
+worker ports `8300/7910`.
+
+The first `W24-AND-002` attempt failed with `ConnectException` because the ADB
+reverse tunnel was not restored. The test now recreates it before opening the
+catalog and the final rerun passed. This is an automation/environment recovery
+boundary, not a product defect.
 
 ## Gate G0 / Week 23 跨层入口
 
