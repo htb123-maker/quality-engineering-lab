@@ -1,5 +1,6 @@
 """Cross-layer E2E orchestration and fixture-session support."""
 
+from qa_core.e2e.faults import FaultSpec, FaultType
 from qa_core.e2e.fixture_api import FixtureSessionApi
 from qa_core.e2e.journey import E2eJourney
 from qa_core.e2e.models import (
@@ -9,6 +10,13 @@ from qa_core.e2e.models import (
     E2eSetup,
     E2eStepFailure,
 )
+from qa_core.e2e.recovery import (
+    RecoveryContext,
+    RecoveryJourney,
+    RecoveryPolicy,
+    RecoveryResult,
+    RecoveryStepFailure,
+)
 
 __all__ = [
     "CatalogItemState",
@@ -17,5 +25,12 @@ __all__ = [
     "E2eResult",
     "E2eSetup",
     "E2eStepFailure",
+    "FaultSpec",
+    "FaultType",
     "FixtureSessionApi",
+    "RecoveryJourney",
+    "RecoveryContext",
+    "RecoveryPolicy",
+    "RecoveryResult",
+    "RecoveryStepFailure",
 ]
