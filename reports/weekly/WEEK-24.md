@@ -4,8 +4,9 @@
 - 日期范围 / Date Range: 2026-12-01 to 2026-12-07
 - 分支 / Branch: `study/week-24-recovery`
 - 基线提交 / Base Commit: `cb9efcf`（Week 23 Android 跨层实现）
-- 计划提交 / Plan Commit: 本文件首次提交 / Initial commit for this file
-- 远端分支 / Remote Branch: 尚未推送 / Not pushed
+- 计划提交 / Plan Commit: `b539dd3`
+- 实施提交 / Implementation Commits: `d6ebb3b`, `891bdd4`
+- 远端分支 / Remote Branch: `origin/study/week-24-recovery`
 - Pull Request: 尚未创建 / Not created
 - 状态 / Status: **实施中，API 恢复与 Gate G0 已通过 / IN PROGRESS**
 
