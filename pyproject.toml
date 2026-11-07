@@ -37,6 +37,7 @@ markers = [
     "fault_injection: tests that require the optional Toxiproxy service",
     "integration: tests requiring the local Docker Compose SUT",
     "ios: iOS Appium tests requiring macOS, Xcode, and an iOS simulator or device",
+    "recovery: fault-injection tests that prove bounded recovery",
     "unit: fast isolated unit tests",
     "smoke: minimal environment and integration smoke tests",
 ]

@@ -13,12 +13,13 @@ import httpx
 import pytest
 from qa_core.auth import AuthClient
 from qa_core.config.settings import Settings
-from qa_core.data_factories import CatalogApiFactory, item_path
+from qa_core.data_factories import CatalogApiFactory, item_path, items_path
 from qa_core.e2e import (
     FaultSpec,
     FaultType,
     RecoveryContext,
     RecoveryJourney,
+    RecoveryPolicy,
     RecoveryResult,
 )
 from qa_core.http import HttpClient, RetryPolicy
@@ -405,3 +406,130 @@ def test_unavailable_upstream_is_reconfigured_and_business_read_recovers(
         )
 
     assert result.observed["kind"] == "request_failed"
+
+
+@pytest.mark.e2e
+@pytest.mark.api
+@pytest.mark.recovery
+@pytest.mark.timeout(150)
+def test_rate_limit_window_expires_and_valid_write_recovers(
+    catalog_items: CatalogApiFactory,
+    namespace: NamespaceLease,
+    owner_auth: AuthClient,
+    settings: Settings,
+    sut_api_url: str,
+    tmp_path: Path,
+) -> None:
+    del sut_api_url
+    test_id = "W24-API-SVC-002"
+    target_client_id = f"week24-rate-{uuid4().hex[:12]}"
+    target_name = f"Week 24 {test_id}"
+    invalid_body = {"name": "no sku", "price_cents": 100}
+    baseline_created = catalog_items.create(name=f"{target_name} baseline")
+    assert baseline_created.status_code == 201
+    baseline_id = int(baseline_created.json()["id"])
+    recovered_item_id: int | None = None
+
+    def read_item(item_id: int) -> ItemFact:
+        response = owner_auth.get(item_path(item_id, namespace.slug))
+        response.raise_for_status()
+        payload = response.json()
+        return ItemFact(
+            item_id=int(payload["id"]),
+            name=str(payload["name"]),
+            status=str(payload["status"]),
+        )
+
+    def exhaust_budget() -> None:
+        for _ in range(settings.rate_limit_write_max):
+            response = owner_auth.post(
+                items_path(namespace.slug),
+                json=invalid_body,
+                headers={"X-QA-Client-Id": target_client_id},
+            )
+            assert response.status_code == 422
+
+    def observe_rate_limit() -> dict[str, object]:
+        response = owner_auth.post(
+            items_path(namespace.slug),
+            json={"sku": catalog_items.new_sku("W24RL"), "name": target_name},
+            headers={"X-QA-Client-Id": target_client_id},
+        )
+        return {
+            "status": response.status_code,
+            "error": response.json().get("error"),
+            "retry_after": response.headers.get("Retry-After"),
+        }
+
+    def probe_recovered_write() -> ItemFact:
+        nonlocal recovered_item_id
+        response = owner_auth.post(
+            items_path(namespace.slug),
+            json={
+                "sku": catalog_items.new_sku("W24RL"),
+                "name": target_name,
+                "price_cents": 1500,
+            },
+            headers={"X-QA-Client-Id": target_client_id},
+        )
+        if response.status_code != 201:
+            raise RuntimeError(
+                f"recovered write returned HTTP {response.status_code}"
+            )
+        recovered_item_id = int(response.json()["id"])
+        return ItemFact(
+            item_id=recovered_item_id,
+            name=str(response.json()["name"]),
+            status=str(response.json()["status"]),
+        )
+
+    def verify_recovered(item: ItemFact) -> None:
+        assert item.name == target_name
+        assert item.status == "active"
+        assert read_item(item.item_id) == item
+
+    try:
+        result = RecoveryJourney[ItemFact, dict[str, object]](
+            baseline=lambda: read_item(baseline_id),
+            inject=exhaust_budget,
+            observe=observe_rate_limit,
+            remove=lambda: None,
+            probe=probe_recovered_write,
+            is_recovered=lambda item: item.status == "active",
+            verify=verify_recovered,
+            policy=RecoveryPolicy(poll_interval_seconds=1.0),
+        ).execute(
+            RecoveryContext(
+                run_id=uuid4().hex[:8],
+                worker_id="e2e",
+                test_id=test_id,
+                scenario_id="RECOVERY-API-RATE-LIMIT",
+                platform="api",
+                artifact_dir=tmp_path / "week24" / test_id / "api",
+            ),
+            FaultSpec(
+                fault_type=FaultType.RATE_LIMIT,
+                target=target_client_id,
+                expected_boundary="HTTP 429 with Retry-After",
+                timeout_seconds=90.0,
+                cleanup_action="wait for the rate-limit window to expire",
+                parameters=(
+                    ("limit", settings.rate_limit_write_max),
+                    ("window_seconds", settings.rate_limit_write_window_seconds),
+                ),
+            ),
+        )
+
+        assert result.observed["status"] == 429
+        assert result.observed["error"] == "rate_limited"
+        assert result.observed["retry_after"]
+        assert result.recovered.status == "active"
+        assert recovered_item_id is not None
+    finally:
+        if recovered_item_id is not None:
+            owner_auth.request(
+                "DELETE",
+                item_path(recovered_item_id, namespace.slug),
+                headers={"X-QA-Client-Id": target_client_id},
+            )
+        catalog_items.cleanup()
