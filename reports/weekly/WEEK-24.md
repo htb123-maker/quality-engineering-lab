@@ -5,7 +5,7 @@
 - 分支 / Branch: `study/week-24-recovery`
 - 基线提交 / Base Commit: `cb9efcf`（Week 23 Android 跨层实现）
 - 计划提交 / Plan Commit: `b539dd3`
-- 实施提交 / Implementation Commits: `d6ebb3b`, `891bdd4`
+- 实施提交 / Implementation Commits: `d6ebb3b`, `891bdd4`, `7fba408`
 - 远端分支 / Remote Branch: `origin/study/week-24-recovery`
 - Pull Request: 尚未创建 / Not created
 - 状态 / Status: **核心 8 条恢复通过，iOS 未运行 / PARTIAL PASS - IOS NOT RUN**
