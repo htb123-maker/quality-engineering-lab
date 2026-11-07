@@ -8,7 +8,7 @@
 - 实施提交 / Implementation Commits: `d6ebb3b`, `891bdd4`, `7fba408`
 - 远端分支 / Remote Branch: `origin/study/week-24-recovery`
 - Pull Request: 尚未创建 / Not created
-- 状态 / Status: **核心 8 条恢复通过，iOS 未运行 / PARTIAL PASS - IOS NOT RUN**
+- 状态 / Status: **iOS 设备云验收通过 / PASS - DEVICE CLOUD ONLY**
 
 ## Week 23 入口核对 / Week 23 Entry Audit
 
@@ -70,7 +70,7 @@ recovery with bounded waits and structured evidence.
 
 ## 完成状态 / Completion Status
 
-**核心恢复用例完成，iOS 未运行 / PARTIAL PASS - IOS NOT RUN**
+**核心恢复用例完成，iOS 设备云验收通过 / PASS - DEVICE CLOUD ONLY**
 
 已完成并有执行证据：
 
@@ -82,17 +82,18 @@ recovery with bounded waits and structured evidence.
 - 2 条真实 Android 恢复用例：App 进程死亡后重启，以及 ADB server 中断后
   重建 reverse tunnel 和 Appium session。
 - 8 条恢复用例合并执行：`8 passed in 90.29s`。
+- 2 条 BrowserStack 真机恢复用例：App terminate/activate 和 Appium session
+  重建，`2 passed in 74.63s`。
+- iOS 设备云 workflow：[Run 42389853343](https://github.com/htb123-maker/quality-engineering-lab/actions/runs/42389853343)，
+  真实设备为 iPhone 15 / iOS 17。
 - Gate G0：Android 15 Emulator 上 `E2E-CAT-001` 真实通过。
 - 清理检查：test namespace `0`、Appium sessions `[]`、ADB reverse 无输出。
 - 物理 Redmi fixture 已恢复安装，临时 `adb_install_need_confirm` 设置已还原。
 
-仍未完成：
+本次明确不验收本地 iOS Simulator、WDA 内部故障和多云并发矩阵。iOS
+API + UI 跨层恢复仍不在设备云验收范围内。
 
-- iOS App terminate/activate、WDA/Appium session 恢复。
-- 无线 ADB 物理设备重连；本次 Android 用例覆盖 ADB server 控制面中断。
-- 多 worker 并发矩阵、iOS 云真机和正式缺陷关闭闭环。
-
-因此 Week 24 为 **PARTIAL PASS - IOS NOT RUN**，不是 COMPLETE。
+因此 Week 24 按用户指定范围判定为 **PASS - DEVICE CLOUD ONLY**。
 
 ## 计划范围 / Planned Scope
 
@@ -344,21 +345,22 @@ Week 24 依赖 Week 12 的真实 API 故障注入、Week 15/16/19/21 的移动�
 | Plan/index validation | 通过 / PASS | Windows | `entry pages are up to date.` |
 | Fault contract tests | 通过 / PASS | Windows | `8 passed in 0.23s` |
 | Ruff | 通过 / PASS | Windows | `All checks passed!` |
-| Mypy | 通过 / PASS | Windows | `201 source files`, no issues |
-| Full unit regression | 通过 / PASS | Windows | `340 passed in 9.09s` |
-| E2E collection | 通过 / PASS | Windows | `39 tests collected` |
+| Mypy | 通过 / PASS | Windows | `202 source files`, no issues |
+| Full unit regression | 通过 / PASS | Windows | `340 passed in 8.39s` |
+| E2E collection | 通过 / PASS | Windows | `41 tests collected` |
 | API transport recovery | 通过 / PASS | Windows + Linux container | `W24-API-NET-001..004` |
 | API service recovery | 通过 / PASS | Linux container | `W24-API-SVC-001` |
 | API rate-limit recovery | 通过 / PASS | Linux container | `W24-API-SVC-002`, `61.28s` |
 | Android process/session recovery | 通过 / PASS | Android 15 Emulator | `W24-AND-001`, `1 passed` |
 | Android ADB server/session rebuild | 通过 / PASS | Android 15 Emulator | `W24-AND-002`, final `1 passed` after one `FAILED` attempt |
 | Combined Week 24 recovery suite | 通过 / PASS | API + Android Emulator | `8 passed in 90.29s` |
-| iOS App/session recovery | 待执行 / NOT RUN | macOS / Simulator | XCUITest + WDA |
+| iOS App/session recovery | 通过 / PASS | BrowserStack iPhone 15 / iOS 17 | `2 passed in 74.63s` |
+| iOS fixture build/upload | 通过 / PASS | macOS 15 + BrowserStack | workflow steps `SUCCESS` |
+| iOS cloud workflow | 通过 / PASS | GitHub Actions | Run `42389853343`, job `2m4s` |
 | Namespace/session cleanup | 通过 / PASS | Platform/API | namespace `0`, sessions `[]`, no reverse |
 | Defect draft approval boundary | 通过 / PASS | Platform run | `state=draft`, approval=true, auto_issue=false |
 | Redmi fixture restore | 通过 / PASS | Physical Android 14 | `pm path com.example.qaweek15` succeeds |
 | SUT startup readiness | 通过 / PASS | Windows + Compose | all checks `PASS`, `SUT ready: True` |
-| iOS cloud real device | 延期 / DEFERRED | Device cloud | inherited scope |
 | Previous-major iOS | 继承阻塞 / BLOCKED | macOS Runner | Week 21 limitation |
 
 `PASS`、`FAILED`、`NOT RUN`、`BLOCKED` 和 `DEFERRED` 保留原始语义。
@@ -454,27 +456,31 @@ uv run --no-sync pytest tests\e2e\test_week24_android_recovery.py -q `
 
 ### iOS 恢复 / iOS Recovery
 
-```bash
-.venv/bin/python -m pytest tests/e2e/test_week24_ios_recovery.py -q \
-  -m "e2e and ios and recovery" \
-  --alluredir=artifacts/allure-week24-ios \
-  --junitxml=artifacts/week24-ios-junit.xml
+```powershell
+gh workflow run ios-fixture-cloud.yml `
+  --ref codex/week24-ios-cloud-acceptance-20261108 `
+  -f acceptance_target=week24 `
+  -f device_name="iPhone 15" `
+  -f platform_version=17
 ```
 
 通过标准：
 
-- 只在 macOS、Simulator 或合法设备云真实执行。
-- terminate/activate 或 session rebuild 后业务断言通过。
-- WDA/Appium 端口、session 和日志可回溯。
-- 无法恢复时保留 `BLOCKED`，不能把 skip 计入通过数。
+- 只在合法设备云真实执行；本次不跑本地 Simulator。
+- fixture 在 macOS 15 构建、打包 IPA 并上传 BrowserStack。
+- terminate/activate 和 session rebuild 后 fixture 标题可重新读取。
+- workflow、JUnit、Allure 和 recovery manifest 可从 Run 回溯。
+
+实际结果：BrowserStack iPhone 15 / iOS 17，`2 passed in 74.63s`，
+workflow job `SUCCESS`，总耗时 `2m4s`。
 
 ### 预期结果 / Expected Results
 
 ```text
 Gate G0: PASS or explicit BLOCKED
-API recovery: >= 5 non-duplicate cases, all expected-boundary checks pass
-Android recovery: available cases pass; unavailable cases are NOT RUN
-iOS recovery: available cases pass; unavailable cases are BLOCKED/DEFERRED
+API recovery: 6 non-duplicate cases, all expected-boundary checks pass
+Android recovery: 2 non-duplicate cases pass on Android 15 Emulator
+iOS recovery: 2 non-duplicate cases pass on BrowserStack real iPhone
 Cleanup: no proxy, namespace, temp file, or Appium session residue
 Defects: drafts only; requires_human_approval=true
 ```
@@ -485,7 +491,9 @@ Defects: drafts only; requires_human_approval=true
 - Fault models: `packages/qa_core/e2e/faults.py`
 - API recovery tests: `tests/e2e/test_week24_network_recovery.py`
 - Android recovery tests: `tests/e2e/test_week24_android_recovery.py`
-- iOS recovery: `NOT RUN`; no macOS test file is claimed as executed
+- iOS recovery tests: `tests/e2e/test_week24_ios_recovery.py`
+- iOS cloud workflow: `.github/workflows/ios-fixture-cloud.yml`
+- iOS cloud run: `42389853343`
 - Contract tests: `tests/unit/`
 - Allure: `artifacts/allure-week24-{api,android,ios}/`
 - JUnit: `artifacts/week24-{api,android,ios}-junit.xml`
@@ -497,12 +505,11 @@ Defects: drafts only; requires_human_approval=true
 
 ### 未验证项 / Unverified Items
 
-- iOS App terminate/activate、WDA 和 Appium session 恢复。
+- 本地 iOS Simulator 和 WDA 内部故障注入。
 - 无线 ADB 物理设备断连和重连；本次只覆盖 ADB server 控制面中断。
 - 故障注入下的 iOS API + UI 跨层恢复。
-- WDA 内部故障的可控注入方式和恢复边界。
 - 多 worker 下的 namespace、设备、ADB、WDA、Appium 和代理端口隔离。
-- iOS 云真机、物理 iPhone 和前一主版本 runtime。
+- 多云并发、物理 iPhone 和前一主版本 runtime。
 - Week 19 WebView context 和通知中心系统 UI 的继承缺口。
 
 ## 变更文件 / Files Changed
@@ -516,13 +523,16 @@ Defects: drafts only; requires_human_approval=true
 - `tests/e2e/conftest.py`：Week 24 Toxiproxy fixture。
 - `tests/e2e/test_week24_network_recovery.py`：6 条真实 API 恢复用例。
 - `tests/e2e/test_week24_android_recovery.py`：2 条 Android 恢复用例。
+- `tests/e2e/test_week24_ios_recovery.py`：2 条设备云恢复用例。
+- `.github/workflows/ios-fixture-cloud.yml`：增加 `week24` 验收目标。
 - `pyproject.toml`：注册 `recovery` pytest marker。
 - `docs/architecture/fault-recovery.md`。
 - `docs/runbooks/fault-recovery-triage.md`。
 - `reports/weekly/WEEK-24.md`。
 - `reports/README.md`（由索引脚本刷新）。
 
-尚未创建 `.github/workflows/week24-recovery.yml`，不把计划文件写成已完成 CI。
+Week 24 设备云路径复用默认分支已有 workflow，避免新增一个无法直接
+`workflow_dispatch` 的独立入口。
 
 ## 环境 / Environment
 
@@ -536,7 +546,8 @@ Defects: drafts only; requires_human_approval=true
 - Android：UiAutomator2、ADB、Android 15 ATD Emulator 已执行
 - Android 物理设备：Redmi K50 / Android 14，fixture 已恢复安装；本周恢复执行
   仍使用 Emulator
-- iOS：XCUITest 8.4.3、Xcode 16.4、iOS 18.5 Simulator
+- iOS 设备云：BrowserStack App Automate，iPhone 15 / iOS 17，Appium 2.19.0
+- iOS 构建：macOS 15 Runner，Xcode 16.4，无本地 Simulator 验收
 - SUT：本地 Docker Compose、PostgreSQL、Redis
 - Fault injection：Toxiproxy 2.9.0，控制端口 `18474`
 - Worker proxy ports：`18100-18103`
@@ -559,6 +570,8 @@ Defects: drafts only; requires_human_approval=true
 - 固定 `sleep` 会让恢复看起来很快或很慢，但不能证明状态真的恢复。
 - iOS WDA 内部故障不一定能从测试代码稳定触发，必要时只验证 session 重建并
   明确记录限制。
+- 设备云验收依赖 BrowserStack 配额、排队和设备可用性；本次单设备串行通过，
+  不代表多云或多设备并发通过。
 - 故障用例与并行测试共享代理、端口或服务时容易互相污染，必须保持 worker
   和 namespace 隔离。
 - 失败证据可能包含 token、完整 UDID、URL 参数或业务敏感数据，写入前必须脱敏。
@@ -571,9 +584,9 @@ Week 25 的性能 Smoke 已在独立分支完成，但 Week 24 不以性能阶�
 Week 24 收口前必须明确：
 
 1. Gate G0、6 条 API 恢复和 2 条 Android 恢复已通过。
-2. 合并恢复套件为 `8 passed in 90.29s`，已达到本周最少 8 条非重复用例。
-3. iOS 恢复必须在 macOS、Simulator 或合法设备云执行，Windows 保持 `NOT RUN`。
-4. iOS 执行成功前，Week 24 保持 `PARTIAL PASS - IOS NOT RUN`。
+2. BrowserStack 真机恢复为 `2 passed in 74.63s`，Run `42389853343`。
+3. Week 24 按“只验收设备云”的用户范围判定为 PASS。
+4. 本地 Simulator、WDA 内部故障和 iOS API + UI 跨层恢复不在本次范围。
 5. 失败只生成人工审批缺陷草稿，不自动创建正式 Issue。
 
 Week 25 之后进入 Baseline/Load 时，故障恢复证据可以作为性能失败分析输入，

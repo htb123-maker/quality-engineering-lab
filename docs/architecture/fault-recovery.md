@@ -118,7 +118,21 @@ They do not prove mobile recovery by themselves.
 | `W24-AND-002` | ADB server stopped | ADB restarted, reverse tunnel recreated, new Appium session reads the item |
 
 `W24-AND-002` covers the ADB server control plane. It does not replace wireless
-ADB transport loss, iOS WDA recovery, or device-cloud recovery.
+ADB transport loss or iOS WDA internal-fault recovery.
+
+## iOS Device Cloud Cases / iOS 设备云用例
+
+| Test ID | Fault | Recovery proof |
+| --- | --- | --- |
+| `W24-IOS-CLOUD-001` | fixture app terminated | activate the app and read the fixture title in the same cloud session |
+| `W24-IOS-CLOUD-002` | original Appium session released | create a new BrowserStack session and read the fixture title |
+
+The accepted environment is BrowserStack iPhone 15 / iOS 17 with Appium 2.19.0.
+The GitHub Actions run built and uploaded the IPA on macOS 15, executed
+`2 passed in 74.63s`, and completed the job in `2m4s`.
+
+This acceptance is device-cloud only. Local Simulator, WDA internal fault
+injection, and iOS API + UI cross-layer recovery were not run.
 
 ## Failure Boundaries / 失败边界
 
@@ -133,12 +147,13 @@ ADB transport loss, iOS WDA recovery, or device-cloud recovery.
 
 ## Current Status / 当前状态
 
-As of 2026-11-07:
+As of 2026-11-08:
 
 - Gate G0: `PASS` on Android 15 Emulator with one API + UI + API case.
 - API network/service/rate-limit recovery: `6 passed`.
 - Android process and ADB/session recovery: `2 passed`.
 - Combined recovery suite: `8 passed in 90.29s`.
+- iOS device-cloud recovery: `2 passed in 74.63s`.
 - Recovery contract tests: `8 passed`.
-- iOS App/WDA/session recovery: `NOT RUN` on Windows.
-- Week 24 status: `PARTIAL PASS - IOS NOT RUN`.
+- Local Simulator and WDA internal-fault recovery: `NOT RUN` by explicit scope.
+- Week 24 status: `PASS - DEVICE CLOUD ONLY`.

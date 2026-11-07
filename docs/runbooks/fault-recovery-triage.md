@@ -8,7 +8,8 @@
 4. Run the six API network/service/rate-limit cases.
 5. Run the two Android process and ADB/session cases.
 6. Run one Week 23 cross-layer Gate G0 case.
-7. Verify test namespace, proxy, Appium session, and ADB reverse cleanup.
+7. Run the two iOS device-cloud recovery cases through GitHub Actions.
+8. Verify test namespace, proxy, Appium session, and ADB reverse cleanup.
 
 ```powershell
 .\scripts\start_sut.ps1 -FaultInjection -WaitSeconds 180
@@ -99,6 +100,26 @@ The first `W24-AND-002` attempt failed with `ConnectException` because the ADB
 reverse tunnel was not restored. The test now recreates it before opening the
 catalog and the final rerun passed. This is an automation/environment recovery
 boundary, not a product defect.
+
+## iOS Device Cloud Recovery / iOS 设备云恢复
+
+Week 24 iOS acceptance is BrowserStack-only. The workflow builds and uploads
+the fixture on macOS, then runs app termination and Appium session rebuild
+checks on a real iPhone:
+
+```powershell
+gh workflow run ios-fixture-cloud.yml `
+  --ref codex/week24-ios-cloud-acceptance-20261108 `
+  -f acceptance_target=week24 `
+  -f device_name="iPhone 15" `
+  -f platform_version=17
+```
+
+Verified run: `42389853343`, BrowserStack iPhone 15 / iOS 17,
+`2 passed in 74.63s`, job `SUCCESS` in `2m4s`.
+
+This does not run local Simulator, WDA internal fault injection, or iOS API+UI
+cross-layer recovery. Do not record those as passed from this workflow.
 
 ## Gate G0 / Week 23 跨层入口
 
