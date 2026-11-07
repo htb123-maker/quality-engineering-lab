@@ -2,7 +2,7 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-共 53 篇设计文档，按主题分组。
+共 55 篇设计文档，按主题分组。
 
 ## 目标与计划 / Goals and Plan
 
@@ -16,6 +16,7 @@
 - [Android System Interactions](architecture/android-system-interactions.md)
 - [Week 23 Cross-Layer E2E / 跨层 E2E](architecture/cross-layer-e2e.md)
 - [Cross-Platform Mobile Framework v1 / 跨平台移动框架 v1](architecture/cross-platform-framework.md)
+- [Week 24 Fault Recovery / 故障注入与恢复](architecture/fault-recovery.md)
 - [iOS Device Matrix and Parallel Isolation](architecture/ios-device-matrix.md)
 - [iOS Stability, Inventory, and Failure Diagnostics](architecture/ios-stability-and-diagnostics.md)
 - [Mobile Driver Call Chain](architecture/mobile-driver-call-chain.md)
@@ -61,6 +62,7 @@
 - [数据库锁等待与死锁排查 / Database Lock-Wait and Deadlock Triage](runbooks/database-lock-and-deadlock-triage.md)
 - [Failed Quality Gate Triage Runbook](runbooks/failed-quality-gate.md)
 - [Fault Injection and Defect Draft Triage](runbooks/fault-injection-and-defect-drafts.md)
+- [Fault Recovery Triage / 故障恢复排障](runbooks/fault-recovery-triage.md)
 - [iOS Parallel WDA and DerivedData Triage](runbooks/ios-parallel-wda-deriveddata-triage.md)
 - [iOS Self-Hosted Physical Device Runner](runbooks/ios-self-hosted-device-runner.md)
 - [iOS Stability and Flaky Triage](runbooks/ios-stability-and-flaky-triage.md)

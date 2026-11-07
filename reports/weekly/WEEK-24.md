@@ -3,37 +3,30 @@
 - 计划 / Plan: Week 24，故障注入、恢复与缺陷闭环
 - 日期范围 / Date Range: 2026-12-01 to 2026-12-07
 - 分支 / Branch: `study/week-24-recovery`
-- 基线提交 / Base Commit: `f3d8cbd`（Week 23 计划分支当前提交）
+- 基线提交 / Base Commit: `cb9efcf`（Week 23 Android 跨层实现）
 - 计划提交 / Plan Commit: 本文件首次提交 / Initial commit for this file
 - 远端分支 / Remote Branch: 尚未推送 / Not pushed
 - Pull Request: 尚未创建 / Not created
-- 状态 / Status: **计划已开启，实施未开始 / PLANNED ONLY - NOT RUN**
+- 状态 / Status: **实施中，API 恢复与 Gate G0 已通过 / IN PROGRESS**
 
 ## Week 23 入口核对 / Week 23 Entry Audit
 
-2026-11-06 对 `study/week-23-e2e` 的当前工作区进行了检查：
+2026-11-07 重新核对并推送了 `study/week-23-e2e`：
 
-- `reports/weekly/WEEK-23.md` 存在，但仍标记
-  **计划已开启，实施未开始 / PLANNED ONLY - NOT RUN**。
-- 从 Week 22 基线到 Week 23 当前提交的代码差异只有 `AGENTS.md`、
-  `reports/README.md` 和 `reports/weekly/WEEK-23.md`，没有 E2E 实现。
+- 远端分支更新为 `f3d8cbd..cb9efcf`，本地与远端同步。
 - `packages/qa_core/e2e/`、`tests/e2e/`、`configs/e2e-test-inventory.yaml`、
-  `docs/architecture/cross-layer-e2e.md`、`docs/runbooks/cross-layer-e2e-triage.md`
-  和 `.github/workflows/week23-e2e.yml` 均不存在。
-- 因此 Week 23 不是 `PASS` 或 `PARTIAL PASS`，也没有 30 条可执行跨层 E2E
-  可以作为 Week 24 的真实入口证据。
-- Week 22 的双平台 Scenario/adapter 和 `327 passed` 单元回归仍是有效基线，
-  但它只能证明共享框架可用，不能替代 Week 23 的 API + UI 跨层旅程。
+  `docs/architecture/cross-layer-e2e.md` 和跨层 triage runbook 均存在。
+- Week 23 Android 30 条跨层用例的既有报告为
+  **PARTIAL PASS - IOS NOT RUN**，不是 COMPLETE；该状态保持不变。
+- Week 24 分支已 rebase 到 Week 23 实现提交，不再停留在旧计划基线。
 
 入口结论：
 
-- Week 24 可以开启计划、补充基础设施和编写 API 侧恢复测试。
-- 任何依赖真实 API + UI Journey 的移动恢复验收，在 Week 23 最小纵向链路
-  完成前必须标记 `BLOCKED` 或 `NOT RUN`。
-- 不得先写“故障恢复通过”，再用 Week 22 的本地 fixture 导航或文件操作代替
-  API 建数、UI 操作和 API 验证。
-- Week 24 不自动补做全部 30 条 Week 23 E2E。先补齐一条可复用的真实纵向
-  链路，再扩展本周故障矩阵。
+- Gate G0 在 Android 15 Emulator 上真实执行 `E2E-CAT-001` 并通过。
+- API 建数、fixture 读取、归档操作和服务端复核使用同一 run ID 和 item。
+- iOS 跨层入口仍为 `NOT RUN`，不能由 Android 或 fake adapter 替代。
+- Week 24 可以继续 API 恢复与 Android 恢复；iOS 恢复必须在 macOS、Simulator
+  或合法设备云上执行。
 
 ### 已有可复用能力 / Existing Reusable Capabilities
 
@@ -71,26 +64,32 @@ Week 24 建立一条可重复的故障恢复验收链：
 7. 失败只生成需要人工审批的缺陷草稿，不自动创建、更新或关闭正式缺陷。
 
 English summary: build a reversible fault-and-recovery contract on top of the
-Week 22 mobile adapter and the pending Week 23 cross-layer journey, then prove
-transport, service, Android, and iOS recovery with bounded waits and structured
-evidence.
+Week 23 cross-layer journey, then prove transport, service, Android, and iOS
+recovery with bounded waits and structured evidence.
 
 ## 完成状态 / Completion Status
 
-**计划已开启 / PLANNED ONLY**
+**实施中 / IN PROGRESS**
 
-本文件只定义 Week 24 的执行边界、入口条件和验收方式。以下结果当前均为
-`NOT RUN`：
+已完成并有执行证据：
 
-- Week 23 API + UI 最小纵向链路。
-- Week 24 故障场景注册表和故障 manifest。
-- API 延迟、超时、断连、服务和限流恢复用例。
-- Android App 进程死亡、ADB 掉线和 session 恢复用例。
-- iOS App、WDA 和 Appium session 恢复用例。
-- 双平台跨层 E2E 的故障注入与恢复断言。
-- 故障期间和恢复后的数据一致性验证。
-- 缺陷草稿与 API/UI/设备证据关联。
-- 至少 8 条不重复恢复用例的最终清单。
+- `FaultSpec`、`FaultType`、`RecoveryContext`、`RecoveryJourney`、
+  `RecoveryPolicy`、`RecoveryResult` 和结构化 recovery manifest。
+- 8 条恢复契约单元测试：基线、注入、观察、恢复轮询、超时、清理和脱敏。
+- 5 条真实 API 恢复用例：latency、timeout、reset peer、proxy disabled、
+  upstream unavailable；全部通过，且恢复后重新读取同一 catalog item。
+- Gate G0：Android 15 Emulator 上 `E2E-CAT-001` 真实通过。
+- 清理检查：test namespace `0`、Appium sessions `[]`、ADB reverse 无输出。
+
+仍未完成：
+
+- Android App 进程死亡、ADB 掉线和 Week 24 Appium session 重建用例。
+- iOS App terminate/activate、WDA/Appium session 恢复。
+- 限流窗口恢复用例；当前服务不可用已由真实 upstream 切换覆盖。
+- 双平台 UI 故障恢复、并发 worker 矩阵和正式缺陷闭环。
+- Week 24 最终至少 8 条非重复恢复执行的完整清单。
+
+因此 Week 24 仍为 **IN PROGRESS**，不是 COMPLETE。
 
 ## 计划范围 / Planned Scope
 
@@ -308,10 +307,10 @@ flowchart LR
 ```mermaid
 flowchart LR
     W12["Week 12<br/>Toxiproxy + 缺陷草稿<br/>PASS"] --> W22["Week 22<br/>Scenario + Adapter<br/>CORE PASS"]
-    W22 --> W23["Week 23<br/>API + UI E2E<br/>PLANNED ONLY"]
+    W22 --> W23["Week 23<br/>API + UI E2E<br/>PARTIAL PASS"]
     W23 --> W24["Week 24<br/>Fault Injection<br/>and Recovery"]
     W24 --> W31["Week 31<br/>CI 质量门禁"]
-    W23 -. "Gate G0 未通过时<br/>移动恢复 BLOCKED" .-> W24
+    W23 -. "Gate G0 PASS<br/>Android baseline" .-> W24
     class W24 current
     classDef current fill:#2d7ff9,color:#fff,stroke:#1b4f9c,stroke-width:2px
 ```
@@ -337,18 +336,21 @@ Week 24 依赖 Week 12 的真实 API 故障注入、Week 15/16/19/21 的移动�
 
 | 检查项 / Check | 结果 / Status | 执行环境 / Environment | 证据 / Evidence |
 | --- | --- | --- | --- |
-| Week 23 implementation audit | 未通过 / FAILED GATE | Windows | 只有计划文档，没有 `tests/e2e` |
-| Plan/index validation | 待执行 / NOT RUN | Windows | `build_doc_index.py --check` |
-| Fault contract tests | 待执行 / NOT RUN | Windows | fake fault/recovery ports |
-| Ruff | 待执行 / NOT RUN | Windows | project `.venv` |
-| Mypy | 待执行 / NOT RUN | Windows | `packages`, `tests` |
-| Full unit regression | 待执行 / NOT RUN | Windows | project `.venv` |
-| API transport recovery | 待执行 / NOT RUN | Windows + Linux container | Toxiproxy |
-| API service/limit recovery | 待执行 / NOT RUN | Linux container | dedicated test Compose |
+| Week 23 implementation audit | 通过 / PASS | Windows | `cb9efcf` and `tests/e2e` |
+| Gate G0 Android cross-layer | 通过 / PASS | Android 15 Emulator | `1 passed, 29 deselected in 10.69s` |
+| Plan/index validation | 通过 / PASS | Windows | `entry pages are up to date.` |
+| Fault contract tests | 通过 / PASS | Windows | `8 passed in 0.23s` |
+| Ruff | 通过 / PASS | Windows | `All checks passed!` |
+| Mypy | 通过 / PASS | Windows | `200 source files`, no issues |
+| Full unit regression | 通过 / PASS | Windows | `340 passed in 8.76s` |
+| E2E collection | 通过 / PASS | Windows | `36 tests collected` |
+| API transport recovery | 通过 / PASS | Windows + Linux container | `W24-API-NET-001..004` |
+| API service recovery | 通过 / PASS | Linux container | `W24-API-SVC-001` |
+| API rate-limit recovery | 待执行 / NOT RUN | Linux container | no recovery pass claim |
 | Android process/session recovery | 待执行 / NOT RUN | Android device | Appium + ADB |
 | Android ADB reconnect | 待执行 / NOT RUN | Android device | wireless ADB |
 | iOS App/session recovery | 待执行 / NOT RUN | macOS / Simulator | XCUITest + WDA |
-| Namespace/session cleanup | 待执行 / NOT RUN | Platform/API | no residue |
+| Namespace/session cleanup | 通过 / PASS | Platform/API | namespace `0`, sessions `[]`, no reverse |
 | Defect draft approval boundary | 待执行 / NOT RUN | Platform run | human approval |
 | iOS cloud real device | 延期 / DEFERRED | Device cloud | inherited scope |
 | Previous-major iOS | 继承阻塞 / BLOCKED | macOS Runner | Week 21 limitation |
@@ -371,8 +373,10 @@ Week 24 依赖 Week 12 的真实 API 故障注入、Week 15/16/19/21 的移动�
 ### Gate G0 / Week 23 Cross-Layer Entry
 
 ```powershell
-uv run --no-sync pytest tests\e2e -q -m "e2e and smoke" `
-  --alluredir=artifacts\allure-week24-gate0
+pytest tests\e2e\test_catalog_cross_layer.py -q `
+  -k E2E-CAT-001 `
+  --alluredir=artifacts\allure-week24-gate0 `
+  --junitxml=artifacts\week24-gate0-junit.xml
 ```
 
 通过标准：
@@ -381,8 +385,8 @@ uv run --no-sync pytest tests\e2e -q -m "e2e and smoke" `
 - run ID、API request ID、scenario ID、step ID、platform 和 session 可关联。
 - 清理后 namespace、item、Appium session 无残留。
 
-如果测试路径不存在或该命令保持 `NOT RUN`，Gate G0 失败，移动恢复验收不能
-标记为通过。
+实际结果：`1 passed, 29 deselected in 10.69s`。UI 与服务端最终状态均为
+`archived`，setup 和 verification request ID 均存在。
 
 ### Windows 静态验证 / Windows Static Verification
 
@@ -483,9 +487,10 @@ Defects: drafts only; requires_human_approval=true
 
 ### 未验证项 / Unverified Items
 
-- Week 23 的 API + UI 跨层入口。
-- 任何 Week 24 恢复用例的真实执行结果。
-- Android 和 iOS App 是否都可通过可配置 URL 访问被代理的 SUT。
+- Android App 进程死亡、ADB 掉线和 Week 24 Appium session 重建。
+- iOS App terminate/activate、WDA 和 Appium session 恢复。
+- 限流窗口耗尽后的真实恢复等待。
+- 故障注入下的 Android/iOS API + UI 跨层恢复。
 - 当前 fixture 是否能稳定支持进程死亡后的跨层业务状态验证。
 - ADB 断线后的旧 session 是否能确定性恢复，还是必须重建 session。
 - WDA 内部故障的可控注入方式和恢复边界。
@@ -495,25 +500,20 @@ Defects: drafts only; requires_human_approval=true
 
 ## 变更文件 / Files Changed
 
-开周计划：
+本轮实际变更：
 
-- `reports/weekly/WEEK-24.md`
-- `reports/README.md`（由索引脚本刷新）
-
-实施后预计涉及：
-
-- `packages/qa_core/e2e/`：RecoveryJourney、FaultSpec 和证据上下文。
-- `packages/qa_core/resilience/`：可复用的故障控制与清理边界。
-- `packages/qa_core/platforms/android/`：ADB/session 恢复辅助能力。
-- `packages/qa_core/platforms/ios/`：WDA/Appium session 恢复辅助能力。
-- `tests/unit/`：故障和恢复契约测试。
-- `tests/e2e/`：网络、服务、Android 和 iOS 恢复测试。
+- `packages/qa_core/e2e/faults.py`：`FaultType` 和 `FaultSpec`。
+- `packages/qa_core/e2e/recovery.py`：恢复上下文、编排、轮询和 manifest。
+- `packages/qa_core/e2e/__init__.py`：公开恢复契约。
+- `tests/unit/test_recovery_journey.py`：8 条恢复契约测试。
+- `tests/e2e/conftest.py`：Week 24 Toxiproxy fixture。
+- `tests/e2e/test_week24_network_recovery.py`：5 条真实 API 恢复用例。
 - `docs/architecture/fault-recovery.md`。
 - `docs/runbooks/fault-recovery-triage.md`。
-- `.github/workflows/week24-recovery.yml`。
-- `reports/weekly/WEEK-24.md`：实测结果和证据回填。
+- `reports/weekly/WEEK-24.md`。
+- `reports/README.md`（由索引脚本刷新）。
 
-最终文件列表以实际实现为准，不在开周时虚构已完成产物。
+尚未创建 `.github/workflows/week24-recovery.yml`，不把计划文件写成已完成 CI。
 
 ## 环境 / Environment
 
@@ -521,7 +521,9 @@ Defects: drafts only; requires_human_approval=true
 - Python 3.12，项目 `.venv`
 - Appium Python Client 5.x
 - Appium 2.19.0
-- Android：UiAutomator2、ADB、现有 Redmi K50 / Android 14 基线或 Emulator
+- Android：UiAutomator2、ADB、Android 15 ATD Emulator 已执行
+- Android 物理设备：Redmi K50 / Android 14 已识别，但 MIUI 安装确认阻止覆盖
+  当前 fixture，因此本次 `NOT RUN`
 - iOS：XCUITest 8.4.3、Xcode 16.4、iOS 18.5 Simulator
 - SUT：本地 Docker Compose、PostgreSQL、Redis
 - Fault injection：Toxiproxy 2.9.0，控制端口 `18474`
@@ -532,7 +534,7 @@ Defects: drafts only; requires_human_approval=true
 
 ## 风险与限制 / Risks and Limitations
 
-- Week 23 尚未实现，移动恢复用例可能因 Gate G0 失败而无法进入真实验收。
+- 物理 Android 的 USB 安装确认可能在 `adb install` 阶段阻止 fixture 更新。
 - 网络代理地址在 Android Emulator、物理 Android、iOS Simulator 和设备云中
   不同，必须配置化，不能写死 `localhost`。
 - 停止 Compose 服务会影响同一环境中的其他测试，必须使用专用 project name
@@ -553,11 +555,11 @@ Week 25 的性能 Smoke 已在独立分支完成，但 Week 24 不以性能阶�
 
 Week 24 收口前必须明确：
 
-1. Gate G0 是否通过，哪条真实 API + UI 链路可作为恢复基线。
-2. 哪些故障已在真实环境注入并恢复，哪些只通过 fake 或 collect-only。
-3. Android 和 iOS 分别有哪些 `PASS`、`BLOCKED`、`NOT RUN`、`DEFERRED`。
-4. 恢复后的业务状态、重复写入和清理结果是否可证明。
-5. 缺陷草稿是否只停留在人工审批边界内。
+1. Gate G0 已通过；下一步基于 `E2E-CAT-001` 接入 Android 进程和 session 恢复。
+2. API 网络/服务恢复已有 5 条真实通过；限流恢复仍未执行。
+3. iOS 恢复必须在 macOS、Simulator 或合法设备云执行，Windows 保持 `NOT RUN`。
+4. 移动恢复必须重新验证同一 namespace、item 和 session 的业务事实。
+5. 失败只生成人工审批缺陷草稿，不自动创建正式 Issue。
 
 Week 25 之后进入 Baseline/Load 时，故障恢复证据可以作为性能失败分析输入，
 但不能替代容量、资源和 SLO 结论。
