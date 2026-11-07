@@ -12,6 +12,14 @@ on:
       - tests/ios/test_week19_system_interactions.py
   workflow_dispatch:
     inputs:
+      acceptance_target:
+        description: Cloud acceptance target
+        required: true
+        type: choice
+        default: week19
+        options:
+          - week19
+          - week24
       device_name:
         description: BrowserStack real-device name
         required: true
@@ -38,8 +46,8 @@ jobs:
       QA_IOS_CLOUD_DEVICE_NAME: ${{ inputs.device_name || 'iPhone 15' }}
       QA_IOS_CLOUD_PLATFORM_VERSION: ${{ inputs.platform_version || '17' }}
       QA_IOS_CLOUD_PROJECT_NAME: quality-engineering-lab
-      QA_IOS_CLOUD_BUILD_NAME: week19-acceptance-${{ github.run_id }}
-      QA_IOS_CLOUD_SESSION_NAME: week19-acceptance
+      QA_IOS_CLOUD_BUILD_NAME: ios-cloud-${{ inputs.acceptance_target }}-${{ github.run_id }}
+      QA_IOS_CLOUD_SESSION_NAME: ios-cloud-${{ inputs.acceptance_target }}
       QA_IOS_CLOUD_APPIUM_VERSION: "2.19.0"
       QA_IOS_BUNDLE_ID: com.example.qaweek19
       QA_IOS_WEBVIEW_CONNECT_TIMEOUT_MS: "60000"
@@ -104,6 +112,7 @@ jobs:
           echo "QA_IOS_CLOUD_APP=$app_url" >> "$GITHUB_ENV"
 
       - name: Run Week 19 acceptance cases
+        if: ${{ inputs.acceptance_target == 'week19' }}
         run: |
           mkdir -p artifacts/allure-results
           uv run --no-sync pytest \
@@ -111,11 +120,20 @@ jobs:
             --alluredir=artifacts/allure-results \
             --junitxml=artifacts/week19-junit.xml
 
+      - name: Run Week 24 cloud recovery cases
+        if: ${{ inputs.acceptance_target == 'week24' }}
+        run: |
+          mkdir -p artifacts/allure-results
+          uv run --no-sync pytest \
+            tests/e2e/test_week24_ios_recovery.py -q \
+            --alluredir=artifacts/allure-results \
+            --junitxml=artifacts/week24-ios-cloud-junit.xml
+
       - name: Upload Week 19 diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ios-week19-fixture-diagnostics
+          name: ios-${{ inputs.acceptance_target }}-fixture-diagnostics
           path: artifacts/
           if-no-files-found: ignore
 
@@ -123,6 +141,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ios-week19-screenshots
+          name: ios-${{ inputs.acceptance_target }}-screenshots
           path: artifacts/ios-diagnostics/
           if-no-files-found: ignore
