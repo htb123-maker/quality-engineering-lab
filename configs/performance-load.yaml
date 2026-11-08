@@ -1,0 +1,36 @@
+version: 1
+name: week26-load
+base_url: http://127.0.0.1:28000
+workspace: qa-perf-week26-local
+authentication: password
+account_pool_size: 16
+token_refresh_after_seconds: 20
+stages:
+  - users: 8
+    spawn_rate: 4
+    duration_seconds: 60
+thresholds:
+  - name: load p50 latency
+    metric: p50_response_time_ms
+    operator: lte
+    threshold: 500
+  - name: load p95 latency
+    metric: p95_response_time_ms
+    operator: lte
+    threshold: 1000
+  - name: load p99 latency
+    metric: p99_response_time_ms
+    operator: lte
+    threshold: 2000
+  - name: load error rate
+    metric: error_rate
+    operator: lte
+    threshold: 0.01
+  - name: load request evidence
+    metric: total_requests
+    operator: gte
+    threshold: 400
+  - name: load throughput
+    metric: requests_per_second
+    operator: gte
+    threshold: 6
