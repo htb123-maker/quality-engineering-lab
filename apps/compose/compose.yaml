@@ -7,6 +7,7 @@ services:
       context: ../..
       dockerfile: apps/compose/api/Dockerfile
     environment:
+      QA_ENVIRONMENT: ${QA_ENVIRONMENT:-local}
       QA_POSTGRES_DSN: postgresql://${QA_POSTGRES_USER:-qa}:${QA_POSTGRES_PASSWORD:-qa}@postgres:5432/${QA_POSTGRES_DB:-qa}
       QA_POSTGRES_MAX_CONNECTIONS: ${QA_POSTGRES_MAX_CONNECTIONS:-16}
       QA_POSTGRES_CONNECTION_TIMEOUT_SECONDS: ${QA_POSTGRES_CONNECTION_TIMEOUT_SECONDS:-2}

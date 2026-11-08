@@ -1,7 +1,7 @@
 # 项目执行计划
 
-版本：2.2  
-日期：2026-09-25  
+版本：2.3<br>
+日期：2026-11-08<br>
 周期：32 周，建议每周 10 到 12 小时  
 主线：接口自动化 + 数据库/缓存测试 + Android/iOS Appium 2 + 性能测试 + 缺陷闭环 + AI/Agent 增强  
 开发环境：Windows + PyCharm，iOS 使用 macOS、macOS CI 或设备云
@@ -321,7 +321,14 @@ quality-engineering-lab/
 
 缺陷管理不单独增加一套框架，直接嵌入 Week 11、12、23、24、31 和 32。先跑通轻量闭环 `Jenkins/GitLab CI + Allure + GitLab Issues`，再接入 `Kiwi TCMS + OpenProject/ReportPortal` 等开源增强组件。任何新增平台都必须能通过 API 适配器接入，不能把核心测试代码绑定到单一缺陷系统。
 
-### 5.1 计划验收与周报协议
+### 5.1 性能阶段状态
+
+Week 25 性能 Smoke 已完成。Week 26 的单机范围已完成，包括 Baseline、Load、
+双 run 数据池隔离、资源采样和单主机 Locust master/worker 验收；由于没有第二台
+独立压力机，跨主机分布式验收保持 `DEFERRED`，Week 26 整体结论为 `PARTIAL`。
+后续 Week 27 进入 Prometheus、Grafana、Trace 和指标时间线对齐。
+
+### 5.2 计划验收与周报协议
 
 每一个 Plan（通常对应课表中的一周）完成后，必须生成
 `reports/weekly/WEEK-XX.md`。日报可以继续作为过程记录，但不能替代计划总结。

@@ -17,6 +17,7 @@ Markdown 和下面的 Mermaid 结构图。
 ```mermaid
 flowchart TB
     T["tests<br/>unit / api / integration / smoke / android / ios"] --> C["packages/qa_core<br/>共享测试核心"]
+    P["performance<br/>Locust journeys"] --> C
     C --> S["apps/compose<br/>本地被测系统"]
     S --> PG[("PostgreSQL 16")]
     S --> RD[("Redis 7")]
@@ -34,6 +35,14 @@ uv sync
 .\scripts\start_sut.ps1
 uv run python scripts/check_sut.py
 uv run pytest tests/unit -q
+```
+
+独立性能环境与 Week 25 Smoke：
+
+```powershell
+.\scripts\start_performance_sut.ps1
+.\scripts\run_performance_smoke.ps1
+.\scripts\stop_performance_sut.ps1
 ```
 
 环境准备、数据库与移动端步骤见 [docs/PLAN.md](docs/PLAN.md)；
