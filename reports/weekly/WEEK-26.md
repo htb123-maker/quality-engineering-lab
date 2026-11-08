@@ -2,10 +2,10 @@
 
 - 计划 / Plan: Week 26，Baseline、Load、数据库数据池与分布式 Locust
 - 日期范围 / Date Range: 2026-11-05 to 2026-11-11
-- 当前工作区 / Current Worktree: `D:\Codex projects\Appium 2 study`
-- 当前分支 / Current Branch: `study/week-20-ios-device-matrix`
-- 基线提交 / Base Commit: `a1c0306`，其上有未提交的 Week 25 性能实现
-- 计划提交 / Plan Commit: 本文件首次提交 / Initial commit for this file
+- 当前工作区 / Current Worktree: `C:\Users\quan\.codex\worktrees\week25-26-performance-push\Appium 2 study`
+- 当前分支 / Current Branch: `codex/week25-26-performance-20261108`
+- 基线提交 / Base Commit: `b8ee3bd`（远端 `study/week-20-ios-device-matrix`）
+- 计划提交 / Plan Commit: `96e7159`（远端首次发布提交）
 - Pull Request: 尚未创建 / Not created
 - 状态 / Status: **部分通过 / PARTIAL - ONE-HOST COMPLETE, CROSS-HOST DEFERRED**
 - iOS 依赖 / iOS Dependency: 无 / None
@@ -63,7 +63,7 @@ Week 25 当前报告位于本工作区 `reports/weekly/WEEK-25.md`，状态为
 - 107 个请求只代表一次 10 秒、4 用户的本地 Smoke，不是容量结论。
 - Week 25 没有覆盖认证旅程、隔离性能数据池、p50、吞吐量、资源指标或
   分布式 Locust。
-- Week 25 的未提交改动仍在当前工作区，Week 26 不以未提交状态冒充版本基线。
+- Week 25 实现和报告已随 `codex/week25-26-performance-20261108` 发布。
 
 ## 计划目标 / Plan Goal
 
@@ -728,7 +728,8 @@ Week 26: PARTIAL
 
 ## 风险与限制 / Risks and Limitations
 
-- Week 25 改动尚未提交，后续比较必须记录实际 worktree 状态和 commit。
+- 性能运行 manifest 记录了当时混合工作区的 `worktree_dirty=true`；远端发布分支
+  是整理后的快照，不等于原始运行工作区的 Git 状态。
 - 同一 Windows 主机同时运行 SUT、PostgreSQL、Redis、Locust 和资源采样，
   可能互相竞争 CPU、内存和磁盘 IO。
 - 三次运行仍不足以证明长期稳定；Week 29 才覆盖 Soak。
