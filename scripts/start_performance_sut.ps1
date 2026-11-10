@@ -3,7 +3,9 @@ param(
     [ValidateRange(10, 600)]
     [int]$WaitSeconds = 120,
 
-    [switch]$SkipBuild
+    [switch]$SkipBuild,
+
+    [switch]$Monitoring
 )
 
 Set-StrictMode -Version Latest
@@ -21,6 +23,7 @@ else {
 & (Join-Path $PSScriptRoot "start_sut.ps1") `
     -WaitSeconds $WaitSeconds `
     -SkipBuild:$SkipBuild `
+    -Monitoring:$Monitoring `
     -ProjectName "quality-engineering-lab-performance" `
     -EnvFile $envFile `
     -ApiBaseUrl "http://127.0.0.1:28000" `

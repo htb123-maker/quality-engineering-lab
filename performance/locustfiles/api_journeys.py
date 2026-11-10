@@ -62,6 +62,7 @@ if RUNTIME_DATA is None:
         """Read-only Week 25 smoke user."""
 
         host = str(PROFILE.base_url).rstrip("/")
+        headers = {"X-QA-Run-Id": RUN_ID}
         wait_time = between(0.2, 0.5)
 
         def _expect_ok(self, response: Any, label: str) -> None:
@@ -117,6 +118,7 @@ else:
         """Authenticated baseline/load user backed by the isolated data pool."""
 
         host = str(PROFILE.base_url).rstrip("/")
+        headers = {"X-QA-Run-Id": RUN_ID}
         wait_time = between(0.2, 0.5)
 
         def on_start(self) -> None:

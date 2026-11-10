@@ -181,3 +181,29 @@ profile、metadata、manifest、日志或周报。Week 26 实测清理结果为
 
 单主机拓扑只证明控制和统计聚合正确，不证明独立压力机容量。Week 26 没有第二
 台独立测试主机，因此跨主机 worker 验收保持 `DEFERRED`；这不是 `PASS`。
+
+## 10. Week 27 指标与 Trace 对齐
+
+Week 27 在同一时间轴上补充：
+
+- SUT `/metrics` 的请求数、p95/p99、5xx 比例和进行中请求数。
+- PostgreSQL exporter 的连接、事务和锁状态。
+- Redis exporter 的客户端、内存和命令处理指标。
+- cAdvisor 的容器 CPU 和内存时间序列。
+- Tempo 中按 `X-Trace-Id` 查询的 SUT 请求 span。
+
+Locust 发送 `X-QA-Run-Id`，SUT 将最近一次 run id 暴露为
+`qa_sut_last_request_run_info`。run id 不进入每个请求的 label，避免高基数。
+
+分析顺序：
+
+```text
+先确认 Prometheus target up
+-> 再看 Locust 时间窗口内的 RPS、p95/p99 和错误率
+-> 对齐 API/PostgreSQL/Redis 容器资源
+-> 用 Trace ID 查看单次请求耗时
+-> 只形成瓶颈候选和下一轮实验
+```
+
+监控栈没有真实启动、没有成功抓取或 Tempo 查询失败时，Week 27 必须保持
+`BLOCKED`/`NOT RUN`，不能把配置文件存在写成验收通过。

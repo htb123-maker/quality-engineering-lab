@@ -42,6 +42,8 @@ uv run pytest tests/unit -q
 ```powershell
 .\scripts\start_performance_sut.ps1
 .\scripts\run_performance_smoke.ps1
+.\scripts\start_performance_sut.ps1 -Monitoring
+.\scripts\verify_observability.ps1
 .\scripts\stop_performance_sut.ps1
 ```
 

@@ -326,7 +326,12 @@ quality-engineering-lab/
 Week 25 性能 Smoke 已完成。Week 26 的单机范围已完成，包括 Baseline、Load、
 双 run 数据池隔离、资源采样和单主机 Locust master/worker 验收；由于没有第二台
 独立压力机，跨主机分布式验收保持 `DEFERRED`，Week 26 整体结论为 `PARTIAL`。
-后续 Week 27 进入 Prometheus、Grafana、Trace 和指标时间线对齐。
+
+Week 27 已于 2026-11-10 提前开启。API 的 Prometheus metrics、请求/Trace 关联头
+和 OTLP 入口已通过本机真实执行；Prometheus/Grafana/Tempo 监控栈因 Docker 镜像
+来源网络超时保持 `BLOCKED`，所以 Week 27 当前状态为 `IN PROGRESS`。配置解析和
+单元测试不能替代监控栈真实启动，完整验收命令与证据见
+`reports/weekly/WEEK-27.md`。
 
 ### 5.2 计划验收与周报协议
 

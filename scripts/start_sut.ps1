@@ -10,6 +10,8 @@ param(
 
     [switch]$FaultInjection,
 
+    [switch]$Monitoring,
+
     [string]$ProjectName = "",
 
     [string]$EnvFile = "",
@@ -71,6 +73,9 @@ function Start-DockerDesktopIfNeeded {
 
 Push-Location $root
 
+$otelWasSet = Test-Path Env:QA_OTEL_ENABLED
+$otelPreviousValue = $env:QA_OTEL_ENABLED
+
 try {
     $compose = @("compose")
     if ($ProjectName) {
@@ -96,6 +101,10 @@ try {
     $compose += @("-f", $composeFile)
     if ($FaultInjection) {
         $compose += @("--profile", "fault-injection")
+    }
+    if ($Monitoring) {
+        $compose += @("--profile", "monitoring")
+        $env:QA_OTEL_ENABLED = "1"
     }
 
     & docker @compose config --quiet
@@ -131,5 +140,11 @@ catch {
     throw
 }
 finally {
+    if ($otelWasSet) {
+        $env:QA_OTEL_ENABLED = $otelPreviousValue
+    }
+    else {
+        Remove-Item Env:QA_OTEL_ENABLED -ErrorAction SilentlyContinue
+    }
     Pop-Location
 }

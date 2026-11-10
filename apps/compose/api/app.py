@@ -27,6 +27,15 @@ from uuid import uuid4
 
 import psycopg
 import redis
+from opentelemetry import context as otel_context
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.propagate import extract
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.trace import Status, StatusCode, set_span_in_context
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from psycopg import Connection
 from psycopg.rows import dict_row
 from pydantic import BaseModel
@@ -110,6 +119,7 @@ JOB_PATH = re.compile(r"^/api/v1/jobs/([^/]+)$")
 # instead of being handed to PostgreSQL as a lookup key.
 WORKSPACE_SLUG_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,58}[a-z0-9])?$")
 ALLOWED_STATUS_TRANSITIONS = frozenset({("active", "archived")})
+TRACE_HEADER_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 IDEMPOTENCY_TTL_SECONDS = int(os.getenv("QA_IDEMPOTENCY_TTL_SECONDS", "3600"))
 RATE_LIMIT_MAX_REQUESTS = int(os.getenv("QA_RATE_LIMIT_WRITE_MAX", "20"))
 RATE_LIMIT_WINDOW_SECONDS = float(
@@ -132,6 +142,116 @@ AUTH_SIGNIN_FAILURE_WINDOW_SECONDS = float(
 )
 AUTH_SIGNIN_FAILURE_PREFIX = "auth:signin-failures:"
 MAX_REQUEST_BYTES = int(os.getenv("QA_MAX_REQUEST_BYTES", "65536"))
+OTEL_ENABLED = os.getenv("QA_OTEL_ENABLED", "0").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+OTEL_SERVICE_NAME = os.getenv("QA_OTEL_SERVICE_NAME", "quality-engineering-lab-sut")
+OTEL_EXPORTER_OTLP_ENDPOINT = os.getenv(
+    "QA_OTEL_EXPORTER_OTLP_ENDPOINT",
+    "http://tempo:4318/v1/traces",
+)
+
+HTTP_REQUESTS = Counter(
+    "qa_sut_http_requests_total",
+    "Completed HTTP requests grouped by method, normalized route, and status.",
+    ("method", "route", "status"),
+)
+HTTP_REQUEST_DURATION = Histogram(
+    "qa_sut_http_request_duration_seconds",
+    "HTTP request duration in seconds.",
+    ("method", "route"),
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+)
+HTTP_REQUESTS_IN_PROGRESS = Gauge(
+    "qa_sut_http_requests_in_progress",
+    "HTTP requests currently being handled.",
+)
+LAST_RUN_INFO = Gauge(
+    "qa_sut_last_request_run_info",
+    "The most recent Locust run id observed by the SUT.",
+    ("run_id",),
+)
+_LAST_RUN_ID: str | None = None
+_LAST_RUN_LOCK = threading.Lock()
+
+
+def _configure_tracing() -> trace.Tracer:
+    """Configure an OTLP tracer only when the monitoring profile enables it."""
+
+    if not OTEL_ENABLED:
+        return trace.get_tracer(OTEL_SERVICE_NAME)
+
+    provider = TracerProvider(
+        resource=Resource.create({"service.name": OTEL_SERVICE_NAME}),
+    )
+    provider.add_span_processor(
+        BatchSpanProcessor(OTLPSpanExporter(endpoint=OTEL_EXPORTER_OTLP_ENDPOINT))
+    )
+    trace.set_tracer_provider(provider)
+    return trace.get_tracer(OTEL_SERVICE_NAME)
+
+
+TRACER = _configure_tracing()
+
+
+def _metric_route(path: str) -> str:
+    """Collapse dynamic path segments before they become metric labels."""
+
+    route_patterns = (
+        (CATALOG_PATH, "/api/v1/workspaces/{slug}/catalog"),
+        (CATALOG_ITEMS_PATH, "/api/v1/workspaces/{slug}/catalog/items"),
+        (CATALOG_ITEM_PATH, "/api/v1/workspaces/{slug}/catalog/items/{item_id}"),
+        (
+            CACHE_REFRESH_PATH,
+            "/api/v1/workspaces/{slug}/catalog/cache/refresh",
+        ),
+        (EVENTS_PATH, "/api/v1/workspaces/{slug}/events"),
+        (MEMBERS_PATH, "/api/v1/workspaces/{slug}/members"),
+        (MEMBER_PATH, "/api/v1/workspaces/{slug}/members/{user_id}"),
+        (JOB_PATH, "/api/v1/jobs/{job_id}"),
+    )
+    for pattern, template in route_patterns:
+        if pattern.fullmatch(path):
+            return template
+    return path if path in {
+        "/",
+        "/openapi.json",
+        "/metrics",
+        "/health/live",
+        "/health/ready",
+        "/.well-known/openid-configuration",
+        "/oauth/token",
+        "/oauth/revoke",
+        "/api/v1/auth/me",
+        "/api/v1/auth/permissions",
+        "/api/v1/admin/audit",
+        "/api/v1/jobs",
+    } else "unmatched"
+
+
+def _safe_trace_header(value: str | None, fallback: str) -> str:
+    """Accept only a compact correlation identifier suitable for an HTTP header."""
+
+    candidate = (value or "").strip()
+    return candidate if TRACE_HEADER_PATTERN.fullmatch(candidate) else fallback
+
+
+def _observe_run_id(run_id: str | None) -> str:
+    """Remember the current run without making run ids a request metric label."""
+
+    global _LAST_RUN_ID
+    normalized = _safe_trace_header(run_id, "")
+    if not normalized:
+        return ""
+    with _LAST_RUN_LOCK:
+        if normalized != _LAST_RUN_ID:
+            LAST_RUN_INFO.clear()
+            LAST_RUN_INFO.labels(run_id=normalized).set(1)
+            _LAST_RUN_ID = normalized
+    return normalized
 
 # Capability registry: one place decides what a role may do, and every handler
 # asks for a capability instead of comparing role strings. Roles are ordered by
@@ -1643,6 +1763,110 @@ class SutRequestHandler(BaseHTTPRequestHandler):
 
     server_version = "QualityLabSut/0.1"
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._request_started_at: float | None = None
+        self._request_span: trace.Span | None = None
+        self._request_span_token: Any = None
+        self._request_id = ""
+        self._run_id = ""
+        self._response_status: int | None = None
+
+    def handle_one_request(self) -> None:
+        """Observe one HTTP request, including its trace correlation."""
+
+        HTTP_REQUESTS_IN_PROGRESS.inc()
+        try:
+            super().handle_one_request()
+        finally:
+            self._finish_request_observation()
+
+    def parse_request(self) -> bool:
+        """Start the request span after BaseHTTPRequestHandler parsed headers."""
+
+        parsed = super().parse_request()
+        if parsed:
+            self._begin_request_observation()
+        return parsed
+
+    def send_response(
+        self,
+        code: int,
+        message: str | None = None,
+    ) -> None:
+        """Record the status and expose request and trace correlation headers."""
+
+        self._response_status = int(code)
+        super().send_response(code, message)
+        trace_context = (
+            self._request_span.get_span_context() if self._request_span is not None else None
+        )
+        if trace_context is not None and trace_context.is_valid:
+            self.send_header("X-Trace-Id", f"{trace_context.trace_id:032x}")
+        if self._request_id:
+            self.send_header("X-Request-Id", self._request_id)
+
+    def _begin_request_observation(self) -> None:
+        """Create a span and correlation ids for the parsed request."""
+
+        self._request_started_at = time.perf_counter()
+        self._request_id = _safe_trace_header(
+            self.headers.get("X-Request-Id"),
+            uuid4().hex,
+        )
+        self._run_id = _observe_run_id(self.headers.get("X-QA-Run-Id"))
+        carrier = {
+            name.lower(): value
+            for name, value in self.headers.items()
+            if name.lower() in {"traceparent", "tracestate"}
+        }
+        path = urlparse(self.path).path
+        attributes = {
+            "http.request.method": self.command,
+            "url.path": path,
+            "qa.request_id": self._request_id,
+        }
+        if self._run_id:
+            attributes["qa.run_id"] = self._run_id
+        self._request_span = TRACER.start_span(
+            f"{self.command} {_metric_route(path)}",
+            context=extract(carrier),
+            attributes=attributes,
+        )
+        self._request_span_token = otel_context.attach(
+            set_span_in_context(self._request_span)
+        )
+
+    def _finish_request_observation(self) -> None:
+        """Finish metrics and trace state without changing the HTTP response."""
+
+        try:
+            if self._request_started_at is None:
+                return
+            path = urlparse(self.path).path
+            route = _metric_route(path)
+            method = self.command or "UNKNOWN"
+            status = self._response_status or 0
+            duration = max(time.perf_counter() - self._request_started_at, 0.0)
+            HTTP_REQUESTS.labels(
+                method=method,
+                route=route,
+                status=str(status),
+            ).inc()
+            HTTP_REQUEST_DURATION.labels(method=method, route=route).observe(duration)
+            if self._request_span is not None:
+                self._request_span.set_attribute("http.route", route)
+                self._request_span.set_attribute("http.response.status_code", status)
+                if status >= HTTPStatus.INTERNAL_SERVER_ERROR:
+                    self._request_span.set_status(Status(StatusCode.ERROR))
+                self._request_span.end()
+                self._request_span = None
+        finally:
+            if self._request_span_token is not None:
+                otel_context.detach(self._request_span_token)
+                self._request_span_token = None
+            HTTP_REQUESTS_IN_PROGRESS.dec()
+
     def do_GET(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
 
@@ -1654,6 +1878,7 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                     status="ok",
                     endpoints=[
                         "/openapi.json",
+                        "/metrics",
                         "/health/live",
                         "/health/ready",
                         "/.well-known/openid-configuration",
@@ -1678,6 +1903,10 @@ class SutRequestHandler(BaseHTTPRequestHandler):
 
         if path == "/openapi.json":
             self._send_json(HTTPStatus.OK, openapi_document())
+            return
+
+        if path == "/metrics":
+            self._send_metrics()
             return
 
         if path == "/health/live":
@@ -3116,6 +3345,17 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                 error_description=description,
             ),
         )
+
+    def _send_metrics(self) -> None:
+        """Expose the Prometheus text format without authentication."""
+
+        body = generate_latest()
+        self.send_response(HTTPStatus.OK.value)
+        self.send_header("Content-Type", CONTENT_TYPE_LATEST)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
 
     def _send_empty(self, status: HTTPStatus) -> None:
         self.send_response(status.value)
