@@ -2,10 +2,14 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-最新进度：[WEEK-19 - iOS 权限、系统交互、深链接、文件、WebView 与业务测试](weekly/WEEK-19.md)
+最新进度：[WEEK-27 - Prometheus、Grafana、Trace 与 PostgreSQL/Redis 指标](weekly/WEEK-27.md)
 
 ## 周报 / Weekly Reports
 
+- [WEEK-27 - Prometheus、Grafana、Trace 与 PostgreSQL/Redis 指标](weekly/WEEK-27.md)
+- [WEEK-26 - Baseline、Load、数据库数据池与分布式 Locust](weekly/WEEK-26.md)
+- [WEEK-25 - SLI、SLO、负载模型、独立性能环境与 Locust Smoke](weekly/WEEK-25.md)
+- [WEEK-20 - iOS 设备矩阵、WDA 并行与 DerivedData 隔离](weekly/WEEK-20.md)
 - [WEEK-19 - iOS 权限、系统交互、深链接、文件、WebView 与业务测试](weekly/WEEK-19.md)
 - [WEEK-18 - iOS Capabilities、定位、键盘、手势与框架](weekly/WEEK-18.md)
 - [WEEK-17 - iOS 环境、Xcode、XCUITest、WDA 与签名](weekly/WEEK-17.md)

@@ -2,7 +2,11 @@
 param(
     [switch]$RemoveVolumes,
 
-    [switch]$FaultInjection
+    [switch]$FaultInjection,
+
+    [string]$ProjectName = "",
+
+    [string]$EnvFile = ""
 )
 
 Set-StrictMode -Version Latest
@@ -19,9 +23,25 @@ Push-Location $root
 
 try {
     $compose = @("compose")
-    $envFile = Join-Path $root ".env"
-    if (Test-Path -LiteralPath $envFile) {
-        $compose += @("--env-file", $envFile)
+    if ($ProjectName) {
+        $compose += @("-p", $ProjectName)
+    }
+    $resolvedEnvFile = if ($EnvFile) {
+        if ([System.IO.Path]::IsPathRooted($EnvFile)) {
+            $EnvFile
+        }
+        else {
+            Join-Path $root $EnvFile
+        }
+    }
+    else {
+        Join-Path $root ".env"
+    }
+    if ($EnvFile -and -not (Test-Path -LiteralPath $resolvedEnvFile)) {
+        throw "Compose environment file was not found: $resolvedEnvFile"
+    }
+    if (Test-Path -LiteralPath $resolvedEnvFile) {
+        $compose += @("--env-file", $resolvedEnvFile)
     }
     $compose += @("-f", $composeFile)
     if ($FaultInjection) {

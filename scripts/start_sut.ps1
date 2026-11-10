@@ -8,7 +8,19 @@ param(
 
     [switch]$SkipBuild,
 
-    [switch]$FaultInjection
+    [switch]$FaultInjection,
+
+    [switch]$Monitoring,
+
+    [string]$ProjectName = "",
+
+    [string]$EnvFile = "",
+
+    [string]$ApiBaseUrl = "http://127.0.0.1:18000",
+
+    [string]$PostgresDsn = "postgresql://qa:qa@127.0.0.1:15432/qa",
+
+    [string]$RedisUrl = "redis://127.0.0.1:26379/0"
 )
 
 Set-StrictMode -Version Latest
@@ -61,15 +73,38 @@ function Start-DockerDesktopIfNeeded {
 
 Push-Location $root
 
+$otelWasSet = Test-Path Env:QA_OTEL_ENABLED
+$otelPreviousValue = $env:QA_OTEL_ENABLED
+
 try {
     $compose = @("compose")
-    $envFile = Join-Path $root ".env"
-    if (Test-Path -LiteralPath $envFile) {
-        $compose += @("--env-file", $envFile)
+    if ($ProjectName) {
+        $compose += @("-p", $ProjectName)
+    }
+    $resolvedEnvFile = if ($EnvFile) {
+        if ([System.IO.Path]::IsPathRooted($EnvFile)) {
+            $EnvFile
+        }
+        else {
+            Join-Path $root $EnvFile
+        }
+    }
+    else {
+        Join-Path $root ".env"
+    }
+    if ($EnvFile -and -not (Test-Path -LiteralPath $resolvedEnvFile)) {
+        throw "Compose environment file was not found: $resolvedEnvFile"
+    }
+    if (Test-Path -LiteralPath $resolvedEnvFile) {
+        $compose += @("--env-file", $resolvedEnvFile)
     }
     $compose += @("-f", $composeFile)
     if ($FaultInjection) {
         $compose += @("--profile", "fault-injection")
+    }
+    if ($Monitoring) {
+        $compose += @("--profile", "monitoring")
+        $env:QA_OTEL_ENABLED = "1"
     }
 
     & docker @compose config --quiet
@@ -89,7 +124,11 @@ try {
         throw "Docker Compose failed to start the SUT."
     }
 
-    & $python $checkScript --wait-seconds $WaitSeconds
+    & $python $checkScript `
+        --wait-seconds $WaitSeconds `
+        --api-base-url $ApiBaseUrl `
+        --postgres-dsn $PostgresDsn `
+        --redis-url $RedisUrl
     if ($LASTEXITCODE -ne 0) {
         throw "The SUT started, but readiness checks failed."
     }
@@ -101,5 +140,11 @@ catch {
     throw
 }
 finally {
+    if ($otelWasSet) {
+        $env:QA_OTEL_ENABLED = $otelPreviousValue
+    }
+    else {
+        Remove-Item Env:QA_OTEL_ENABLED -ErrorAction SilentlyContinue
+    }
     Pop-Location
 }

@@ -7,6 +7,7 @@ services:
       context: ../..
       dockerfile: apps/compose/api/Dockerfile
     environment:
+      QA_ENVIRONMENT: ${QA_ENVIRONMENT:-local}
       QA_POSTGRES_DSN: postgresql://${QA_POSTGRES_USER:-qa}:${QA_POSTGRES_PASSWORD:-qa}@postgres:5432/${QA_POSTGRES_DB:-qa}
       QA_POSTGRES_MAX_CONNECTIONS: ${QA_POSTGRES_MAX_CONNECTIONS:-16}
       QA_POSTGRES_CONNECTION_TIMEOUT_SECONDS: ${QA_POSTGRES_CONNECTION_TIMEOUT_SECONDS:-2}
@@ -31,6 +32,9 @@ services:
       QA_JOB_WORKER_POLL_SECONDS: ${QA_JOB_WORKER_POLL_SECONDS:-0.25}
       QA_WS_SUBSCRIBER_QUEUE_SIZE: ${QA_WS_SUBSCRIBER_QUEUE_SIZE:-64}
       QA_WS_POLL_SECONDS: ${QA_WS_POLL_SECONDS:-0.2}
+      QA_OTEL_ENABLED: ${QA_OTEL_ENABLED:-0}
+      QA_OTEL_SERVICE_NAME: ${QA_OTEL_SERVICE_NAME:-quality-engineering-lab-sut}
+      QA_OTEL_EXPORTER_OTLP_ENDPOINT: ${QA_OTEL_EXPORTER_OTLP_ENDPOINT:-http://tempo:4318/v1/traces}
     ports:
       - "${QA_API_PORT:-18000}:8000"
     depends_on:
@@ -103,6 +107,105 @@ services:
       - "18100-18103:18100-18103"
     restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    profiles:
+      - monitoring
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports:
+      - "${QA_PROMETHEUS_PORT:-29090}:9090"
+    volumes:
+      - ../../infra/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    profiles:
+      - monitoring
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_USERS_DEFAULT_THEME: light
+    ports:
+      - "${QA_GRAFANA_PORT:-23000}:3000"
+    volumes:
+      - ../../infra/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../../infra/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+      - tempo
+    restart: unless-stopped
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    profiles:
+      - monitoring
+    command:
+      - -config.file=/etc/tempo/tempo.yaml
+    ports:
+      - "${QA_TEMPO_HTTP_PORT:-23200}:3200"
+      - "${QA_TEMPO_OTLP_HTTP_PORT:-24318}:4318"
+    volumes:
+      - ../../infra/monitoring/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    restart: unless-stopped
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.16.0
+    profiles:
+      - monitoring
+    environment:
+      DATA_SOURCE_NAME: postgresql://${QA_POSTGRES_USER:-qa}:${QA_POSTGRES_PASSWORD:-qa}@postgres:5432/${QA_POSTGRES_DB:-qa}?sslmode=disable
+    ports:
+      - "${QA_POSTGRES_EXPORTER_PORT:-29187}:9187"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.67.0
+    profiles:
+      - monitoring
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    ports:
+      - "${QA_REDIS_EXPORTER_PORT:-29121}:9121"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    profiles:
+      - monitoring
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=5s
+    ports:
+      - "${QA_CADVISOR_PORT:-28081}:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    restart: unless-stopped
+
 volumes:
   postgres-data:
   redis-data:
+  prometheus-data:
+  grafana-data:
+  tempo-data:
