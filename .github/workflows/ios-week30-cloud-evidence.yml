@@ -1,0 +1,123 @@
+name: iOS Week 30 Cloud Evidence
+
+on:
+  push:
+    paths:
+      - .github/workflows/ios-week30-cloud-evidence.yml
+      - packages/qa_core/config/settings.py
+      - packages/qa_core/driver/ios.py
+      - scripts/run_mobile_network_fixture.py
+      - tests/ios/test_week30_cloud_performance.py
+      - tests/ios/test_week30_cloud_weak_network.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-week30-cloud-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      QA_IOS_DEVICE_PROVIDER: browserstack
+      QA_IOS_CLOUD_REMOTE_URL: https://hub-cloud.browserstack.com/wd/hub
+      QA_IOS_CLOUD_USER: ${{ secrets.IOS_CLOUD_USER }}
+      QA_IOS_CLOUD_ACCESS_KEY: ${{ secrets.IOS_CLOUD_ACCESS_KEY }}
+      QA_IOS_CLOUD_APP: ${{ vars.IOS_CLOUD_APP }}
+      QA_IOS_CLOUD_DEVICE_NAME: iPhone 15
+      QA_IOS_CLOUD_PLATFORM_VERSION: "17"
+      QA_IOS_CLOUD_PROJECT_NAME: quality-engineering-lab
+      QA_IOS_CLOUD_BUILD_NAME: week30-ios-evidence-${{ github.run_id }}
+      QA_IOS_CLOUD_SESSION_NAME: week30-ios-evidence
+      QA_IOS_CLOUD_APPIUM_VERSION: "2.19.0"
+      QA_IOS_CLOUD_LOCAL: "true"
+      QA_IOS_MOBILE_NETWORK_BASE_URL: http://bs-local.com:8765
+      QA_IOS_BUNDLE_ID: com.example.qaweek19
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
+      - name: Start controlled network fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          python scripts/run_mobile_network_fixture.py \
+            --port 8765 > artifacts/network-fixture.log 2>&1 &
+          echo "$!" > artifacts/network-fixture.pid
+          for _ in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8765/health/live >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat artifacts/network-fixture.log
+          exit 1
+
+      - name: BrowserStack environment
+        uses: browserstack/github-actions/setup-env@master
+        with:
+          username: ${{ secrets.IOS_CLOUD_USER }}
+          access-key: ${{ secrets.IOS_CLOUD_ACCESS_KEY }}
+
+      - name: Start BrowserStack Local
+        uses: browserstack/github-actions/setup-local@master
+        with:
+          local-testing: start
+          local-logging-level: all-logs
+          local-identifier: random
+
+      - name: Export local identifier
+        shell: bash
+        run: |
+          echo "QA_IOS_CLOUD_LOCAL_IDENTIFIER=${BROWSERSTACK_LOCAL_IDENTIFIER}" \
+            >> "$GITHUB_ENV"
+
+      - name: Run weak-network evidence
+        run: |
+          mkdir -p artifacts/allure-results
+          uv run --no-sync pytest \
+            tests/ios/test_week30_cloud_weak_network.py -q \
+            --alluredir=artifacts/allure-results \
+            --junitxml=artifacts/week30-ios-weak-network-junit.xml
+
+      - name: Run launch and resume evidence
+        run: |
+          uv run --no-sync pytest \
+            tests/ios/test_week30_cloud_performance.py -q \
+            --alluredir=artifacts/allure-results \
+            --junitxml=artifacts/week30-ios-performance-junit.xml
+
+      - name: Stop BrowserStack Local
+        if: always()
+        uses: browserstack/github-actions/setup-local@master
+        with:
+          local-testing: stop
+
+      - name: Stop controlled network fixture
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f artifacts/network-fixture.pid ]]; then
+            kill "$(cat artifacts/network-fixture.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload cloud evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-week30-cloud-evidence-${{ github.run_id }}
+          path: |
+            artifacts/performance/week30/ios-cloud/
+            artifacts/week30-ios-weak-network-junit.xml
+            artifacts/week30-ios-performance-junit.xml
+          if-no-files-found: ignore
