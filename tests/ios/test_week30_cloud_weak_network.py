@@ -214,6 +214,10 @@ def test_ios_cloud_network_profile_loss_and_recovery(
         json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+    print(
+        "WEEK30_IOS_WEAK_NETWORK_EVIDENCE="
+        + json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    )
     allure.attach.file(
         str(output_path),
         name="Week 30 iOS weak-network evidence",

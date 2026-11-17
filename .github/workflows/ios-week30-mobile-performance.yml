@@ -111,5 +111,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ios-week30-performance-${{ github.run_id }}
-          path: artifacts/
+          path: |
+            artifacts/performance/week30/ios-cloud/mobile-performance.json
+            artifacts/week30-ios-performance-junit.xml
           if-no-files-found: ignore
