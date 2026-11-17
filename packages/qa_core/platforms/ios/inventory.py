@@ -1,4 +1,4 @@
-"""Validated inventory of the 50 unique iOS stage-acceptance tests."""
+"""Validated inventory of unique iOS stage-acceptance tests."""
 
 from __future__ import annotations
 
@@ -105,7 +105,7 @@ def load_ios_test_inventory(
     inventory_path: Path,
     *,
     project_root: Path,
-    expected_count: int = 50,
+    expected_count: int = 52,
 ) -> IosTestInventory:
     """Load and validate one inventory against the collected iOS test source."""
 
@@ -181,7 +181,7 @@ def _parse_test(raw: object, index: int) -> IosTestSpec:
     )
     if automation_status is not IosAutomationStatus.AUTOMATED:
         raise ValueError(
-            f"test {test_id!r} does not count toward 50 because it is "
+            f"test {test_id!r} does not count toward the inventory because it is "
             f"{automation_status.value}"
         )
     if known_limitation is None and test_id == "IOS-WEBVIEW-001":

@@ -1,5 +1,5 @@
 version: 1
-expected_count: 50
+expected_count: 52
 
 defaults: &fixture_defaults
   preconditions:
@@ -585,3 +585,35 @@ tests:
       - Open fixture
       - Parse page source
     expected_result: XML parsing succeeds and contains the fixture title identifier.
+
+  - <<: *fixture_defaults
+    id: IOS-PERFCLOUD-001
+    node_id: tests/ios/test_week30_cloud_performance.py::test_ios_cloud_launch_and_resume_timing
+    area: session
+    priority: P1
+    business_intent: Verify a real-device cloud iPhone launches and resumes with bounded Appium-to-UI timing.
+    steps:
+      - Create a BrowserStack iOS session
+      - Run repeated terminate and activate cycles
+      - Run repeated HOME and activate cycles
+      - Fetch the provider session record
+    expected_result: Cold and warm timing samples plus a provider record are written to JSON.
+    device_scope:
+      - cloud
+    evidence_path: artifacts/performance/week30/ios-cloud/
+
+  - <<: *fixture_defaults
+    id: IOS-WEAKNET-001
+    node_id: tests/ios/test_week30_cloud_weak_network.py::test_ios_cloud_network_profile_loss_and_recovery
+    area: negative_diagnostics
+    priority: P1
+    business_intent: Verify lossy and offline provider profiles change a real app request and reset restores it.
+    steps:
+      - Load the controlled catalog through BrowserStack Local
+      - Apply the lossy network profile
+      - Apply no-network and observe an app error
+      - Reset the network and reload the catalog
+    expected_result: The app records baseline, lossy, offline, and recovered outcomes in JSON.
+    device_scope:
+      - cloud
+    evidence_path: artifacts/performance/week30/ios-cloud/

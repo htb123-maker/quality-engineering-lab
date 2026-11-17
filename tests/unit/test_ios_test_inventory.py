@@ -13,15 +13,15 @@ from qa_core.platforms.ios.inventory import (
 )
 
 
-def test_week21_inventory_maps_exactly_fifty_ios_tests() -> None:
+def test_week21_inventory_maps_expected_ios_tests() -> None:
     project_root = Path(__file__).resolve().parents[2]
     inventory = load_ios_test_inventory(
         project_root / "configs" / "ios-test-inventory.yaml",
         project_root=project_root,
     )
 
-    assert inventory.expected_count == 50
-    assert len(inventory.tests) == 50
+    assert inventory.expected_count == 52
+    assert len(inventory.tests) == 52
     assert inventory.priorities()[IosTestPriority.P0] == 20
     assert len(inventory.by_priority(IosTestPriority.P0)) == 20
 
@@ -53,7 +53,7 @@ def test_inventory_rejects_duplicate_ids_and_non_automated_entries(
     duplicate["id"] = "IOS-EXAMPLE-002"
     duplicate["automation_status"] = IosAutomationStatus.SKIPPED.value
     _write_inventory(tmp_path, [entry, duplicate], expected_count=2)
-    with pytest.raises(ValueError, match="does not count toward 50"):
+    with pytest.raises(ValueError, match="does not count toward the inventory"):
         load_ios_test_inventory(path, project_root=tmp_path, expected_count=2)
 
 
