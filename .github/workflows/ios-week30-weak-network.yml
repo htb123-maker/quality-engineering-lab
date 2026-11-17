@@ -1,5 +1,6 @@
 name: iOS Week 30 Weak Network
 
+# Re-trigger only after prior queued runs have been fully cancelled.
 on:
   push:
     paths:
