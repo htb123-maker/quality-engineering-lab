@@ -2,7 +2,7 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-共 55 篇设计文档，按主题分组。
+共 56 篇设计文档，按主题分组。
 
 ## 目标与计划 / Goals and Plan
 
@@ -63,6 +63,7 @@
 - [Failed Quality Gate Triage Runbook](runbooks/failed-quality-gate.md)
 - [Fault Injection and Defect Draft Triage](runbooks/fault-injection-and-defect-drafts.md)
 - [Fault Recovery Triage / 故障恢复排障](runbooks/fault-recovery-triage.md)
+- [iOS Cloud Performance And Weak Network](runbooks/ios-cloud-performance-and-weak-network.md)
 - [iOS Parallel WDA and DerivedData Triage](runbooks/ios-parallel-wda-deriveddata-triage.md)
 - [iOS Self-Hosted Physical Device Runner](runbooks/ios-self-hosted-device-runner.md)
 - [iOS Stability and Flaky Triage](runbooks/ios-stability-and-flaky-triage.md)

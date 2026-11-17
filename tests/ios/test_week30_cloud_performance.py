@@ -19,6 +19,7 @@ from qa_core.config.settings import Settings
 from qa_core.driver.ios import create_ios_driver
 from qa_core.mobile.waits import WaitPolicy
 from qa_core.platforms.ios import IosFixtureAdapter
+from selenium.webdriver.support.ui import WebDriverWait
 
 CLOUD_PROVIDERS = {"browserstack", "saucelabs", "lambdatest"}
 BUNDLE_ID = "com.example.qaweek19"
@@ -83,6 +84,13 @@ def _wait_fixture_ready(
         adapter.locators.get("fixture.root"),
     )
     adapter.wait_text("fixture.title", "QA iOS Fixture")
+
+
+def _send_fixture_home(driver: WebDriver) -> None:
+    driver.execute_script("mobile: pressButton", {"name": "home"})
+    WebDriverWait(driver, timeout=10, poll_frequency=0.25).until(
+        lambda active_driver: active_driver.query_app_state(BUNDLE_ID) != 4
+    )
 
 
 def _sanitized_capabilities(driver: WebDriver) -> dict[str, Any]:
@@ -202,8 +210,9 @@ def test_ios_cloud_launch_and_resume_timing(
 
         for _ in range(WARM_CYCLES):
             adapter.launch_fixture()
+            _send_fixture_home(driver)
             started = time.monotonic()
-            driver.background_app(1)
+            driver.activate_app(BUNDLE_ID)
             _wait_fixture_ready(driver, adapter)
             warm.append((time.monotonic() - started) * 1000)
     finally:
@@ -251,7 +260,7 @@ def test_ios_cloud_launch_and_resume_timing(
             "summary": cold_summary,
         },
         "warm": {
-            "definition": "background_app(1) -> fixture title visible",
+            "definition": "pressButton(home) -> activateApp -> fixture title visible",
             "samples_ms": [round(value, 3) for value in warm],
             "summary": warm_summary,
         },
