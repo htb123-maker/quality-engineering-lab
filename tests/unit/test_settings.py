@@ -57,6 +57,9 @@ def test_default_settings_are_local_and_safe() -> None:
     assert settings.ios_cloud_project_name == "quality-engineering-lab"
     assert settings.ios_cloud_build_name == "ios-cloud-smoke"
     assert settings.ios_cloud_session_name == "ios-session-smoke"
+    assert settings.ios_cloud_network_profile is None
+    assert settings.ios_cloud_local is False
+    assert settings.ios_cloud_local_identifier is None
     assert str(settings.postgres_dsn) == "postgresql://qa:qa@127.0.0.1:15432/qa"
     assert str(settings.redis_url) == "redis://127.0.0.1:26379/0"
     assert settings.artifacts_dir == Path("artifacts")

@@ -160,6 +160,9 @@ class Settings(BaseSettings):
         min_length=1,
     )
     ios_cloud_appium_version: str = Field(default="2.19.0", min_length=1)
+    ios_cloud_network_profile: str | None = Field(default=None, min_length=1)
+    ios_cloud_local: bool = False
+    ios_cloud_local_identifier: str | None = Field(default=None, min_length=1)
     postgres_dsn: PostgresDsn = Field(
         default_factory=lambda: PostgresDsn("postgresql://qa:qa@127.0.0.1:15432/qa")
     )

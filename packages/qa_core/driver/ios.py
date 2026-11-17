@@ -41,19 +41,30 @@ def _cloud_capabilities(settings: Settings) -> tuple[str, dict[str, Any], str]:
     }
     secret = access_key.get_secret_value()
     if provider == "browserstack":
+        browserstack_options: dict[str, Any] = {
+            **common,
+            "userName": username,
+            "accessKey": secret,
+            "projectName": settings.ios_cloud_project_name,
+            "buildName": settings.ios_cloud_build_name,
+            "sessionName": settings.ios_cloud_session_name,
+            "appiumVersion": settings.ios_cloud_appium_version,
+            "debug": True,
+            "networkLogs": True,
+        }
+        if settings.ios_cloud_network_profile is not None:
+            browserstack_options["networkProfile"] = (
+                settings.ios_cloud_network_profile
+            )
+        if settings.ios_cloud_local:
+            browserstack_options["local"] = True
+            if settings.ios_cloud_local_identifier is not None:
+                browserstack_options["localIdentifier"] = (
+                    settings.ios_cloud_local_identifier
+                )
         return (
             "bstack:options",
-            {
-                **common,
-                "userName": username,
-                "accessKey": secret,
-                "projectName": settings.ios_cloud_project_name,
-                "buildName": settings.ios_cloud_build_name,
-                "sessionName": settings.ios_cloud_session_name,
-                "appiumVersion": settings.ios_cloud_appium_version,
-                "debug": True,
-                "networkLogs": True,
-            },
+            browserstack_options,
             app,
         )
     if provider == "saucelabs":

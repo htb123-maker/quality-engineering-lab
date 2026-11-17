@@ -114,6 +114,9 @@ def test_browserstack_options_use_nested_vendor_capabilities() -> None:
         ios_cloud_app="bs://example-app",
         ios_cloud_device_name="iPhone 15",
         ios_cloud_platform_version="17",
+        ios_cloud_network_profile="3g-umts-lossy",
+        ios_cloud_local=True,
+        ios_cloud_local_identifier="week30-run-1",
     )
 
     capabilities = build_ios_options(settings).to_capabilities()
@@ -127,6 +130,9 @@ def test_browserstack_options_use_nested_vendor_capabilities() -> None:
     assert vendor_options["platformVersion"] == "17"
     assert vendor_options["appiumVersion"] == "2.19.0"
     assert vendor_options["networkLogs"] is True
+    assert vendor_options["networkProfile"] == "3g-umts-lossy"
+    assert vendor_options["local"] is True
+    assert vendor_options["localIdentifier"] == "week30-run-1"
     assert capabilities["appium:webviewConnectTimeout"] == 60_000
     assert capabilities["appium:webviewConnectRetries"] == 3
     assert "cloud-secret" not in repr(settings)
