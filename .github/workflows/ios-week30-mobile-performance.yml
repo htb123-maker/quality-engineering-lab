@@ -1,6 +1,12 @@
 name: iOS Week 30 Mobile Performance
 
 on:
+  push:
+    paths:
+      - .github/workflows/ios-week30-mobile-performance.yml
+      - packages/qa_core/config/settings.py
+      - packages/qa_core/driver/ios.py
+      - tests/ios/test_week30_cloud_performance.py
   workflow_dispatch:
     inputs:
       device_name:
