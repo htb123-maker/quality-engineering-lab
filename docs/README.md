@@ -2,7 +2,7 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-共 56 篇设计文档，按主题分组。
+共 71 篇设计文档，按主题分组。
 
 ## 目标与计划 / Goals and Plan
 
@@ -18,7 +18,9 @@
 - [Cross-Platform Mobile Framework v1 / 跨平台移动框架 v1](architecture/cross-platform-framework.md)
 - [Week 24 Fault Recovery / 故障注入与恢复](architecture/fault-recovery.md)
 - [iOS Device Matrix and Parallel Isolation](architecture/ios-device-matrix.md)
+- [iOS Screen Framework](architecture/ios-screen-framework.md)
 - [iOS Stability, Inventory, and Failure Diagnostics](architecture/ios-stability-and-diagnostics.md)
+- [iOS System Interactions](architecture/ios-system-interactions.md)
 - [Mobile Driver Call Chain](architecture/mobile-driver-call-chain.md)
 - [性能可观测性与 Trace 关联 / Performance Observability and Trace Correlation](architecture/performance-observability.md)
 - [项目结构与技术栈总览](architecture/project-overview.md)
@@ -50,6 +52,7 @@
 - [Android Dark Mode, Font Scale, and Display Density](runbooks/android-dark-mode-font-and-density.md)
 - [Android Device Matrix Triage](runbooks/android-device-matrix-triage.md)
 - [Android Locator and Wait Triage](runbooks/android-locator-and-wait-triage.md)
+- [Android Mobile Performance Collection](runbooks/android-mobile-performance.md)
 - [Android OEM Settings, Notifications, and Background Policy](runbooks/android-oem-settings-and-background-policy.md)
 - [Android Orientation, Locale, and RTL Verification](runbooks/android-orientation-locale-rtl.md)
 - [Android Permissions and Recovery Triage](runbooks/android-permissions-and-recovery-triage.md)
@@ -66,8 +69,12 @@
 - [Failed Quality Gate Triage Runbook](runbooks/failed-quality-gate.md)
 - [Fault Injection and Defect Draft Triage](runbooks/fault-injection-and-defect-drafts.md)
 - [Fault Recovery Triage / 故障恢复排障](runbooks/fault-recovery-triage.md)
+- [iOS 真机云验收 / iOS Cloud Device Provider Acceptance](runbooks/ios-cloud-device-provider.md)
 - [iOS Cloud Performance And Weak Network](runbooks/ios-cloud-performance-and-weak-network.md)
+- [iOS Deep Links, Files, and WebView Triage](runbooks/ios-deep-links-files-webview.md)
+- [iOS Locator, Wait, and Keyboard Triage](runbooks/ios-locator-wait-keyboard-triage.md)
 - [iOS Parallel WDA and DerivedData Triage](runbooks/ios-parallel-wda-deriveddata-triage.md)
+- [iOS Permissions and Notifications Triage](runbooks/ios-permissions-notifications-triage.md)
 - [iOS Self-Hosted Physical Device Runner](runbooks/ios-self-hosted-device-runner.md)
 - [iOS Stability and Flaky Triage](runbooks/ios-stability-and-flaky-triage.md)
 - [iOS WDA Build and Signing Triage](runbooks/ios-wda-signing-triage.md)
@@ -82,4 +89,6 @@
 
 ## 其他 / Other
 
+- [Stress、Spike、容量与拐点 / Stress, Spike, Capacity, and Breakpoints](performance/capacity-and-breakpoints.md)
 - [性能负载模型 / Performance Load Model](performance/load-model.md)
+- [Mobile Performance Evidence](performance/mobile-performance.md)

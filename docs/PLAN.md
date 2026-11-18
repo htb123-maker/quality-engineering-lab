@@ -1,7 +1,7 @@
 # 项目执行计划
 
-版本：2.3<br>
-日期：2026-11-08<br>
+版本：2.8<br>
+日期：2026-10-31<br>
 周期：32 周，建议每周 10 到 12 小时  
 主线：接口自动化 + 数据库/缓存测试 + Android/iOS Appium 2 + 性能测试 + 缺陷闭环 + AI/Agent 增强  
 开发环境：Windows + PyCharm，iOS 使用 macOS、macOS CI 或设备云
@@ -321,17 +321,89 @@ quality-engineering-lab/
 
 缺陷管理不单独增加一套框架，直接嵌入 Week 11、12、23、24、31 和 32。先跑通轻量闭环 `Jenkins/GitLab CI + Allure + GitLab Issues`，再接入 `Kiwi TCMS + OpenProject/ReportPortal` 等开源增强组件。任何新增平台都必须能通过 API 适配器接入，不能把核心测试代码绑定到单一缺陷系统。
 
-### 5.1 性能阶段状态
+### 5.1 iOS 环境门与执行顺序
 
-Week 25 性能 Smoke 已完成。Week 26 的单机范围已完成，包括 Baseline、Load、
-双 run 数据池隔离、资源采样和单主机 Locust master/worker 验收；由于没有第二台
-独立压力机，跨主机分布式验收保持 `DEFERRED`，Week 26 整体结论为 `PARTIAL`。
+2026-10-31 已通过 GitHub 托管 `macos-15-arm64` Runner 完成 Week 17 运行验收
+（[成功 Run 41167106841](https://github.com/htb123-maker/quality-engineering-lab/actions/runs/41167106841)）：
 
-Week 27 已于 2026-11-10 提前开启。API 的 Prometheus metrics、请求/Trace 关联头
-和 OTLP 入口已通过本机真实执行；Prometheus/Grafana/Tempo 监控栈因 Docker 镜像
-来源网络超时保持 `BLOCKED`，所以 Week 27 当前状态为 `IN PROGRESS`。配置解析和
-单元测试不能替代监控栈真实启动，完整验收命令与证据见
-`reports/weekly/WEEK-27.md`。
+- Xcode 16.4、iOS 18.5 Simulator 和 WDA 构建通过。
+- Appium 2.19.0 `/status` ready。
+- XCUITest session 创建、窗口尺寸读取和 session 退出通过。
+- `ios-environment.json`、Appium 日志和 Allure 结果已归档。
+
+当前两道门状态：
+
+| 门 / Gate | 当前状态 / Current Status | 可继续内容 / Allowed Work |
+| --- | --- | --- |
+| macOS 运行门 | **PASS，2026-10-31** | Week 18 到 21 Simulator、Week 22 到 24 跨平台 |
+| 物理设备门 | **PASS（基线）**：项目 fixture 已上传并完成真实云系统交互 | Week 20/21 继续多设备矩阵 |
+
+物理门当前改走设备云路线：
+
+- 默认 provider 为 BrowserStack，同时支持 Sauce Labs 和 LambdaTest。
+- `qa_core.driver.ios` 根据 provider 生成 vendor capability。
+- `ios-cloud-smoke.yml` 从 `IOS_CLOUD_USER`、`IOS_CLOUD_ACCESS_KEY` 和
+  `IOS_CLOUD_APP` 读取配置。
+- `IOS_CLOUD_USER` 和 `IOS_CLOUD_ACCESS_KEY` 已配置。
+- sample session 已通过。
+- macOS Runner 从 `apps/ios-fixture` 源码构建 IPA，自动上传 BrowserStack，
+  并在运行内设置 `IOS_CLOUD_APP`。
+- [Week 19 cloud acceptance Run 41275681929](https://github.com/htb123-maker/quality-engineering-lab/actions/runs/41275681929)
+  在 iPhone 15 / iOS 17 + Appium 2.19.0 上执行 10 条用例，结果为
+  `9 passed, 1 xfailed`。
+- 权限重置、外部冷启动深链接、通知授权/调度、文件和恢复已通过。
+- WebView 等待 70 秒后仍只暴露 `NATIVE_APP`，context 用例保持严格
+  `xfail`；通知中心系统 UI 仍未执行。
+- 多设备、多 iOS 版本和并行 WDA 仍属于 Week 20/21。
+
+恢复后的 iOS 执行队列：
+
+```text
+Week 17 运行验收（PASS）
+-> Week 18 iOS capabilities / locators / keyboard / gestures
+-> Week 19 iOS system interactions
+-> Week 20 Simulator profiles / WDA port / DerivedData isolation
+-> Week 21 Simulator stability and smoke evidence
+-> Week 22 cross-platform framework
+-> Week 23 E2E (API + Android/iOS Simulator)
+-> Week 24 recovery workflows
+-> 物理设备门
+-> Week 20/21 physical matrix -> Week 30 iOS performance
+-> Week 31 iOS CI -> Week 32 comprehensive acceptance
+```
+
+Week 25 性能 Smoke 已完成。Week 26 的单机范围已全部完成，包括 Baseline、
+Load、双 run 数据池隔离、资源采样和单主机 Locust master/worker 验收；由于
+没有第二台独立压力机，跨主机分布式验收保持 `DEFERRED`，Week 26 整体结论仍为
+`PARTIAL`。Week 28 到 29 保留在后续容量、长稳与恢复阶段。Week 19 设备云核心链路
+已验收，但 WebView context 和通知中心仍不能写成 `PASS`。若继续 iOS，不能跳过
+Week 18 直接宣称 Week 20 或 Week 21 完成。若切回性能，也不能用性能阶段替代
+iOS 阶段门。所有未执行项保留 `SKIPPED`、`NOT RUN` 或 `DEFERRED` 语义。
+
+Week 27 已于 2026-11-14 完成并通过。API 的 Prometheus metrics、请求/Trace
+关联头、OTLP 导出、Prometheus/Grafana/Tempo 监控栈、PostgreSQL/Redis/cAdvisor
+指标和 Week 26 Baseline/Load run ID 时间线均已真实执行。完整验收命令与证据见
+`reports/weekly/WEEK-27.md`。Week 28 按顺序进入 Stress、Spike、容量与拐点分析。
+Week 28 已于 2026-11-14 提前开启，当前已定义 Stress/Spike profile 和容量实验
+契约，并完成真实 Stress/Spike、Prometheus run ID 关联、分阶段资源分析和容量
+报告。测试范围内未观察到拐点，24 个持续用户是当前环境的已验证下界，不是容量
+上限。Week 28 状态为 `PASS`，完整记录见 `reports/weekly/WEEK-28.md`。
+
+Week 29 已于 2026-11-17 完成并通过。600 秒 Soak 执行 13,304 requests，
+p95 23 ms、0 failures；首尾窗口延迟未退化，API 内存增长 0.83%。Redis、
+PostgreSQL 和 API restart recovery 均通过，数据库查询计划、行锁、死锁、
+连接池、WAL、Redis TTL 与负缓存均留下真实执行证据。完整记录见
+`reports/weekly/WEEK-29.md`。
+
+Week 30 已于 2026-11-17 提前开启。Android 真机采集已完成并通过核心
+guardrail：10 次冷启动 p95 536.2 ms、10 次热启动 p95 73.55 ms、后台恢复
+73 ms、944 帧中 jank 1.48%，PSS/RSS 和 CPU 均写入结构化证据。Week 30 整体
+仍为 `PARTIAL`：设备处于 USB 充电，电量差异不可解释。iOS 设备云补充已完成：
+iPhone 15 / iOS 17.3 冷启动控制路径 p95 2356.514 ms、热恢复 p95 990.331 ms；
+`3g-umts-lossy` 使受控请求从 633.555 ms 增至 1563.99 ms，`no-network` 出现
+可观察 `NSURLError`，reset 后恢复到 589.499 ms。原生 Instruments、`xctrace`
+和 MetricKit 仍未执行，因此不能把设备云控制路径写成 iOS 原生首帧通过。完整
+记录见 `reports/weekly/WEEK-30.md`。
 
 ### 5.2 计划验收与周报协议
 
@@ -485,11 +557,11 @@ AI/Agent 不作为独立第四门课程抢走传统测试时间。每周用 1 �
 - 至少 5 份 iOS runbook。
 - 能解释 Simulator 和真机失败的差异。
 
-**验收调度：** Week 17 未完成的 macOS Simulator、WDA 构建、Appium session
-和当前 iOS 分支 smoke 统一并入 Week 21 iOS 阶段验收。Week 18 继续建设
-iOS capabilities、定位器、键盘和手势，但必须保留这些运行项为显式未验证；
-Week 21 使用当时最新 iOS 分支重跑，并以环境 JSON、Appium 日志和 Allure
-作为证据，不能用历史 macOS baseline 替代。
+**验收调度：** Week 17 的 macOS Simulator、WDA 构建、Appium session 和
+当前 iOS 分支 smoke 已于 2026-10-31 通过。Week 18 现在可以恢复 capability、
+定位器、键盘、手势和 Screen/Flow 建设，并使用同一 macOS Runner 记录真实
+页面操作。Week 21 仍要使用当时最新 iOS 分支验证完整能力，不能用 Week 17
+环境结果替代阶段验收。真机签名和设备矩阵仍由物理设备门控制。
 
 ### 6.5 第五阶段：跨平台与 E2E，Week 22 到 24
 
@@ -1123,6 +1195,105 @@ AI 与 Agent 的目标、等级、边界和最终验收标准见 [项目目标�
 - 创建 `ai/` 目录骨架。
 - 建立一个只读仓库问答或代码解释流程。
 - 记录一次 AI 建议被验证或推翻的案例。
+
+### 16.6 只读 Agent 监控 Workflow
+
+Agent 监控作为基础项目完成后的增强层，不提前阻塞 Week 25 到 Week 30 的
+性能主线和基础 CI。执行顺序保持为：
+
+```text
+确定性测试与 SLO
+-> 基础报告和工件归档
+-> 定时任务与事件触发
+-> 只读 Agent 监控
+-> Agent Eval 和成本评估
+```
+
+监控 Workflow 统一采用：
+
+```text
+Scheduler / CI Event
+-> Rule Detector
+-> Evidence Collector
+-> Read-Only Agent
+-> Structured Finding
+-> Human Review / Controlled Workflow
+-> Eval Feedback
+```
+
+#### 触发方式
+
+1. Nightly、Weekly 或固定时间由 Jenkins/GitHub Actions 触发只读扫描。
+2. 测试失败、SLO 越界、工件缺失或设备预检失败时按事件触发。
+3. 人工指定 Run ID 或报告目录进行复现和诊断。
+4. 不允许常驻 Agent 无边界读取所有日志或生产数据。
+
+#### 首批监控 Agent
+
+| Agent | 输入 | 输出 | 权限 |
+| --- | --- | --- | --- |
+| 性能监控 Agent | Locust CSV/HTML、SLO 结果、PostgreSQL/Redis/系统指标 | 退化判断、指标关联、瓶颈假设和补充实验 | 只读 |
+| Flaky 监控 Agent | pytest/Allure 历史、失败指纹、重跑记录 | 聚类、趋势、根因候选和 quarantine 建议 | 只读 |
+| CI 监控 Agent | Job 日志、测试摘要、工件清单和 commit | 失败分层、缺失证据和修复建议 | 只读 |
+| iOS 环境 Agent | preflight JSON、Runner 状态、WDA/Xcode 日志 | 缺失前置和明确的延期原因 | 只读 |
+| 每周维护 Agent | 周报、ADR、runbook、趋势和未验证项 | 过期项、风险和下周任务候选 | 只读 |
+
+#### 结构化输出
+
+Agent 结果写入 `ai/runs/<run-id>/`，至少包含：
+
+```text
+run_id
+trigger
+schema_version
+model_config
+evidence_paths
+findings
+severity
+suspected_layer
+confidence
+proposed_actions
+requires_human_approval
+token_usage
+cost
+latency_ms
+human_modified
+accepted
+```
+
+证据缺失时使用 `INSUFFICIENT_EVIDENCE`。Agent 不得把 `SKIPPED`、
+`NOT RUN` 或 `DEFERRED` 改写为 `PASS`。
+
+#### 周次安排
+
+| 阶段 | 工作 | 验收 |
+| --- | --- | --- |
+| Week 25-29 | 不依赖 Agent 完成 profile、baseline、指标和报告 | 确定性结果和原始证据可追溯 |
+| Week 30 | Android 真机与 iOS 云控制路径/弱网指标；native iOS 继续延期 | 数据格式可供后续 Agent 读取 |
+| Week 31 | 建立定时/事件触发、证据包和只读 Agent 骨架 | 至少一条失败事件可生成结构化诊断 |
+| Week 32 | 运行 Golden Tasks，展示误判和人工修正 | 有准确率、证据引用率、成本、延迟和采纳率 |
+
+性能指标分析 Agent 可以在 Week 27 作为人工触发的只读实验提前验证，但不能
+替代 Prometheus/Grafana、SLO 阈值或人工瓶颈判断。Agent 监控不是 Week 25 的
+完成条件，避免为了 AI 演示延迟基础性能基线。
+
+#### 权限与失败兜底
+
+- 默认只读，工具白名单只包含报告、指标、代码和日志读取。
+- 不直接执行修复、压测、合并、关闭缺陷或修改阈值。
+- 写操作只能生成草稿或受控分支，并且需要人工批准。
+- Agent 超时、模型失败或证据缺失时，基础监控仍按确定性规则工作。
+- Agent 建议必须引用具体文件、指标、日志或 Run ID。
+- 同一异常重复出现时使用指纹去重，不重复生成大量报告或缺陷草稿。
+
+#### Agent 自身指标
+
+- Golden Task 准确率。
+- 证据引用完整率。
+- 误报率和漏报率。
+- 人工修改率和建议采纳率。
+- 单次运行的 P95 延迟、Token 和成本。
+- 从确定性告警到诊断报告的处理时间。
 
 ## 17. 缺陷管理与质量闭环方案
 

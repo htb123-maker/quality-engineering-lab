@@ -2,16 +2,23 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-最新进度：[WEEK-30 - iOS 设备云性能与弱网 / iOS Cloud Performance and Weak Network](weekly/WEEK-30.md)
+最新进度：[WEEK-30 - Android 真机与 iOS 设备云移动性能 / Android and iOS Mobile Performance](weekly/WEEK-30.md)
 
 ## 周报 / Weekly Reports
 
-- [WEEK-30 - iOS 设备云性能与弱网 / iOS Cloud Performance and Weak Network](weekly/WEEK-30.md)
+- [WEEK-30 - Android 真机与 iOS 设备云移动性能 / Android and iOS Mobile Performance](weekly/WEEK-30.md)
+- [WEEK-29 - Soak、Failover、慢查询、锁、连接池、WAL 与缓存](weekly/WEEK-29.md)
+- [WEEK-28 - Stress、Spike、容量与拐点](weekly/WEEK-28.md)
+- [WEEK-27 - Prometheus、Grafana、Trace 与 PostgreSQL/Redis 指标](weekly/WEEK-27.md)
+- [WEEK-26 - Baseline、Load、数据库数据池与分布式 Locust](weekly/WEEK-26.md)
+- [WEEK-25 - SLI、SLO、负载模型、独立性能环境与 Locust Smoke](weekly/WEEK-25.md)
 - [WEEK-24 - 网络、服务、App、WDA 与 ADB 故障注入和恢复](weekly/WEEK-24.md)
 - [WEEK-23 - API 建数、UI 操作与 API 验证的跨层 E2E](weekly/WEEK-23.md)
 - [WEEK-22 - 跨平台框架 v1、PlatformAdapter、公共 Flow 与 Locator Set](weekly/WEEK-22.md)
 - [WEEK-21 - iOS 稳定性、版本矩阵、失败诊断与重构](weekly/WEEK-21.md)
 - [WEEK-20 - iOS 设备矩阵、WDA 并行与 DerivedData 隔离](weekly/WEEK-20.md)
+- [WEEK-19 - iOS 权限、系统交互、深链接、文件、WebView 与业务测试](weekly/WEEK-19.md)
+- [WEEK-18 - iOS Capabilities、定位、键盘、手势与框架](weekly/WEEK-18.md)
 - [WEEK-17 - iOS 环境、Xcode、XCUITest、WDA 与签名](weekly/WEEK-17.md)
 - [WEEK-16 - Android 双 AVD、设备矩阵、日志与 60 条测试](weekly/WEEK-16.md)
 - [WEEK-15 - Android 权限、系统弹窗、Hybrid、文件与恢复](weekly/WEEK-15.md)
@@ -29,6 +36,7 @@
 
 ## 日报 / Daily Reports
 
+- [DAY-08 - iOS 环境验收恢复与 macOS Simulator 通过](daily/DAY-08.md)
 - [DAY-07 - 连续 Smoke、泄漏检查与第一周收口](daily/DAY-07.md)
 - [DAY-06 - 质量闭环、缺陷指纹与三类 Smoke](daily/DAY-06.md)
 - [DAY-05 - 本地 SUT、PostgreSQL 与 Redis / Local SUT, PostgreSQL, and Redis](daily/DAY-05.md)

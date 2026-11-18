@@ -1,37 +1,32 @@
-# WEEK-30 - iOS 设备云性能与弱网 / iOS Cloud Performance and Weak Network
+# WEEK-30 - Android 真机与 iOS 设备云移动性能 / Android and iOS Mobile Performance
 
 - 计划 / Plan: Week 30，移动启动、恢复、性能与弱网
 - 实际开启日期 / Opened: 2026-11-17
 - 当前工作区 / Current Worktree:
   `C:\Users\quan\.codex\worktrees\week30-ios-cloud-performance\Appium 2 study`
-- 当前分支 / Current Branch: `study/week-30-ios-cloud-performance`
+- 当前分支 / Current Branch: `study/week-30-integrated`
 - 状态 / Status:
-  **部分完成 / PARTIAL - IOS CLOUD PERFORMANCE AND WEAK NETWORK PASS**
+  **部分完成 / PARTIAL - ANDROID + IOS CLOUD CORE PASS**
 - iOS 依赖 / iOS Dependency: BrowserStack 真机 / real device
 
 ## 范围说明 / Scope
 
-这是 Week 30 的设备云补充工作区。Android 真机启动、jank、内存和 CPU
-核心证据保存在主工作区：
+Week 30 现在汇总在同一集成分支：
 
 ```text
-D:\Codex projects\Appium 2 study
-reports/weekly/WEEK-30.md
-```
+Android 真机 launch / jank / memory / CPU
+-> Android core evidence
 
-该主工作区 Android 结果此前已为 `PASS`。本分支新增：
-
-```text
 iOS cloud launch / resume
 + BrowserStack weak network
 + no-network error and reset recovery
 -> iOS cloud evidence
 ```
 
-两个工作区没有互相覆盖同一份周报。
-
 ## 已完成 / Completed
 
+- 在 Xiaomi Redmi K50 / Android 14 真机完成启动、jank、内存和 CPU 采集。
+- 944 个真实渲染帧、jank `1.48%`、冷启动 p95 `536.2 ms`。
 - 在 BrowserStack 真实 iPhone 15 / iOS 17 上重新执行既有 fixture 云验收。
 - 既有 Week 19 云验收结果：`9 passed, 1 xfailed`。
 - 建立独立 iOS Week 30 启动/恢复云性能测试。
@@ -41,6 +36,24 @@ iOS cloud launch / resume
 - 验证慢网请求仍成功、耗时显著增加、断网可观察、reset 后恢复。
 - 增加 Ubuntu 快速证据 workflow，复用已上传的真实 iOS fixture。
 - 更新 iOS 测试清单到 52 条，纳入两条 Week 30 测试。
+
+## Android 真机结果 / Android Real-Device Result
+
+| Field | Result |
+| --- | --- |
+| Device | Xiaomi Redmi K50 / `22041211AC` |
+| Android | 14 / API 34 |
+| Cold launch p50 / p95 | 353 / 536.2 ms |
+| Warm launch p50 / p95 | 67.5 / 73.55 ms |
+| Background resume | 73 ms |
+| Rendered frames / jank | 944 / 14 frames / 1.48% |
+| Frame p50 / p90 / p95 / p99 | 9 / 10 / 10 / 12 ms |
+| Total PSS / RSS | 120,393 / 285,224 KB |
+| Process CPU | 71.399% per-core units |
+| Normalized CPU | 11.9% across 6 CPUs |
+
+Android machine checks 全部通过。电量仍不能形成结论：设备处于 USB 充电，
+开始和结束均为 1%。详细命令、runbook 和 JSON 路径见下方证据。
 
 ## 云执行 / Cloud Runs
 
@@ -209,15 +222,21 @@ uv run python scripts/build_doc_index.py --check
 
 实际本分支验证：
 
-- `340 passed in 6.54s`
+- `381 passed in 6.01s`
 - Ruff：通过
-- Mypy：已检查的修改文件通过
+- Mypy：`219 source files` 通过
 - `build_doc_index.py --check`：通过
 
 ## 证据 / Evidence
 
 - 最终云 Run：
   https://github.com/htb123-maker/quality-engineering-lab/actions/runs/44114178963
+- Android 真机 JSON：
+  `artifacts/performance/week30/android/mobile-performance.json`
+- Android collector：
+  `scripts/collect_android_mobile_performance.py`
+- Android runbook：
+  `docs/runbooks/android-mobile-performance.md`
 - 启动/恢复 JSON：
   `artifacts/performance/week30/ios-cloud/mobile-performance.json`
 - 弱网 JSON：
@@ -251,7 +270,7 @@ uv run python scripts/build_doc_index.py --check
 - 受控 HTTP fixture 不能替代项目 SUT 的业务链路。
 - 快速 Ubuntu workflow 使用之前真实构建并上传的 fixture App ID；正式回归仍以
   macOS 来源构建 workflow 为准。
-- 当前工作区仍是隔离分支，尚未合并到主工作区周报。
+- Android 电量与 iOS 原生 Instruments/MetricKit 仍未闭环。
 
 ## 下一步 / Next Steps
 

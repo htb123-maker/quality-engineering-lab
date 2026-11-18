@@ -37,13 +37,14 @@ uv run python scripts/check_sut.py
 uv run pytest tests/unit -q
 ```
 
-独立性能环境与 Week 25 Smoke：
+独立性能环境、Smoke 与监控栈：
 
 ```powershell
 .\scripts\start_performance_sut.ps1
 .\scripts\run_performance_smoke.ps1
 .\scripts\start_performance_sut.ps1 -Monitoring
-.\scripts\verify_observability.ps1
+.\scripts\verify_observability.ps1 `
+  -RunId week26-baseline-run-01,week26-load-run-01
 .\scripts\stop_performance_sut.ps1
 ```
 
