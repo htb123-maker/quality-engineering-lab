@@ -1,0 +1,11 @@
+version: 1
+owners:
+  quality: quality-platform
+  api: api-quality
+  android: android-quality
+  ios: ios-quality
+  performance: performance-engineering
+  infrastructure: platform-infrastructure
+
+# Add only time-bounded, evidence-backed entries. Empty is the safe default.
+quarantine: []
