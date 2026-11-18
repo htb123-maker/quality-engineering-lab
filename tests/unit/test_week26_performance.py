@@ -2,6 +2,7 @@
 
 import ast
 import importlib.util
+import os
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -65,7 +66,7 @@ def test_windows_locust_python_path_includes_compatibility_shim(tmp_path: Path) 
         {"QA_PERF_STUB_FASTHTTP": "1"},
     )
 
-    assert path.split(";")[:3] == [
+    assert path.split(os.pathsep)[:3] == [
         str(tmp_path / "performance" / "compat"),
         str(tmp_path / "packages"),
         str(tmp_path),

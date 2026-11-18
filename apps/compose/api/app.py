@@ -211,17 +211,17 @@ _LAST_RUN_LOCK = threading.Lock()
 
 
 def _configure_tracing() -> trace.Tracer:
-    """Configure an OTLP tracer only when the monitoring profile enables it."""
-
-    if not OTEL_ENABLED:
-        return trace.get_tracer(OTEL_SERVICE_NAME)
+    """Configure a recording tracer and add OTLP only when enabled."""
 
     provider = TracerProvider(
         resource=Resource.create({"service.name": OTEL_SERVICE_NAME}),
     )
-    provider.add_span_processor(
-        BatchSpanProcessor(OTLPSpanExporter(endpoint=OTEL_EXPORTER_OTLP_ENDPOINT))
-    )
+    if OTEL_ENABLED:
+        provider.add_span_processor(
+            BatchSpanProcessor(
+                OTLPSpanExporter(endpoint=OTEL_EXPORTER_OTLP_ENDPOINT)
+            )
+        )
     trace.set_tracer_provider(provider)
     return trace.get_tracer(OTEL_SERVICE_NAME)
 
