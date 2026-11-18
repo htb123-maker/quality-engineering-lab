@@ -2,7 +2,7 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-共 71 篇设计文档，按主题分组。
+共 73 篇设计文档，按主题分组。
 
 ## 目标与计划 / Goals and Plan
 
@@ -24,6 +24,7 @@
 - [Mobile Driver Call Chain](architecture/mobile-driver-call-chain.md)
 - [性能可观测性与 Trace 关联 / Performance Observability and Trace Correlation](architecture/performance-observability.md)
 - [项目结构与技术栈总览](architecture/project-overview.md)
+- [Quality Pipeline And Trends](architecture/quality-pipeline-and-trends.md)
 
 ## 架构决策 / ADR
 
@@ -85,6 +86,7 @@
 - [性能 Smoke 失败排查 / Performance Smoke Triage](runbooks/performance-smoke-triage.md)
 - [Redis Cache and Consistency Triage](runbooks/redis-cache-and-consistency-triage.md)
 - [Week 1 Environment Recovery](runbooks/week1-environment-recovery.md)
+- [Week 31 Quality Pipeline](runbooks/week31-quality-pipeline.md)
 - [Yuque Project Hub Runbook](runbooks/yuque-project-hub.md)
 
 ## 其他 / Other

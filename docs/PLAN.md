@@ -405,6 +405,12 @@ iPhone 15 / iOS 17.3 冷启动控制路径 p95 2356.514 ms、热恢复 p95 990.3
 和 MetricKit 仍未执行，因此不能把设备云控制路径写成 iOS 原生首帧通过。完整
 记录见 `reports/weekly/WEEK-30.md`。
 
+Week 31 已于 2026-11-18 提前开启。统一质量 pipeline 已实现，包含 Quality、
+Compose SUT、Linux Android emulator、iOS 设备云、性能 Smoke 和趋势聚合；
+owner/quarantine 治理与 JUnit/JSON 趋势脚本已通过本地单元测试。当前状态为
+`IN PROGRESS`，必须以真实 GitHub Actions 运行和趋势 cache 跨 run 恢复作为
+完成证据。详细计划见 `reports/weekly/WEEK-31.md`。
+
 ### 5.2 计划验收与周报协议
 
 每一个 Plan（通常对应课表中的一周）完成后，必须生成

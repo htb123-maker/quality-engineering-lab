@@ -1,0 +1,287 @@
+name: Week 31 Quality Pipeline
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - study/week-31-ci-pipeline
+  workflow_dispatch:
+  schedule:
+    - cron: "0 18 * * *"
+    - cron: "0 19 * * 0"
+
+permissions:
+  actions: read
+  contents: read
+
+env:
+  PYTHONPATH: packages
+
+jobs:
+  quality:
+    name: Quality gates and governance
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Ruff
+        run: uv run --no-sync ruff check .
+      - name: Mypy
+        run: uv run --no-sync mypy packages tests performance
+      - name: Unit tests
+        run: |
+          mkdir -p artifacts
+          uv run --no-sync pytest tests/unit -q \
+            --alluredir=artifacts/allure-quality \
+            --junitxml=artifacts/quality-junit.xml
+      - name: Governance
+        run: uv run --no-sync python scripts/check_quality_governance.py
+      - name: Upload quality evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: week31-quality
+          path: |
+            artifacts/allure-quality/
+            artifacts/quality-junit.xml
+            artifacts/defect-drafts/
+          if-no-files-found: ignore
+
+  sut:
+    name: Compose SUT and cross-layer tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Start SUT
+        run: |
+          docker compose -f apps/compose/compose.yaml \
+            --profile fault-injection up \
+            --detach --wait --wait-timeout 120 --build
+      - name: Readiness
+        run: uv run --no-sync python scripts/check_sut.py --wait-seconds 120
+      - name: Integration tests
+        run: |
+          mkdir -p artifacts
+          uv run --no-sync pytest tests/integration -q \
+            --alluredir=artifacts/allure-sut \
+            --junitxml=artifacts/sut-junit.xml
+      - name: API tests
+        run: |
+          uv run --no-sync pytest tests/api -q -n 4 \
+            --basetemp=artifacts/pytest-tmp \
+            --alluredir=artifacts/allure-sut \
+            --junitxml=artifacts/api-junit.xml
+      - name: Compose logs
+        if: always()
+        run: |
+          mkdir -p artifacts
+          docker compose -f apps/compose/compose.yaml logs --no-color \
+            > artifacts/sut-compose.log
+      - name: Stop SUT
+        if: always()
+        run: |
+          docker compose -f apps/compose/compose.yaml \
+            --profile fault-injection down --volumes --remove-orphans
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: week31-sut
+          path: artifacts/
+          if-no-files-found: ignore
+
+  android:
+    name: Android Linux emulator smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Install Appium
+        run: |
+          npm install --global appium@2.19.0
+          appium driver install uiautomator2@4.2.9
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Boot Android and run smoke
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: aosp_atd
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            set -euo pipefail
+            adb wait-for-device
+            until [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" == "1" ]]; do sleep 2; done
+            bash scripts/build_android_fixture.sh emulator-5554
+            mkdir -p artifacts
+            nohup appium --address 127.0.0.1 --port 4723 \
+              > artifacts/appium-android.log 2>&1 &
+            for attempt in $(seq 1 60); do
+              if curl --fail --silent http://127.0.0.1:4723/status; then break; fi
+              if [[ "$attempt" == "60" ]]; then cat artifacts/appium-android.log; exit 1; fi
+              sleep 2
+            done
+            QA_ANDROID_UDID=emulator-5554 \
+            QA_ANDROID_DEVICE_NAME=Pixel_API_35_AOSP_ATD \
+            QA_ANDROID_DEVICE_IDS=local-primary-avd \
+            uv run --no-sync pytest tests/android -m smoke -q \
+              --alluredir=artifacts/allure-android \
+              --junitxml=artifacts/android-junit.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: week31-android
+          path: artifacts/
+          if-no-files-found: ignore
+
+  ios-cloud:
+    name: iOS real-device cloud smoke
+    if: ${{ vars.IOS_CLOUD_APP != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      QA_IOS_DEVICE_PROVIDER: browserstack
+      QA_IOS_CLOUD_REMOTE_URL: https://hub-cloud.browserstack.com/wd/hub
+      QA_IOS_CLOUD_USER: ${{ secrets.IOS_CLOUD_USER }}
+      QA_IOS_CLOUD_ACCESS_KEY: ${{ secrets.IOS_CLOUD_ACCESS_KEY }}
+      QA_IOS_CLOUD_APP: ${{ vars.IOS_CLOUD_APP }}
+      QA_IOS_CLOUD_DEVICE_NAME: iPhone 15
+      QA_IOS_CLOUD_PLATFORM_VERSION: "17"
+      QA_IOS_CLOUD_PROJECT_NAME: quality-engineering-lab
+      QA_IOS_CLOUD_BUILD_NAME: week31-ios-${{ github.run_id }}
+      QA_IOS_CLOUD_SESSION_NAME: week31-ios-smoke
+      QA_IOS_CLOUD_APPIUM_VERSION: "2.19.0"
+      QA_IOS_BUNDLE_ID: com.example.qaweek19
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Run cloud smoke and launch evidence
+        run: |
+          mkdir -p artifacts
+          uv run --no-sync pytest \
+            tests/ios/test_cloud_session.py \
+            tests/ios/test_week30_cloud_performance.py \
+            -q \
+            --alluredir=artifacts/allure-ios \
+            --junitxml=artifacts/ios-junit.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: week31-ios
+          path: artifacts/
+          if-no-files-found: ignore
+
+  performance:
+    name: Performance smoke and trend input
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Start isolated performance SUT
+        run: |
+          docker compose -p quality-engineering-lab-performance \
+            --env-file .env.performance.example \
+            -f apps/compose/compose.yaml up \
+            --detach --wait --wait-timeout 120 --build
+      - name: Run performance smoke
+        run: |
+          uv run --no-sync python scripts/run_performance_profile.py \
+            --profile configs/performance-smoke.yaml \
+            --label smoke \
+            --output-dir artifacts/performance/week31 \
+            --warmup-seconds 5 \
+            --measured-runs 1
+      - name: Stop performance SUT
+        if: always()
+        run: |
+          docker compose -p quality-engineering-lab-performance \
+            --env-file .env.performance.example \
+            -f apps/compose/compose.yaml down --volumes --remove-orphans
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: week31-performance
+          path: artifacts/performance/week31/
+          if-no-files-found: ignore
+
+  trends:
+    name: Quality trend and evidence index
+    needs:
+      - quality
+      - sut
+      - android
+      - ios-cloud
+      - performance
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/collected
+          merge-multiple: true
+      - uses: actions/cache/restore@v4
+        with:
+          path: artifacts/quality-history
+          key: quality-trends-v1-${{ github.run_id }}
+          restore-keys: |
+            quality-trends-v1-
+      - name: Build trends
+        run: |
+          uv run --no-sync python scripts/build_quality_trends.py \
+            --artifacts-root artifacts/collected \
+            --history artifacts/quality-history/history.json \
+            --run-id "${{ github.run_id }}" \
+            --commit "${{ github.sha }}" \
+            --json-output artifacts/quality-trends/history.json \
+            --html-output artifacts/quality-trends/index.html
+      - uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: artifacts/quality-history
+          key: quality-trends-v1-${{ github.run_id }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: week31-trends
+          path: artifacts/quality-trends/
+          if-no-files-found: ignore
