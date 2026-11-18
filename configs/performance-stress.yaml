@@ -1,0 +1,40 @@
+version: 1
+name: week28-stress
+base_url: http://127.0.0.1:28000
+workspace: qa-perf-week28-capacity
+authentication: password
+account_pool_size: 48
+token_refresh_after_seconds: 20
+stages:
+  - users: 4
+    spawn_rate: 2
+    duration_seconds: 20
+  - users: 8
+    spawn_rate: 4
+    duration_seconds: 20
+  - users: 12
+    spawn_rate: 4
+    duration_seconds: 20
+  - users: 16
+    spawn_rate: 4
+    duration_seconds: 20
+  - users: 24
+    spawn_rate: 8
+    duration_seconds: 20
+thresholds:
+  - name: stress p95 guardrail
+    metric: p95_response_time_ms
+    operator: lte
+    threshold: 2000
+  - name: stress error guardrail
+    metric: error_rate
+    operator: lte
+    threshold: 0.1
+  - name: stress request evidence
+    metric: total_requests
+    operator: gte
+    threshold: 1000
+  - name: stress throughput evidence
+    metric: requests_per_second
+    operator: gte
+    threshold: 8
