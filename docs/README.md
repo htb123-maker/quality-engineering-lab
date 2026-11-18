@@ -20,6 +20,7 @@
 - [iOS Device Matrix and Parallel Isolation](architecture/ios-device-matrix.md)
 - [iOS Stability, Inventory, and Failure Diagnostics](architecture/ios-stability-and-diagnostics.md)
 - [Mobile Driver Call Chain](architecture/mobile-driver-call-chain.md)
+- [性能可观测性与 Trace 关联 / Performance Observability and Trace Correlation](architecture/performance-observability.md)
 - [项目结构与技术栈总览](architecture/project-overview.md)
 
 ## 架构决策 / ADR
@@ -34,6 +35,8 @@
 - [ADR-0008: 缓存旁路、TTL 与最终一致性策略](adr/0008-cache-aside-ttl-and-eventual-consistency.md)
 - [ADR-0009: RBAC 能力矩阵、BOLA 与输入加固](adr/0009-rbac-bola-and-input-hardening.md)
 - [ADR-0010: 并行连接预算、故障注入与缺陷草稿](adr/0010-parallel-budgets-fault-injection-and-defect-drafts.md)
+- [ADR-0011: 独立性能环境与机器可判定 SLO](adr/0011-isolated-performance-environment-and-slo-gates.md)
+- [ADR-0012: 性能指标、Trace 与监控栈边界](adr/0012-performance-observability-and-trace-correlation.md)
 
 ## 测试策略 / Test Strategy
 
@@ -70,7 +73,13 @@
 - [iOS WDA Build and Signing Triage](runbooks/ios-wda-signing-triage.md)
 - [iOS XCUITest Simulator and Device Environment Runbook](runbooks/ios-xcuitest-simulator.md)
 - [Local SUT Docker Compose Runbook](runbooks/local-sut-compose.md)
+- [监控栈失败排查 / Monitoring Stack Triage](runbooks/monitoring-stack-triage.md)
 - [并行数据隔离失败排查 / Parallel Data-Isolation Failure Triage](runbooks/parallel-data-isolation-failures.md)
+- [性能 Smoke 失败排查 / Performance Smoke Triage](runbooks/performance-smoke-triage.md)
 - [Redis Cache and Consistency Triage](runbooks/redis-cache-and-consistency-triage.md)
 - [Week 1 Environment Recovery](runbooks/week1-environment-recovery.md)
 - [Yuque Project Hub Runbook](runbooks/yuque-project-hub.md)
+
+## 其他 / Other
+
+- [性能负载模型 / Performance Load Model](performance/load-model.md)

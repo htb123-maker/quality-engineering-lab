@@ -1,0 +1,71 @@
+"""Performance profile loading and objective evaluation."""
+
+from qa_core.performance.data_pool import (
+    PERFORMANCE_NAMESPACE_PREFIX,
+    PerformanceAccount,
+    PerformanceDataPool,
+    PerformanceDataset,
+    PerformanceDatasetManifest,
+    PerformanceRuntimeData,
+    load_env_file,
+    load_runtime_data,
+    normalize_run_id,
+    performance_workspace_slug,
+    setting_from_sources,
+)
+from qa_core.performance.models import (
+    AuthenticationMode,
+    LoadStage,
+    ObservedPerformance,
+    PerformanceProfile,
+    PerformanceThreshold,
+    ThresholdResult,
+    evaluate_thresholds,
+    load_performance_profile,
+)
+from qa_core.performance.resources import (
+    DockerResourceSampler,
+    ResourceSample,
+    parse_io_pair,
+    parse_percent,
+    parse_size,
+)
+from qa_core.performance.results import (
+    compare_observations,
+    profile_sha256,
+    render_html_report,
+    summarize_observations,
+    summarize_resource_csvs,
+)
+
+__all__ = [
+    "PERFORMANCE_NAMESPACE_PREFIX",
+    "AuthenticationMode",
+    "DockerResourceSampler",
+    "LoadStage",
+    "ObservedPerformance",
+    "PerformanceAccount",
+    "PerformanceDataPool",
+    "PerformanceDataset",
+    "PerformanceDatasetManifest",
+    "PerformanceProfile",
+    "PerformanceRuntimeData",
+    "PerformanceThreshold",
+    "ResourceSample",
+    "ThresholdResult",
+    "compare_observations",
+    "evaluate_thresholds",
+    "load_env_file",
+    "load_performance_profile",
+    "load_runtime_data",
+    "normalize_run_id",
+    "parse_io_pair",
+    "parse_percent",
+    "parse_size",
+    "profile_sha256",
+    "render_html_report",
+    "performance_workspace_slug",
+    "setting_from_sources",
+    "summarize_observations",
+    "summarize_resource_csvs",
+]
