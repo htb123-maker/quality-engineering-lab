@@ -2,11 +2,53 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
+import sys
 from pathlib import Path
+from types import ModuleType
 
 import app as sut_app
+import pytest
 import yaml
+
+
+def _load_observability_verifier() -> ModuleType:
+    path = Path("scripts/verify_observability.py")
+    spec = importlib.util.spec_from_file_location("verify_observability", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_promql_run_id_is_escaped_as_a_string_literal() -> None:
+    verifier = _load_observability_verifier()
+
+    assert verifier._promql_string('run"\\next\nline') == 'run\\"\\\\next\\nline'
+
+
+def test_finish_observation_ignores_idle_keepalive_connections(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeGauge:
+        def __init__(self) -> None:
+            self.decrements = 0
+
+        def dec(self) -> None:
+            self.decrements += 1
+
+    gauge = FakeGauge()
+    monkeypatch.setattr(sut_app, "HTTP_REQUESTS_IN_PROGRESS", gauge)
+    handler = object.__new__(sut_app.SutRequestHandler)
+    handler._request_started_at = None
+    handler._request_span_token = None
+    handler._request_counted_in_progress = False
+
+    handler._finish_request_observation()
+
+    assert gauge.decrements == 0
 
 
 def test_dynamic_routes_collapse_to_stable_metric_labels() -> None:

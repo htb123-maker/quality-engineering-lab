@@ -71,6 +71,8 @@ def main() -> int:
             )
         purge_catalog_cache(runtime.redis_url, runtime.workspace_slug)
 
+    locust_environment = _locust_environment()
+    locust_environment["PYTHONPATH"] = _locust_python_path(root, locust_environment)
     metadata = {
         "profile_path": str(profile_path),
         "profile_sha256": profile_sha256(profile_path),
@@ -80,6 +82,7 @@ def main() -> int:
         "locust_version": _command_output(
             [sys.executable, "-m", "locust", "--version"],
             root,
+            environment=locust_environment,
         ),
         "data_file_sha256": (
             hashlib.sha256(data_file.read_bytes()).hexdigest() if data_file is not None else None
@@ -193,10 +196,8 @@ def _run_locust(
         "--exit-code-on-error",
         "1",
     ]
-    environment = os.environ.copy()
-    environment["PYTHONPATH"] = f"{root / 'packages'}{os.pathsep}{root}" + (
-        f"{os.pathsep}{environment['PYTHONPATH']}" if environment.get("PYTHONPATH") else ""
-    )
+    environment = _locust_environment()
+    environment["PYTHONPATH"] = _locust_python_path(root, environment)
     environment["QA_PERF_PROFILE"] = str(profile_path)
     environment["QA_PERF_RUN_DIR"] = str(run_dir)
     environment["QA_PERF_RUN_ID"] = run_id
@@ -227,7 +228,7 @@ def _run_locust(
                 timeout=expected_duration + 180,
             )
     if completed.returncode != 0:
-        tail = "\n".join(log_path.read_text(encoding="utf-8").splitlines()[-40:])
+        tail = _read_log_tail(log_path)
         raise RuntimeError(f"Locust run failed with exit code {completed.returncode}:\n{tail}")
     result_path = run_dir / "result.json"
     if not result_path.is_file():
@@ -252,10 +253,16 @@ def _run_locust(
     return result
 
 
-def _command_output(command: list[str], cwd: Path) -> str:
+def _command_output(
+    command: list[str],
+    cwd: Path,
+    *,
+    environment: dict[str, str] | None = None,
+) -> str:
     completed = subprocess.run(
         command,
         cwd=cwd,
+        env=environment,
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -264,6 +271,40 @@ def _command_output(command: list[str], cwd: Path) -> str:
         timeout=30,
     )
     return (completed.stdout or completed.stderr).strip()
+
+
+def _read_log_tail(path: Path, *, max_lines: int = 40) -> str:
+    """Read a child-process log without hiding the real failure on Windows."""
+
+    text = path.read_text(encoding="utf-8", errors="replace")
+    return "\n".join(text.splitlines()[-max_lines:])
+
+
+def _locust_environment(
+    source: dict[str, str] | None = None,
+    *,
+    platform: str | None = None,
+) -> dict[str, str]:
+    """Use gevent's pure-Python fallback when Windows lacks the wheel runtime."""
+
+    environment = dict(os.environ if source is None else source)
+    if (platform or sys.platform) == "win32":
+        environment.setdefault("PURE_PYTHON", "1")
+        environment.setdefault("QA_PERF_STUB_FASTHTTP", "1")
+        environment.setdefault("QA_PERF_FAST_HTTP", "0")
+    return environment
+
+
+def _locust_python_path(root: Path, environment: dict[str, str]) -> str:
+    """Build the child Python path, including the Windows import shim."""
+
+    entries = [root / "packages", root]
+    if environment.get("QA_PERF_STUB_FASTHTTP") == "1":
+        entries.insert(0, root / "performance" / "compat")
+    existing = environment.get("PYTHONPATH")
+    if existing:
+        entries.extend(Path(item) for item in existing.split(os.pathsep) if item)
+    return os.pathsep.join(str(entry) for entry in entries)
 
 
 if __name__ == "__main__":

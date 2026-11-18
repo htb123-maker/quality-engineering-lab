@@ -9,7 +9,10 @@ cAdvisor。只针对本地隔离测试环境，不用于生产监控变更。
 
 ```powershell
 .\scripts\start_performance_sut.ps1 -WaitSeconds 240 -Monitoring
-.\scripts\verify_observability.ps1 -WaitSeconds 90
+.\scripts\verify_observability.ps1 `
+  -WaitSeconds 90 `
+  -WindowMinutes 30 `
+  -RunId week26-baseline-run-01,week26-load-run-01
 ```
 
 预期结果：
@@ -18,6 +21,10 @@ cAdvisor。只针对本地隔离测试环境，不用于生产监控变更。
 PASS API trace headers
 PASS API Prometheus metrics
 PASS Prometheus scrape targets
+PASS Prometheus PostgreSQL metrics
+PASS Prometheus Redis metrics
+PASS Prometheus run_id week26-baseline-run-01
+PASS Prometheus run_id week26-load-run-01
 PASS Grafana health
 PASS Grafana dashboard provisioning
 PASS Tempo readiness
@@ -56,6 +63,20 @@ Get "https://registry-1.docker.io/v2/": context deadline exceeded
 3. 不要用配置解析成功替代真实启动。
 4. 网络恢复后重新执行同一启动命令，不能改写历史失败记录。
 5. 使用镜像缓存或镜像站时必须确认来源可信，不得随意使用未知镜像。
+6. 镜像站拉取完成后必须重新标记为 Compose 声明的原镜像名，确保运行契约不变。
+
+### Locust 在 Windows 上加载 gevent C 扩展失败
+
+`python -m locust --version` 若出现：
+
+```text
+ImportError: DLL load failed while importing _gevent_clocal
+```
+
+说明 Windows 缺少 wheel 所需的 C 运行库。项目 runner 在 Windows 自动设置
+`PURE_PYTHON=1` 使用受控 fallback；该模式适合功能和时间线关联，不应把它的
+吞吐结果解释为压测机性能上限。失败日志必须以 tolerant decoding 读取，避免
+本地编码错误掩盖真正的 Locust 异常。
 
 ### Prometheus target 为 down
 

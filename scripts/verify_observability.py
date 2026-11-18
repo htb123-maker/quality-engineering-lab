@@ -52,6 +52,12 @@ def _wait_for(
     return None
 
 
+def _promql_string(value: str) -> str:
+    """Quote a value for a PromQL string literal."""
+
+    return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+
 def verify(args: argparse.Namespace) -> list[CheckResult]:
     """Run the real observability checks against localhost."""
 
@@ -126,6 +132,55 @@ def verify(args: argparse.Namespace) -> list[CheckResult]:
                     f"targets={targets}, unhealthy={unhealthy}",
                 )
             )
+
+            source_queries = {
+                "Prometheus PostgreSQL metrics": "pg_stat_database_numbackends",
+                "Prometheus Redis metrics": "redis_connected_clients",
+            }
+            for name, query in source_queries.items():
+                response = prometheus.get(
+                    "/api/v1/query",
+                    params={"query": query},
+                )
+                payload = response.json() if response.status_code == 200 else {}
+                series = payload.get("data", {}).get("result", [])
+                results.append(
+                    _result(
+                        name,
+                        response.status_code == 200 and bool(series),
+                        f"query={query}, series={len(series)}",
+                    )
+                )
+
+            if args.run_ids:
+                end = time.time()
+                start = end - max(args.window_minutes, 1) * 60
+                for run_id in args.run_ids:
+                    response = prometheus.get(
+                        "/api/v1/query_range",
+                        params={
+                            "query": (
+                                "qa_sut_last_request_run_info"
+                                f'{{run_id="{_promql_string(run_id)}"}}'
+                            ),
+                            "start": start,
+                            "end": end,
+                            "step": 15,
+                        },
+                    )
+                    payload = response.json() if response.status_code == 200 else {}
+                    series = payload.get("data", {}).get("result", [])
+                    values = series[0].get("values", []) if series else []
+                    results.append(
+                        _result(
+                            f"Prometheus run_id {run_id}",
+                            response.status_code == 200 and bool(values),
+                            (
+                                f"series={len(series)}, samples={len(values)}, "
+                                f"window_minutes={args.window_minutes}"
+                            ),
+                        )
+                    )
         finally:
             prometheus.close()
 
@@ -211,6 +266,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--grafana-url", default="http://127.0.0.1:23000")
     parser.add_argument("--tempo-url", default="http://127.0.0.1:23200")
     parser.add_argument("--wait-seconds", type=int, default=60)
+    parser.add_argument("--window-minutes", type=int, default=30)
+    parser.add_argument("--run-id", action="append", dest="run_ids", default=[])
     parser.add_argument(
         "--output",
         type=Path,

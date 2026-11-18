@@ -54,6 +54,10 @@ flowchart LR
 
 `run_id` 不进入每个请求的 Counter label，只记录最近一次活动 run，避免高基数。
 
+`qa_sut_http_requests_in_progress` 只在请求成功解析后递增，并排除 `/metrics`
+自身的 scrape。keep-alive 连接在等待下一条请求时不计为处理中，否则空闲用户会
+让 Gauge 持续偏高，使 Little's Law 校核失真。
+
 ## 3. 请求与 Trace 关联
 
 每个请求从以下顺序取得关联 ID：
@@ -66,6 +70,12 @@ flowchart LR
 OTLP 只有在 `QA_OTEL_ENABLED=1` 时启用。Compose 的 `monitoring` profile 由
 `start_sut.ps1 -Monitoring` 或 `start_performance_sut.ps1 -Monitoring` 激活，
 默认运行不会连接不存在的 Tempo。
+
+Locust 的 `X-QA-Run-Id` 必须合并进每一个请求，包括显式携带 Authorization
+的认证请求。最终验收通过 Prometheus `query_range` 查询
+`qa_sut_last_request_run_info{run_id="..."}`，确认 Baseline 和 Load run ID
+在指定时间窗口内都有样本。容器 target up 只能证明抓取链路存在，不能替代
+run ID 关联。
 
 ## 4. 数据源
 

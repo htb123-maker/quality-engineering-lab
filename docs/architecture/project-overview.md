@@ -11,6 +11,7 @@
 ```mermaid
 flowchart TB
     TESTS["tests<br/>unit / api / integration / smoke / android / ios"] --> CORE["packages/qa_core<br/>共享测试核心"]
+    PERF["performance<br/>Locust journeys / profiles"] --> CORE
     CORE --> APPS["apps/compose<br/>本地被测系统 SUT"]
     APPS --> PG[("PostgreSQL 16")]
     APPS --> RD[("Redis 7")]
@@ -50,6 +51,7 @@ Redis 协议和 Appium 会话访问 `apps/compose` 提供的被测系统。`docs
 | Android 设备矩阵 | YAML 设备画像、xdist worker 绑定、双 AVD 与真机扩展点 | `configs/android-device-matrix.yaml`、`packages/qa_core/platforms/android/devices.py` |
 | 报告 | Allure 结果、缺陷指纹、命名空间泄漏报告 | `packages/qa_core/reporting/`、`artifacts/` |
 | 并发 | pytest-xdist；API 默认 `-n 4`，Android 双 AVD 使用 `-n 2` | `pyproject.toml`、`scripts/run_android_matrix.ps1` |
+| 性能 | Locust 负载形状、YAML profile、机器可判定 SLO 和独立 Compose 环境 | `performance/`、`configs/performance-smoke.yaml`、`qa_core.performance` |
 | 日志 | structlog | `packages/qa_core/http/client.py` |
 | 本地环境 | Docker Compose：API + PostgreSQL 16 + Redis 7 | `apps/compose/compose.yaml` |
 | CI | GitHub Actions：质量门、SUT 集成、iOS 冒烟 | `.github/workflows/` |
@@ -64,6 +66,7 @@ Redis 协议和 Appium 会话访问 `apps/compose` 提供的被测系统。`docs
 | 数据库 | `qa_core.db`：psycopg 3 | PostgreSQL 16 |
 | 缓存 | `qa_core.cache`：redis | Redis 7 |
 | 移动端 | `qa_core.driver` + `qa_core.mobile`：会话、定位、等待与 Flow | Appium Server 2 到 UiAutomator2 / XCUITest 到设备 |
+| 性能 | `performance/locustfiles` + `qa_core.performance` | Locust 到独立性能 SUT，结果写入 CSV/HTML |
 | 全部 | `qa_core.config`：pydantic-settings | 从 `.env` 读取地址与开关 |
 
 接口、数据库与缓存三类测试直接打到同一个被测系统，移动端测试再经过 Appium

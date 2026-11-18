@@ -190,6 +190,22 @@ LAST_RUN_INFO = Gauge(
     "The most recent Locust run id observed by the SUT.",
     ("run_id",),
 )
+POSTGRES_BUDGET_CAPACITY = Gauge(
+    "qa_sut_postgres_connection_budget_capacity",
+    "Configured PostgreSQL connection budget.",
+)
+POSTGRES_BUDGET_ACTIVE = Gauge(
+    "qa_sut_postgres_connection_budget_active",
+    "PostgreSQL connection budget slots currently in use.",
+)
+POSTGRES_BUDGET_PEAK = Gauge(
+    "qa_sut_postgres_connection_budget_peak",
+    "Peak PostgreSQL connection budget usage since process start.",
+)
+POSTGRES_BUDGET_WAIT_SECONDS = Gauge(
+    "qa_sut_postgres_connection_budget_wait_seconds",
+    "Maximum wait for a PostgreSQL connection budget slot.",
+)
 _LAST_RUN_ID: str | None = None
 _LAST_RUN_LOCK = threading.Lock()
 
@@ -431,6 +447,16 @@ _POSTGRES_BUDGET = ConnectionBudget(
     capacity=POSTGRES_MAX_CONNECTIONS,
     wait_seconds=POSTGRES_CONNECTION_TIMEOUT_SECONDS,
 )
+
+
+def _refresh_connection_budget_metrics() -> None:
+    """Publish the current bounded connection-pool state."""
+
+    snapshot = _POSTGRES_BUDGET.snapshot
+    POSTGRES_BUDGET_CAPACITY.set(snapshot.capacity)
+    POSTGRES_BUDGET_ACTIVE.set(snapshot.active)
+    POSTGRES_BUDGET_PEAK.set(snapshot.peak)
+    POSTGRES_BUDGET_WAIT_SECONDS.set(snapshot.wait_seconds)
 
 
 @contextmanager
@@ -1909,6 +1935,7 @@ class SutRequestHandler(BaseHTTPRequestHandler):
         self._request_started_at: float | None = None
         self._request_span: trace.Span | None = None
         self._request_span_token: Any = None
+        self._request_counted_in_progress = False
         self._request_id = ""
         self._run_id = ""
         self._response_status: int | None = None
@@ -1916,7 +1943,6 @@ class SutRequestHandler(BaseHTTPRequestHandler):
     def handle_one_request(self) -> None:
         """Observe one HTTP request, including its trace correlation."""
 
-        HTTP_REQUESTS_IN_PROGRESS.inc()
         try:
             super().handle_one_request()
         finally:
@@ -1927,6 +1953,9 @@ class SutRequestHandler(BaseHTTPRequestHandler):
 
         parsed = super().parse_request()
         if parsed:
+            if urlparse(self.path).path != "/metrics":
+                HTTP_REQUESTS_IN_PROGRESS.inc()
+                self._request_counted_in_progress = True
             self._begin_request_observation()
         return parsed
 
@@ -2006,7 +2035,10 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             if self._request_span_token is not None:
                 otel_context.detach(self._request_span_token)
                 self._request_span_token = None
-            HTTP_REQUESTS_IN_PROGRESS.dec()
+            if self._request_counted_in_progress:
+                HTTP_REQUESTS_IN_PROGRESS.dec()
+                self._request_counted_in_progress = False
+            self._request_started_at = None
 
     def do_GET(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
@@ -3637,6 +3669,7 @@ class SutRequestHandler(BaseHTTPRequestHandler):
     def _send_metrics(self) -> None:
         """Expose the Prometheus text format without authentication."""
 
+        _refresh_connection_budget_metrics()
         body = generate_latest()
         self.send_response(HTTPStatus.OK.value)
         self.send_header("Content-Type", CONTENT_TYPE_LATEST)

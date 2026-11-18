@@ -3,10 +3,11 @@
 - 计划 / Plan: Week 27，性能监控面板与指标时间线
 - 计划日期范围 / Planned Date Range: 2026-11-12 to 2026-11-18
 - 实际开启日期 / Opened: 2026-11-10，按用户要求提前开启
+- 实际完成日期 / Completed: 2026-11-14
 - 当前工作区 / Current Worktree: `D:\Codex projects\Appium 2 study`
 - 当前分支 / Current Branch: `study/week-20-ios-device-matrix`
-- 基线提交 / Base Commit: `a1c0306`，其上有未提交的 Week 25/26 实现
-- 状态 / Status: **进行中 / IN PROGRESS - API METRICS PASS, MONITORING STACK BLOCKED**
+- 基线提交 / Base Commit: `a1c0306`，其上有未提交的 Week 25/26/27 实现
+- 状态 / Status: **通过 / PASS - MONITORING STACK AND RUN-ID TIMELINE VERIFIED**
 - iOS 依赖 / iOS Dependency: 无 / None
 
 ## 前置周核对 / Previous Week Audit
@@ -63,57 +64,80 @@ Locust run_id
 - SUT `/metrics` endpoint 已实现。
 - 请求 Counter、latency Histogram 和 in-progress Gauge 已实现。
 - 动态 route label 已归一化为 `{slug}`、`{item_id}`、`{job_id}`。
-- Locust 已发送 `X-QA-Run-Id`。
+- 所有 Locust 认证和匿名请求都已发送 `X-QA-Run-Id`，包括显式携带认证头的请求。
 - SUT 已返回 `X-Request-Id` 和 `X-Trace-Id`。
-- OTLP HTTP exporter 和 Tempo Compose 配置已实现。
-- Prometheus、Grafana、Tempo、PostgreSQL/Redis exporter、cAdvisor 配置已实现。
-- `monitoring` Compose profile 和启动/验证脚本已实现。
-- Week 27 unit contract tests 已通过。
-- Compose 配置静态解析已通过。
-- API metrics 和 Trace 头已在本机 Python 进程真实执行。
+- OTLP HTTP exporter 已把真实请求 span 发送到 Tempo。
+- Prometheus、Grafana、Tempo、PostgreSQL/Redis exporter 和 cAdvisor 已真实启动。
+- `monitoring` Compose profile 中的九个服务均达到 healthy。
+- `sut-api`、`postgres`、`redis`、`cadvisor` 四个 Prometheus target 均为 `up`。
+- Prometheus 已查询到 PostgreSQL `pg_stat_database_numbackends` 和 Redis
+  `redis_connected_clients` 的真实时间序列。
+- Grafana 健康检查通过，并 provision 了 `week27-sut-overview` Dashboard。
+- Tempo readiness 通过，并能按精确 `X-Trace-Id` 查询到请求 Trace。
+- Week 26 Baseline/Load profile 已关联 monitoring 重新执行，两个 run ID 都能在
+  Prometheus 30 分钟窗口中查询到样本。
+- Baseline/Load 本次受控关联运行的 SLO 均通过，并生成 comparison 和 HTML 报告。
 
-### 未完成或阻塞 / Incomplete or Blocked
+### 历史失败与解除 / Historical Failures Resolved
 
-- Prometheus 容器未启动：镜像拉取网络超时，`BLOCKED`。
-- Grafana 容器未启动：同一次镜像拉取失败，`NOT RUN`。
-- Tempo 容器未启动：同一次镜像拉取失败，`NOT RUN`。
-- PostgreSQL/Redis exporter 和 cAdvisor：镜像未拉取，`NOT RUN`。
-- Prometheus target、Grafana dashboard、Tempo trace retrieval 的真实 acceptance：
-  `BLOCKED`，等待可信镜像来源恢复。
-- 与 Week 26 Baseline/Load 的完整时间线叠加：`NOT RUN`。
+- Docker Hub 和 `mirror.gcr.io` 初始超时，保留下载失败事实。
+- 使用可信镜像代理完成 Prometheus、Grafana、Tempo、exporter 和 cAdvisor 拉取，
+  并以 Compose 官方镜像名重新标记后真实启动。
+- 用户中断后 Docker Desktop 引擎停止，首次恢复验收得到 502；重启引擎并等待
+  scrape 周期后重新验收通过。502 不归属于应用代码缺陷。
+- Windows `gevent` C 扩展加载失败；runner 在 Windows 使用受控的 pure-Python
+  gevent fallback，并修复失败日志的本地编码读取。
+- 首次认证 Locust 请求覆盖了类级 `X-QA-Run-Id`，导致 Prometheus 无 run ID
+  序列；修复请求头合并后重新执行 Baseline/Load。
 
-因此本周当前只能标记 `IN PROGRESS`，不能标记 `PASS` 或 `COMPLETE`。
+上述失败目录和修复后的证据均保留，没有通过覆盖日志把失败改写为通过。
 
 ### 真实执行证据 / Observed Evidence
 
-API 本地进程：
+完整观测验收（2026-11-14）：
 
 ```text
-STATUS 200
-X-REQUEST-ID 3f1f003f5f4940108f99393a3abb8c71
-X-TRACE-ID 3aa6ca8baea5def374ef921311086cc1
-qa_sut_http_requests_total{method="GET",route="/health/live",status="200"} 1.0
-qa_sut_last_request_run_info{run_id="week27-local-probe"} 1.0
+PASS API trace headers
+PASS API Prometheus metrics
+PASS Prometheus scrape targets
+PASS Prometheus PostgreSQL metrics
+PASS Prometheus Redis metrics
+PASS Prometheus run_id week26-baseline-run-01
+PASS Prometheus run_id week26-load-run-01
+PASS Grafana health
+PASS Grafana dashboard provisioning
+PASS Tempo readiness
+PASS Tempo trace retrieval
+Observability ready: True
 ```
 
-监控栈启动失败证据：
+本次 Prometheus 结果：
 
 ```text
-Error response from daemon:
-Get "https://registry-1.docker.io/v2/":
-net/http: request canceled while waiting for connection
-(Client.Timeout exceeded while awaiting headers)
+targets = cadvisor/up, postgres/up, redis/up, sut-api/up
+PostgreSQL metric series = 4
+Redis metric series = 1
+week26-baseline-run-01 = 1 series, 4 samples / 30 minutes
+week26-load-run-01 = 1 series, 5 samples / 30 minutes
 ```
 
-随后尝试官方 `mirror.gcr.io` 缓存，Prometheus 镜像部分层开始下载，但后续请求：
+Trace 证据：
 
 ```text
-Error response from daemon:
-Get "https://mirror.gcr.io/v2/":
-context deadline exceeded (Client.Timeout exceeded while awaiting headers)
+X-Trace-Id = 6f5d5bc5ebf600873b4f56638731221a
+Tempo query status = 200
+Tempo response bytes = 1116
 ```
 
-该失败属于镜像来源网络阻塞，不是 Compose YAML 解析失败。
+时间线关联运行：
+
+| Profile | Run ID | Requests | RPS | p50 / p95 / p99 | Error | SLO |
+| --- | --- | ---: | ---: | --- | ---: | --- |
+| Baseline | `week26-baseline-run-01` | 670 | 11.04 | 8 / 17 / 26 ms | 0% | PASS |
+| Load | `week26-load-run-01` | 1335 | 22.01 | 9 / 17 / 29 ms | 0% | PASS |
+
+这两次各一条 measured run 只用于证明监控时间线可关联，不替代 Week 26 的三次
+Baseline 与三次 Load 稳定性样本，也不形成容量上限结论。
 
 ## 术语解释 / Glossary
 
@@ -156,11 +180,11 @@ flowchart LR
 ```mermaid
 flowchart LR
     W25["Week 25<br/>Smoke"] --> W26["Week 26<br/>Baseline / Load<br/>PARTIAL"]
-    W26 --> W27["Week 27<br/>Observability<br/>IN PROGRESS"]
+    W26 --> W27["Week 27<br/>Observability<br/>PASS"]
     W27 --> W28["Week 28<br/>Stress / Spike"]
     W28 --> W29["Week 29<br/>Soak / Failover"]
-    class W27 current
-    classDef current fill:#2d7ff9,color:#fff,stroke:#1b4f9c,stroke-width:2px
+    class W27 complete
+    classDef complete fill:#1f8f5f,color:#fff,stroke:#12613f,stroke-width:2px
 ```
 
 Week 27 使用 Week 26 的 Profile、run id 和 Baseline/Load 结果作为分析输入。
@@ -172,7 +196,8 @@ Week 27 使用 Week 26 的 Profile、run id 和 Baseline/Load 结果作为分析
 
 ```powershell
 uv run python -m ruff check .
-uv run pytest tests\unit\test_week27_observability.py -q -p no:cacheprovider
+uv run pytest tests\unit\test_week27_observability.py `
+  tests\unit\test_week26_performance.py -q -p no:cacheprovider
 docker compose --profile monitoring `
   --env-file .env.performance.example `
   -f apps\compose\compose.yaml config --quiet
@@ -182,7 +207,10 @@ docker compose --profile monitoring `
 
 ```powershell
 .\scripts\start_performance_sut.ps1 -WaitSeconds 240 -Monitoring
-.\scripts\verify_observability.ps1 -WaitSeconds 90
+.\scripts\verify_observability.ps1 `
+  -WaitSeconds 90 `
+  -WindowMinutes 30 `
+  -RunId week26-baseline-run-01,week26-load-run-01
 ```
 
 通过标准：
@@ -190,6 +218,8 @@ docker compose --profile monitoring `
 ```text
 API exposes request metrics and trace headers
 Prometheus sut-api/postgres/redis/cadvisor targets are up
+Prometheus returns PostgreSQL and Redis metric series
+Prometheus returns both expected Locust run IDs
 Grafana health is HTTP 200
 Grafana provisions dashboard uid week27-sut-overview
 Tempo /ready is HTTP 200
@@ -206,28 +236,36 @@ Tempo retrieves the exact X-Trace-Id
 - Tempo: `infra/monitoring/tempo/tempo.yaml`
 - Verification script: `scripts/verify_observability.py`
 - Runtime evidence: `artifacts/performance/week27/observability.json`（Git 忽略）
+- Timeline Baseline summary: `artifacts/performance/week27/timeline/baseline/summary.json`
+- Timeline Load summary: `artifacts/performance/week27/timeline/load/summary.json`
+- Timeline comparison: `artifacts/performance/week27/timeline/comparison.json`
+- Timeline HTML: `artifacts/performance/week27/timeline/report.html`
+- Failed attempt evidence: `artifacts/performance/week27/timeline/*-missing-run-id/`
 
 ## 质量检查 / Quality Checks
 
 | 检查项 / Check | 结果 / Status | 执行环境 / Environment | 证据 / Evidence |
 | --- | --- | --- | --- |
 | Week 26 evidence audit | 通过 / PASS | Windows | comparison、isolation、distributed result inspected |
-| Week 26 targeted regression | 通过 / PASS | Windows | `9 passed in 0.17s` |
-| Week 27 unit contracts | 通过 / PASS | Windows | `14 passed in 1.17s` |
-| Full unit regression | 通过 / PASS | Windows | `311 passed in 8.34s` |
+| Week 26 + Week 27 targeted regression | 通过 / PASS | Windows | `15 passed in 0.37s` |
+| Full unit regression | 通过 / PASS | Windows | `318 passed in 9.01s` |
 | Ruff | 通过 / PASS | Windows | `All checks passed!` |
-| Mypy | 通过 / PASS | Windows | `Success: no issues found in 170 source files` |
+| Changed-file Mypy | 通过 / PASS | Windows | `Success: no issues found in 9 source files` |
+| Full Mypy | 继承失败 / FAILED | Windows | 10 个既有 Android verifier `str \| None` 类型错误，不归 Week 27 |
 | Python interpreter | 通过 / PASS | Windows | `.venv\Scripts\python.exe`, Python 3.12.13 |
-| Python compile | 通过 / PASS | Windows | `py_compile` exit 0 |
 | Compose config | 通过 / PASS | Windows Docker CLI | `config --quiet` exit 0 |
-| API local metrics | 通过 / PASS | Windows Python process | request/histogram/run-info metrics observed |
-| API trace headers | 通过 / PASS | Windows Python process | request id and trace id observed |
-| OTLP export to Tempo | 阻塞 / BLOCKED | Windows local process | connection refused; Tempo not running |
-| Prometheus stack | 阻塞 / BLOCKED | Docker | mirror/registry connection timeout |
-| Grafana dashboard runtime | 未运行 / NOT RUN | Docker | image unavailable |
-| Tempo trace retrieval | 未运行 / NOT RUN | Docker | image unavailable |
-| Database/cache exporters | 未运行 / NOT RUN | Docker | images unavailable |
-| cAdvisor | 未运行 / NOT RUN | Docker | image unavailable |
+| Monitoring Compose readiness | 通过 / PASS | Docker Desktop Linux | 9 containers healthy |
+| API metrics and trace headers | 通过 / PASS | Isolated performance Compose | HTTP 200 plus request/trace IDs |
+| Prometheus targets | 通过 / PASS | Docker | four required targets `up` |
+| PostgreSQL metrics | 通过 / PASS | Prometheus | `pg_stat_database_numbackends`, 4 series |
+| Redis metrics | 通过 / PASS | Prometheus | `redis_connected_clients`, 1 series |
+| Grafana health and provisioning | 通过 / PASS | Docker | 11.3.0, dashboard UID found |
+| Tempo readiness and exact trace | 通过 / PASS | Docker | `/ready` 200 and trace retrieval 200 |
+| Baseline timeline run | 通过 / PASS | Windows + Compose | 670 requests, SLO PASS |
+| Load timeline run | 通过 / PASS | Windows + Compose | 1335 requests, SLO PASS |
+| Run ID timeline correlation | 通过 / PASS | Prometheus | both run IDs found in 30-minute window |
+| Comparison report | 通过 / PASS | Windows | `comparison.json` and `report.html` |
+| Integration observability tests | 通过 / PASS | Isolated performance Compose | `2 passed in 0.17s` |
 | Week 26 cross-host Locust | 继承延期 / DEFERRED | Independent hosts | no second host |
 | iOS gaps | 继承 / INHERITED | macOS / iPhone | no Week 27 claim |
 
@@ -239,6 +277,7 @@ Tempo retrieves the exact X-Trace-Id
 - `performance/locustfiles/api_journeys.py`
 - `scripts/start_sut.ps1`
 - `scripts/start_performance_sut.ps1`
+- `scripts/run_performance_profile.py`
 - `scripts/verify_observability.py`
 - `scripts/verify_observability.ps1`
 - `infra/monitoring/prometheus/prometheus.yml`
@@ -247,6 +286,7 @@ Tempo retrieves the exact X-Trace-Id
 - `infra/monitoring/grafana/provisioning/dashboards/dashboards.yml`
 - `infra/monitoring/grafana/dashboards/week27-overview.json`
 - `tests/unit/test_week27_observability.py`
+- `tests/unit/test_week26_performance.py`
 - `tests/integration/test_observability.py`
 - `docs/architecture/performance-observability.md`
 - `docs/runbooks/monitoring-stack-triage.md`
@@ -261,19 +301,24 @@ Tempo retrieves the exact X-Trace-Id
 
 ## 风险与限制 / Risks and Limitations
 
-- Docker 镜像来源不可达会阻塞整条监控栈，不能用静态配置代替。
+- Docker 镜像来源仍然较慢；本次通过可信镜像代理完成下载并重新标记为原镜像名。
 - Grafana 使用本机匿名管理员，仅适用于隔离学习环境。
 - 当前数据库和 Redis 只有 exporter 指标，没有自动 OTel 客户端 Trace。
 - Trace span 覆盖 HTTP 请求，不包含完整 SQL 和 Redis command span。
-- cAdvisor 在 Docker Desktop 上的容器 label 和挂载行为仍需真实运行确认。
-- Dashboard JSON 通过结构契约测试不等于 Grafana 已成功渲染。
+- Windows 主机缺少可用的 gevent C 扩展运行库，因此 Locust 使用 pure-Python
+  fallback；本次时间线运行不代表压测机性能上限。
+- 时间线关联只执行了 Baseline/Load 各一条 measured run；Week 26 的三次运行
+  中位数仍是稳定性比较的事实来源。
+- Grafana Dashboard 已 provisioning，但本报告没有把面板截图当作唯一证据；
+  查询正确性由 Prometheus/Tempo API 结果约束。
 - 当前工作树有大量未提交改动，必须以实际文件状态和后续 commit 为准。
 
 ## 下一步 / Next Plan
 
-1. 在可信镜像来源恢复后重新执行 monitoring profile 启动。
-2. 运行 `verify_observability.ps1`，保存完整 JSON 证据。
-3. 用 Week 26 smoke 或 Baseline run 验证 run id、时间窗口和 Trace ID 对齐。
-4. 若 Grafana Dashboard 有查询错误，修正 PromQL 和 panel schema。
-5. 补数据库/Redis 客户端 span 或确认继续以 exporter 指标为本周边界。
-6. 真实链路通过后，再把 Week 27 从 `IN PROGRESS` 更新为 `PASS`。
+Week 27 完成门已闭合。Week 28 的最小任务：
+
+1. 定义 Stress 和 Spike profile，固定阶段、到达率和停止条件。
+2. 至少执行一条 Stress 和一条 Spike 真实负载路径。
+3. 从 Prometheus 时间线提取吞吐、p95/p99、错误率和资源拐点候选。
+4. 用 Little's Law 校核并发数、吞吐和响应时间，不把单点结果写成容量承诺。
+5. 输出容量与拐点报告，并保留失败、过载和恢复证据。

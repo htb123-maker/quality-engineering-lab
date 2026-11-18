@@ -6,6 +6,8 @@ services:
     build:
       context: ../..
       dockerfile: apps/compose/api/Dockerfile
+      args:
+        PIP_INDEX_URL: ${QA_PIP_INDEX_URL:-https://pypi.org/simple}
     environment:
       QA_ENVIRONMENT: ${QA_ENVIRONMENT:-local}
       QA_POSTGRES_DSN: postgresql://${QA_POSTGRES_USER:-qa}:${QA_POSTGRES_PASSWORD:-qa}@postgres:5432/${QA_POSTGRES_DB:-qa}

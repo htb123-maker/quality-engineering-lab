@@ -11,6 +11,10 @@ param(
 
     [string]$TempoUrl = "http://127.0.0.1:23200",
 
+    [int]$WindowMinutes = 30,
+
+    [string[]]$RunId = @(),
+
     [string]$Output = "artifacts\performance\week27\observability.json"
 )
 
@@ -31,12 +35,20 @@ if (-not (Test-Path -LiteralPath $python)) {
     throw "Project virtual environment was not found. Run 'uv sync' first."
 }
 
-& $python $script `
-    --api-base-url $ApiBaseUrl `
-    --prometheus-url $PrometheusUrl `
-    --grafana-url $GrafanaUrl `
-    --tempo-url $TempoUrl `
-    --wait-seconds $WaitSeconds `
-    --output $outputPath
+$arguments = @(
+    $script,
+    "--api-base-url", $ApiBaseUrl,
+    "--prometheus-url", $PrometheusUrl,
+    "--grafana-url", $GrafanaUrl,
+    "--tempo-url", $TempoUrl,
+    "--wait-seconds", $WaitSeconds,
+    "--window-minutes", $WindowMinutes,
+    "--output", $outputPath
+)
+foreach ($value in $RunId) {
+    $arguments += @("--run-id", $value)
+}
+
+& $python @arguments
 
 exit $LASTEXITCODE

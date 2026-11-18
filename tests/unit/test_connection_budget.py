@@ -8,6 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 import app as sut_app
 import psycopg
 import pytest
+from prometheus_client import generate_latest
 
 
 @pytest.mark.unit
@@ -73,3 +74,20 @@ def test_postgres_helper_acquires_and_releases_the_global_slot(
 
     assert observed == ["enter", "exit"]
     assert budget.snapshot.active == 0
+
+
+@pytest.mark.unit
+def test_connection_budget_metrics_expose_active_and_peak(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    budget = sut_app.ConnectionBudget(capacity=2, wait_seconds=0.2)
+    monkeypatch.setattr(sut_app, "_POSTGRES_BUDGET", budget)
+
+    with budget.slot():
+        sut_app._refresh_connection_budget_metrics()
+        body = generate_latest().decode("utf-8")
+
+    assert 'qa_sut_postgres_connection_budget_capacity 2.0' in body
+    assert 'qa_sut_postgres_connection_budget_active 1.0' in body
+    assert 'qa_sut_postgres_connection_budget_peak 1.0' in body
+    assert 'qa_sut_postgres_connection_budget_wait_seconds 0.2' in body

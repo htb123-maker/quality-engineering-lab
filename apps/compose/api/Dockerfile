@@ -5,8 +5,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+ARG PIP_INDEX_URL=https://pypi.org/simple
+
 COPY apps/compose/api/requirements.txt .
-RUN pip install --no-cache-dir --requirement requirements.txt
+RUN pip install --no-cache-dir --index-url "$PIP_INDEX_URL" --requirement requirements.txt
 
 RUN useradd --create-home --uid 10001 appuser
 

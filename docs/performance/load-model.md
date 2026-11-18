@@ -207,3 +207,59 @@ Locust 发送 `X-QA-Run-Id`，SUT 将最近一次 run id 暴露为
 
 监控栈没有真实启动、没有成功抓取或 Tempo 查询失败时，Week 27 必须保持
 `BLOCKED`/`NOT RUN`，不能把配置文件存在写成验收通过。
+
+## 11. Week 28 Stress、Spike 与容量边界
+
+Week 28 新增两份 profile：
+
+- `configs/performance-stress.yaml`：4 / 8 / 12 / 16 / 24 users 逐级增压。
+- `configs/performance-spike.yaml`：4 -> 32 -> 4 users 的突增和恢复。
+
+两份 profile 使用独立 `qa-perf-week28-capacity` workspace、48 个账号和一致
+的认证读取旅程。2026-11-14 已真实执行：
+
+| Metric | Stress | Spike |
+| --- | ---: | ---: |
+| Total requests | 3584 | 1553 |
+| Overall p95 | 22 ms | 25 ms |
+| Overall p99 | 37 ms | 180 ms |
+| Error rate | 0% | 0% |
+| SLO | PASS | PASS |
+
+Stress 在 24 个持续用户时达到约 47.43 Prometheus req/s，p95 19.07 ms，
+未观察到吞吐停止增长或错误恶化。Spike 32 用户阶段的无错误，并能在下一阶段
+恢复；Recovery 阶段 RPS 包含积压排空，不能作为新的稳态容量。
+
+24 用户是当前单机环境的已验证下界，不是容量上限。Little's Law 的期望请求
+并发在所有阶段都小于 1，显著低于虚拟用户数，说明用户大部分时间处于 think
+time；5 秒 Prometheus scrape 不足以精确验证 sub-request 瞬时并发，只能做
+量级校核。
+
+拐点必须同时查看 RPS、p95/p99、错误率、API/PostgreSQL/Redis 资源和 Trace，
+不能只用总请求数或单次异常归因。详细标准见
+[`capacity-and-breakpoints.md`](capacity-and-breakpoints.md)。
+
+## 12. Week 29 Soak 与恢复边界
+
+2026-11-17 完成一次 600 秒 Soak：
+
+| Metric | Result |
+| --- | ---: |
+| Requests | 13,304 |
+| Throughput | 22.15 req/s |
+| p95 / p99 | 23 / 29 ms |
+| Error rate | 0% |
+| First/last p95 | 11.29 / 9.93 ms |
+| API memory drift | +0.83% |
+| Connection budget peak | 4 / 32 |
+| Redis evictions | 0 |
+
+首尾时间窗没有出现延迟或内存退化。受控 restart recovery：
+
+- Redis 0.81 秒。
+- PostgreSQL 0.83 秒。
+- API 3.67 秒。
+
+PostgreSQL 16.16 WAL 统计、查询计划、行锁、NOWAIT、死锁和 Redis TTL/负缓存
+均通过真实集成测试。`pg_stat_statements` 未安装，未通过 Schema 变更自动安装；
+因此 SQL 级历史 top-N 统计仍是 `NOT_INSTALLED`。

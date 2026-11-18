@@ -1,0 +1,28 @@
+version: 1
+name: week29-soak
+base_url: http://127.0.0.1:28000
+workspace: qa-perf-week29-soak
+authentication: password
+account_pool_size: 16
+token_refresh_after_seconds: 20
+stages:
+  - users: 8
+    spawn_rate: 2
+    duration_seconds: 600
+thresholds:
+  - name: soak p95 guardrail
+    metric: p95_response_time_ms
+    operator: lte
+    threshold: 500
+  - name: soak error guardrail
+    metric: error_rate
+    operator: lte
+    threshold: 0.01
+  - name: soak request evidence
+    metric: total_requests
+    operator: gte
+    threshold: 5000
+  - name: soak throughput evidence
+    metric: requests_per_second
+    operator: gte
+    threshold: 10

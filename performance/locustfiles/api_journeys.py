@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from locust import FastHttpUser, LoadTestShape, between, events, task
+from locust import HttpUser, LoadTestShape, between, events, task
 from qa_core.performance import (
     ObservedPerformance,
     PerformanceRuntimeData,
@@ -39,6 +39,16 @@ SKIP_SLO = os.getenv("QA_PERF_SKIP_SLO") == "1"
 IS_WORKER = os.getenv("QA_PERF_WORKER") == "1"
 RUN_STARTED_AT = time.monotonic()
 
+ApiUserBase: Any = HttpUser
+if os.getenv("QA_PERF_FAST_HTTP", "1") == "1":
+    try:
+        from locust.contrib.fasthttp import FastHttpUser
+    except ImportError:
+        # The Windows wheel can lack the geventhttpclient C parser.
+        ApiUserBase = HttpUser
+    else:
+        ApiUserBase = FastHttpUser
+
 
 class StageShape(LoadTestShape):
     """Execute profile stages, optionally stopping after a warmup boundary."""
@@ -58,7 +68,7 @@ class StageShape(LoadTestShape):
 
 if RUNTIME_DATA is None:
 
-    class ApiUser(FastHttpUser):
+    class ApiUser(ApiUserBase):  # type: ignore[misc]
         """Read-only Week 25 smoke user."""
 
         host = str(PROFILE.base_url).rstrip("/")
@@ -114,7 +124,7 @@ if RUNTIME_DATA is None:
 else:
     AUTH_DATA = RUNTIME_DATA
 
-    class ApiUser(FastHttpUser):  # type: ignore[no-redef]
+    class ApiUser(ApiUserBase):  # type: ignore[misc,no-redef]
         """Authenticated baseline/load user backed by the isolated data pool."""
 
         host = str(PROFILE.base_url).rstrip("/")
@@ -141,6 +151,7 @@ else:
                     "username": account.email,
                     "password": AUTH_DATA.password,
                 },
+                headers={"X-QA-Run-Id": RUN_ID},
                 name="POST login",
                 catch_response=True,
             ) as response:
@@ -158,6 +169,7 @@ else:
                     "grant_type": "refresh_token",
                     "refresh_token": self._refresh_token,
                 },
+                headers={"X-QA-Run-Id": RUN_ID},
                 name="POST token refresh",
                 catch_response=True,
             ) as response:
@@ -193,7 +205,7 @@ else:
             self._refresh_if_needed()
             with self.client.get(
                 f"/api/v1/workspaces/{WORKSPACE}/catalog",
-                headers=self._headers,
+                headers={**self._headers, "X-QA-Run-Id": RUN_ID},
                 name="GET catalog",
                 catch_response=True,
             ) as response:
@@ -215,7 +227,7 @@ else:
             self._refresh_if_needed()
             with self.client.get(
                 "/api/v1/auth/me",
-                headers=self._headers,
+                headers={**self._headers, "X-QA-Run-Id": RUN_ID},
                 name="GET auth me",
                 catch_response=True,
             ) as response:
@@ -236,6 +248,7 @@ else:
             self._refresh_if_needed()
             with self.client.get(
                 "/openapi.json",
+                headers={"X-QA-Run-Id": RUN_ID},
                 name="GET openapi",
                 catch_response=True,
             ) as response:
@@ -247,6 +260,7 @@ else:
 
             with self.client.get(
                 "/health/live",
+                headers={"X-QA-Run-Id": RUN_ID},
                 name="GET health live",
                 catch_response=True,
             ) as response:
