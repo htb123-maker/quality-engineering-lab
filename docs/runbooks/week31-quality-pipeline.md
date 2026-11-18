@@ -53,6 +53,11 @@ IOS_CLOUD_APP
 The iOS job is skipped when the fixture App variable is absent. A skipped cloud
 job does not count as iOS PASS.
 
+If BrowserStack reports that App Automate trial time has expired, the job writes
+`ios-status.json` with `BLOCKED`, disables the failed JUnit file, and keeps the
+provider message in `ios-tests.log`. The trend gate still fails because
+`BLOCKED` is not `PASS`.
+
 ## Local Validation
 
 ```powershell

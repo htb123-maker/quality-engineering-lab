@@ -24,6 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--commit", required=True)
     parser.add_argument("--json-output", type=Path, required=True)
     parser.add_argument("--html-output", type=Path, required=True)
+    parser.add_argument("--fail-on-incomplete", action="store_true")
     return parser.parse_args()
 
 
@@ -46,6 +47,8 @@ def main() -> int:
     args.html_output.write_text(render_trend_html(history), encoding="utf-8")
     print(f"quality trend: {args.json_output}")
     print(f"checks: {len(checks)}, overall: {point.overall}")
+    if args.fail_on_incomplete and point.overall != "PASS":
+        return 2
     return 0
 
 

@@ -187,12 +187,27 @@ jobs:
       - name: Run cloud smoke and launch evidence
         run: |
           mkdir -p artifacts
+          set +e
           uv run --no-sync pytest \
             tests/ios/test_cloud_session.py \
             tests/ios/test_week30_cloud_performance.py \
             -q \
             --alluredir=artifacts/allure-ios \
-            --junitxml=artifacts/ios-junit.xml
+            --junitxml=artifacts/ios-junit.xml 2>&1 | tee artifacts/ios-tests.log
+          status=${PIPESTATUS[0]}
+          if [[ "$status" -eq 0 ]]; then
+            printf '%s\n' '{"status":"PASS"}' > artifacts/ios-status.json
+            exit 0
+          fi
+          if grep -q "App Automate testing time has expired" artifacts/ios-tests.log; then
+            printf '%s\n' \
+              '{"status":"BLOCKED","reason":"BrowserStack App Automate trial time expired"}' \
+              > artifacts/ios-status.json
+            mv artifacts/ios-junit.xml artifacts/ios-blocked-junit.xml.disabled || true
+            exit 0
+          fi
+          printf '%s\n' '{"status":"FAILED"}' > artifacts/ios-status.json
+          exit "$status"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -273,7 +288,8 @@ jobs:
             --run-id "${{ github.run_id }}" \
             --commit "${{ github.sha }}" \
             --json-output artifacts/quality-trends/history.json \
-            --html-output artifacts/quality-trends/index.html
+            --html-output artifacts/quality-trends/index.html \
+            --fail-on-incomplete
       - uses: actions/cache/save@v4
         if: always()
         with:
