@@ -143,8 +143,122 @@ jobs:
           path: artifacts/
           if-no-files-found: ignore
 
+  ios-simulator:
+    name: iOS macOS Simulator smoke
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      QA_IOS_DEVICE_PROVIDER: local
+      QA_IOS_DEVICE_MATRIX: configs/ios-device-matrix.yaml
+      QA_IOS_DEVICE_IDS: simulator-current-primary
+      QA_IOS_RUN_ID: ${{ github.run_id }}
+      QA_IOS_BUNDLE_ID: com.example.qaweek19
+      QA_IOS_USE_NEW_WDA: "false"
+      QA_IOS_SHOW_XCODE_LOG: "true"
+      QA_IOS_WDA_LAUNCH_TIMEOUT_MS: "600000"
+      QA_IOS_WDA_STARTUP_RETRIES: "1"
+      QA_IOS_WDA_STARTUP_RETRY_INTERVAL_MS: "10000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Select Xcode
+        shell: bash
+        run: |
+          sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+          xcodebuild -version
+          xcrun simctl list runtimes
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Appium
+        run: |
+          npm install --global appium@2.19.0
+          appium driver install xcuitest@8.4.3
+      - name: Select and boot Simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          SDK_VERSION="$(xcrun --sdk iphonesimulator --show-sdk-version)"
+          xcrun simctl list devices available -j > artifacts/ios-simulators.json
+          python3 scripts/select_ios_simulator_matrix.py \
+            --input artifacts/ios-simulators.json \
+            --runtime-version "$SDK_VERSION" \
+            --output-env artifacts/ios-simulator-matrix.env \
+            --json
+          cat artifacts/ios-simulator-matrix.env >> "$GITHUB_ENV"
+          xcrun simctl boot "$QA_IOS_SIM_CURRENT_UDID" || true
+          open -a Simulator
+          for attempt in {1..120}; do
+            if xcrun simctl list devices |
+              grep -F "$QA_IOS_SIM_CURRENT_UDID" |
+              grep -q "(Booted)"; then
+              exit 0
+            fi
+            if [[ "$attempt" -eq 120 ]]; then
+              xcrun simctl list devices
+              exit 1
+            fi
+            sleep 2
+          done
+      - name: Build and install fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project apps/ios-fixture/QaIosFixture.xcodeproj \
+            -scheme QaIosFixture \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,id=$QA_IOS_SIM_CURRENT_UDID" \
+            -derivedDataPath artifacts/ios-fixture-simulator-derived \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+          app_path="artifacts/ios-fixture-simulator-derived/Build/Products/Debug-iphonesimulator/QaIosFixture.app"
+          test -d "$app_path"
+          xcrun simctl install "$QA_IOS_SIM_CURRENT_UDID" "$app_path"
+      - name: Start Appium
+        shell: bash
+        run: |
+          set -euo pipefail
+          nohup appium --address 127.0.0.1 --port 4723 --log-level debug \
+            > artifacts/appium-ios-week31.log 2>&1 &
+          for attempt in {1..60}; do
+            if curl --fail --silent http://127.0.0.1:4723/status; then
+              exit 0
+            fi
+            if [[ "$attempt" -eq 60 ]]; then
+              cat artifacts/appium-ios-week31.log
+              exit 1
+            fi
+            sleep 2
+          done
+      - name: Run iOS Simulator smoke
+        run: |
+          export QA_IOS_UDID="$QA_IOS_SIM_CURRENT_UDID"
+          export QA_IOS_DEVICE_NAME="$QA_IOS_SIM_CURRENT_DEVICE"
+          export QA_IOS_PLATFORM_VERSION="$QA_IOS_SIM_CURRENT_VERSION"
+          uv run --no-sync pytest \
+            tests/ios/test_session.py \
+            tests/ios/test_screen_framework.py \
+            tests/ios/test_week19_system_interactions.py::test_01_fixture_launches \
+            tests/ios/test_week21_fixture_ui.py::test_fixture_title_is_visible \
+            -q \
+            --alluredir=artifacts/allure-ios-simulator \
+            --junitxml=artifacts/ios-simulator-junit.xml
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: week31-ios-simulator
+          path: artifacts/
+          if-no-files-found: ignore
+
   ios-cloud:
-    name: iOS real-device cloud smoke
+    name: iOS real-device cloud smoke (optional)
     if: ${{ vars.IOS_CLOUD_APP != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -179,22 +293,23 @@ jobs:
             --junitxml=artifacts/ios-junit.xml 2>&1 | tee artifacts/ios-tests.log
           status=${PIPESTATUS[0]}
           if [[ "$status" -eq 0 ]]; then
-            printf '%s\n' '{"status":"PASS"}' > artifacts/ios-status.json
+            printf '%s\n' 'BrowserStack iOS cloud smoke passed.' \
+              > artifacts/ios-cloud-pass.txt
             exit 0
           fi
           if grep -q "App Automate testing time has expired" artifacts/ios-tests.log; then
             printf '%s\n' \
-              '{"status":"BLOCKED","reason":"BrowserStack App Automate trial time expired"}' \
-              > artifacts/ios-status.json
+              'BLOCKED: BrowserStack App Automate trial time expired' \
+              > artifacts/ios-cloud-blocked.txt
             mv artifacts/ios-junit.xml artifacts/ios-blocked-junit.xml.disabled || true
             exit 0
           fi
-          printf '%s\n' '{"status":"FAILED"}' > artifacts/ios-status.json
+          printf '%s\n' 'FAILED: see ios-tests.log' > artifacts/ios-cloud-failed.txt
           exit "$status"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: week31-ios
+          name: week31-ios-cloud-optional
           path: artifacts/
           if-no-files-found: ignore
 
@@ -242,6 +357,7 @@ jobs:
       - quality
       - sut
       - android
+      - ios-simulator
       - ios-cloud
       - performance
     if: always()
