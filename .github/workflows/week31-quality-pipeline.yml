@@ -189,6 +189,10 @@ jobs:
             --runtime-version "$SDK_VERSION" \
             --output-env artifacts/ios-simulator-matrix.env \
             --json
+          set -a
+          # shellcheck disable=SC1091
+          source artifacts/ios-simulator-matrix.env
+          set +a
           cat artifacts/ios-simulator-matrix.env >> "$GITHUB_ENV"
           xcrun simctl boot "$QA_IOS_SIM_CURRENT_UDID" || true
           open -a Simulator
