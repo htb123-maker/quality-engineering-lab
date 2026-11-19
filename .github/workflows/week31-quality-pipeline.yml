@@ -135,26 +135,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           script: |
-            set -eu
-            adb wait-for-device
-            until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; do
-              sleep 2
-            done
-            bash scripts/build_android_fixture.sh emulator-5554
-            mkdir -p artifacts
-            nohup appium --address 127.0.0.1 --port 4723 \
-              > artifacts/appium-android.log 2>&1 &
-            for attempt in $(seq 1 60); do
-              if curl --fail --silent http://127.0.0.1:4723/status; then break; fi
-              if [ "$attempt" -eq 60 ]; then cat artifacts/appium-android.log; exit 1; fi
-              sleep 2
-            done
-            QA_ANDROID_UDID=emulator-5554 \
-            QA_ANDROID_DEVICE_NAME=Pixel_API_35_AOSP_ATD \
-            QA_ANDROID_DEVICE_IDS=local-primary-avd \
-            uv run --no-sync pytest tests/android -m smoke -q \
-              --alluredir=artifacts/allure-android \
-              --junitxml=artifacts/android-junit.xml
+            bash scripts/run_android_linux_smoke.sh emulator-5554
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -289,7 +270,7 @@ jobs:
             --history artifacts/quality-history/history.json \
             --run-id "${{ github.run_id }}" \
             --commit "${{ github.sha }}" \
-            --json-output artifacts/quality-trends/history.json \
+            --json-output artifacts/quality-history/history.json \
             --html-output artifacts/quality-trends/index.html \
             --fail-on-incomplete
       - uses: actions/cache/save@v4
@@ -301,5 +282,7 @@ jobs:
         if: always()
         with:
           name: week31-trends
-          path: artifacts/quality-trends/
+          path: |
+            artifacts/quality-history/
+            artifacts/quality-trends/
           if-no-files-found: ignore

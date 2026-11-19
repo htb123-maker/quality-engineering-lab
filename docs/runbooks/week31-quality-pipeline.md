@@ -90,9 +90,14 @@ The trend job restores a bounded GitHub Actions cache, appends the current run,
 and uploads:
 
 ```text
-artifacts/quality-trends/history.json
+artifacts/quality-history/history.json
 artifacts/quality-trends/index.html
 ```
 
 The cache is trend input, not a source of truth. Raw JUnit, Allure, Locust, and
 device artifacts remain attached to the run.
+
+Android Linux execution is kept in
+`scripts/run_android_linux_smoke.sh` because the emulator action executes its
+inline script through `/usr/bin/sh`; multiline shell constructs must live in a
+Bash file, not in the action's `script` input.
