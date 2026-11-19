@@ -103,6 +103,7 @@ class Settings(BaseSettings):
     android_mjpeg_server_port: int = Field(default=7810, ge=1024, le=65535)
     android_ui_wait_timeout_seconds: float = Field(default=10.0, gt=0.0, le=120.0)
     android_ui_wait_poll_seconds: float = Field(default=0.25, gt=0.0, le=10.0)
+    android_chromedriver_autodownload: bool = True
     android_e2e_api_base_url: AnyHttpUrl = Field(
         default_factory=lambda: AnyHttpUrl("http://127.0.0.1:18000")
     )

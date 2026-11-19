@@ -23,6 +23,10 @@ def build_android_options(settings: Settings) -> UiAutomator2Options:
     options.new_command_timeout = settings.android_new_command_timeout_seconds
     options.system_port = settings.android_system_port
     options.mjpeg_server_port = settings.android_mjpeg_server_port
+    options.set_capability(
+        "appium:chromedriverAutodownload",
+        settings.android_chromedriver_autodownload,
+    )
     return options
 
 

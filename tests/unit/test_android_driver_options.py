@@ -38,6 +38,7 @@ def test_android_options_map_typed_settings_to_uiautomator2_capabilities() -> No
     assert capabilities["appium:newCommandTimeout"] == 300
     assert capabilities["appium:systemPort"] == 8201
     assert capabilities["appium:mjpegServerPort"] == 7811
+    assert capabilities["appium:chromedriverAutodownload"] is True
 
 
 @pytest.mark.unit
