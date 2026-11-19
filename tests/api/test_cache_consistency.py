@@ -252,7 +252,9 @@ def test_cache_refresh_job_warms_the_cache_without_a_read(
     assert snapshot.finished_at is not None
     assert snapshot.result is not None
     assert snapshot.result["workspace_slug"] == namespace.slug
-    assert after.processed == before.processed + 1
+    # Other xdist workers share the queue stats; require forward progress,
+    # while the job snapshot below proves this refresh completed successfully.
+    assert after.processed >= before.processed + 1
     assert after.queued == 0
 
     assert entry is not None, "the worker, not the caller, warms the cache"
