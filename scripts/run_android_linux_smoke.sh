@@ -18,7 +18,10 @@ done
 
 bash scripts/build_android_fixture.sh "$SERIAL"
 mkdir -p artifacts
-nohup appium --address 127.0.0.1 --port 4723 \
+nohup appium \
+  --address 127.0.0.1 \
+  --port 4723 \
+  --allow-insecure uiautomator2:chromedriver_autodownload \
   > artifacts/appium-android.log 2>&1 &
 appium_pid="$!"
 
