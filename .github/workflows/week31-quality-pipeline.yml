@@ -189,16 +189,17 @@ jobs:
             --runtime-version "$SDK_VERSION" \
             --output-env artifacts/ios-simulator-matrix.env \
             --json
-          set -a
-          # shellcheck disable=SC1091
-          source artifacts/ios-simulator-matrix.env
-          set +a
           cat artifacts/ios-simulator-matrix.env >> "$GITHUB_ENV"
-          xcrun simctl boot "$QA_IOS_SIM_CURRENT_UDID" || true
+          current_udid="$(
+            sed -n 's/^QA_IOS_SIM_CURRENT_UDID=//p' \
+              artifacts/ios-simulator-matrix.env
+          )"
+          test -n "$current_udid"
+          xcrun simctl boot "$current_udid" || true
           open -a Simulator
           for attempt in {1..120}; do
             if xcrun simctl list devices |
-              grep -F "$QA_IOS_SIM_CURRENT_UDID" |
+              grep -F "$current_udid" |
               grep -q "(Booted)"; then
               exit 0
             fi
@@ -377,6 +378,31 @@ jobs:
         with:
           path: artifacts/collected
           merge-multiple: true
+      - name: Record required job failures
+        if: always()
+        shell: bash
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          SUT_RESULT: ${{ needs.sut.result }}
+          ANDROID_RESULT: ${{ needs.android.result }}
+          IOS_SIMULATOR_RESULT: ${{ needs.ios-simulator.result }}
+          PERFORMANCE_RESULT: ${{ needs.performance.result }}
+        run: |
+          mkdir -p artifacts/collected/required-jobs
+          for entry in \
+            "quality:$QUALITY_RESULT" \
+            "sut:$SUT_RESULT" \
+            "android:$ANDROID_RESULT" \
+            "ios-simulator:$IOS_SIMULATOR_RESULT" \
+            "performance:$PERFORMANCE_RESULT"; do
+            name="${entry%%:*}"
+            result="${entry#*:}"
+            if [ "$result" != "success" ]; then
+              printf '{"status":"FAILED","job":"%s","result":"%s"}\n' \
+                "$name" "$result" \
+                > "artifacts/collected/required-jobs/${name}.json"
+            fi
+          done
       - uses: actions/cache/restore@v4
         with:
           path: artifacts/quality-history
