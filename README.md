@@ -70,5 +70,6 @@ uv run pytest tests/unit -q
 
 ## CI
 
-[.github/workflows/](.github/workflows/) 下有三条流水线：质量门、SUT 集成、
-iOS 冒烟。
+[.github/workflows/](.github/workflows/) 中的 Week 31 统一 pipeline 串联质量门、
+SUT、Android Linux emulator、iOS macOS Simulator/设备云、性能 Smoke 和趋势
+聚合。

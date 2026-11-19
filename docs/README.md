@@ -2,7 +2,7 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-共 73 篇设计文档，按主题分组。
+共 74 篇设计文档，按主题分组。
 
 ## 目标与计划 / Goals and Plan
 
@@ -40,6 +40,7 @@
 - [ADR-0010: 并行连接预算、故障注入与缺陷草稿](adr/0010-parallel-budgets-fault-injection-and-defect-drafts.md)
 - [ADR-0011: 独立性能环境与机器可判定 SLO](adr/0011-isolated-performance-environment-and-slo-gates.md)
 - [ADR-0012: 性能指标、Trace 与监控栈边界](adr/0012-performance-observability-and-trace-correlation.md)
+- [ADR-0013: CI Required Evidence, Optional Cloud, and Bounded Trends](adr/0013-ci-pipeline-required-evidence-and-trends.md)
 
 ## 测试策略 / Test Strategy
 

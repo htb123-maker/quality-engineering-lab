@@ -3,12 +3,13 @@
 - 计划 / Plan: Week 31，PR/Main/Nightly/Weekly、多平台执行、质量门禁和趋势
 - 计划日期范围 / Planned Date Range: 2026-12-10 to 2026-12-16
 - 实际开启日期 / Opened: 2026-11-18
+- 实际完成日期 / Completed: 2026-11-20
 - 当前工作区 / Current Worktree:
   `C:\Users\quan\.codex\worktrees\week30-ios-cloud-performance\Appium 2 study`
 - 当前分支 / Current Branch: `study/week-31-ci-pipeline`
 - 基线提交 / Base Commit: `732456e`（Week 30 integrated）
 - 状态 / Status:
-  **部分完成 / PARTIAL - QUALITY, SUT, PERFORMANCE PASS; IOS BLOCKED; ANDROID NOT RUN**
+  **通过 / PASS - FULL PIPELINE GREEN**
 
 ## 计划目标 / Plan Goal
 
@@ -49,14 +50,14 @@ quality gates
 
 | Check | Result | Evidence |
 | --- | --- | --- |
-| Week31 trend unit tests | PASS | `4 passed in 0.05s` |
+| Week31 trend unit tests | PASS | trend/governance + GitHub adapter |
 | Quality trend smoke | PASS | 4 checks，overall `PASS` |
 | Governance validation | PASS | 0 quarantined tests |
 | Workflow YAML parse | PASS | PyYAML `safe_load` |
 | Bash syntax | PASS | `bash -n scripts/build_android_fixture.sh` |
 | Ruff | PASS | `All checks passed!` |
-| Mypy | PASS | `222 source files` |
-| Full unit regression | PASS | `385 passed in 8.68s` |
+| Mypy | PASS | `224 source files` |
+| Full unit regression | PASS | `387 passed in 11.04s` |
 | CI cross-platform fix | PASS | `15 passed` targeted after run 44324791844 |
 
 趋势 smoke 从 Week30 云 artifact 中发现：
@@ -102,6 +103,23 @@ Run `44324791844`：
 emulator 启动路径；iOS 需要恢复 provider 配额。`BLOCKED` 和 `NOT RUN` 不写成
 `PASS`。
 
+### 最终轮 / Final Run
+
+Run `44560844554`：
+
+| Job | Result | Evidence |
+| --- | --- | --- |
+| Quality | PASS | 385 unit tests + Ruff/Mypy/Governance |
+| Compose SUT | PASS | 45 integration + 238 API |
+| Android Linux emulator | PASS | 6 smoke |
+| iOS macOS Simulator | PASS | 4 smoke，407.712 s |
+| iOS device cloud | BLOCKED (optional) | Free Trial 到期，保留证据但不替代 Simulator |
+| Performance | PASS | isolated smoke |
+| Trend | PASS | required checks all green |
+
+最终趋势 artifact 同时保留前几轮 FAILED/BLOCKED 历史，证明趋势不是只保存成功
+数据。设备云可选 job 的阻断没有替代或掩盖必需的 Simulator PASS。
+
 ## 术语解释 / Glossary
 
 | 名词 / Term | 简单解释 | 在项目中的作用 |
@@ -139,7 +157,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    W30["Week 30<br/>Mobile Performance<br/>PARTIAL"] --> W31["Week 31<br/>CI Pipeline<br/>IN PROGRESS"]
+    W30["Week 30<br/>Mobile Performance<br/>PARTIAL"] --> W31["Week 31<br/>CI Pipeline<br/>PASS"]
     W31 --> W32["Week 32<br/>Comprehensive Acceptance"]
 ```
 
@@ -168,8 +186,10 @@ uv run pytest tests/unit -q
 ### 证据路径
 
 - `.github/workflows/week31-quality-pipeline.yml`
+- `docs/adr/0013-ci-pipeline-required-evidence-and-trends.md`
 - `packages/qa_core/reporting/quality_trends.py`
 - `packages/qa_core/reporting/governance.py`
+- `packages/qa_core/integrations/defect_tracking/github_issues.py`
 - `configs/quality-governance.yaml`
 - `scripts/build_quality_trends.py`
 - `scripts/check_quality_governance.py`
@@ -179,17 +199,17 @@ uv run pytest tests/unit -q
 
 ## 未验证项 / Unverified Items
 
-- Android Linux emulator 和 Appium smoke 未完成，当前 `NOT RUN`。
-- iOS cloud 当前被 BrowserStack Free Trial 到期阻断，当前 `BLOCKED`。
-- Git trend 跨 run cache 尚未在完整成功 pipeline 后验证。
-- 缺陷系统仍为本地 draft，没有正式 Issue tracker 写入。
-- 历史趋势不是永久数据库，只保留有界 cache。
+- BrowserStack 设备云当前仍被 Free Trial 到期阻断；macOS Simulator 已作为本周
+  必需 iOS 路径通过。
+- Android 只在一个 API 35 AOSP ATD emulator 上执行，尚未覆盖 OEM/API 矩阵。
+- GitHub Issues adapter 已通过 mock contract 验证，但没有在真实仓库创建正式
+  Issue，避免无人工审批的自动缺陷。
+- 历史趋势是有界 CI cache，不是永久分析数据库。
 
 ## 下一步 / Next Steps
 
-1. 推送 Week31 分支并触发统一 workflow。
-2. 修复 Android emulator 启动步骤，使 smoke 在 15 分钟内完成。
-3. 恢复 BrowserStack 测试额度后重跑 iOS 云 job。
-4. 验证 trend cache 在连续两次 run 中追加同一分支历史。
-5. 增加 GitHub Pages 或永久趋势存储。
-6. Week 32 使用同一 pipeline 做综合验收和面试演示。
+1. Week 32 使用该 pipeline 做综合验收。
+2. 可选恢复 BrowserStack 额度，重新运行设备云证据。
+3. 增加 GitHub Pages 或永久趋势存储。
+4. 扩展 Android OEM/API 设备矩阵。
+5. 由人工审批后验证一次真实 GitHub Issue 创建和回归闭环。

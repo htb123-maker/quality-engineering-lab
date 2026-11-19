@@ -408,8 +408,10 @@ iPhone 15 / iOS 17.3 冷启动控制路径 p95 2356.514 ms、热恢复 p95 990.3
 Week 31 已于 2026-11-18 提前开启。统一质量 pipeline 已实现，包含 Quality、
 Compose SUT、Linux Android emulator、iOS 设备云、性能 Smoke 和趋势聚合；
 owner/quarantine 治理与 JUnit/JSON 趋势脚本已通过本地单元测试。当前状态为
-`IN PROGRESS`，必须以真实 GitHub Actions 运行和趋势 cache 跨 run 恢复作为
-完成证据。详细计划见 `reports/weekly/WEEK-31.md`。
+`PASS`：Run `44560844554` 的 Quality、SUT、Android、iOS Simulator、
+Performance 和 Trend 全部通过；趋势 cache 保留前几轮 FAILED/BLOCKED 历史。
+BrowserStack 云仍因 Free Trial 到期为可选 `BLOCKED`，由必需 macOS Simulator
+路径满足本周 iOS 门禁。详细记录见 `reports/weekly/WEEK-31.md`。
 
 ### 5.2 计划验收与周报协议
 
