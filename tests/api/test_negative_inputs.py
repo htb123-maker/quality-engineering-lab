@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import allure
 import httpx
 import pytest
 from qa_core.api_errors import classify_response
@@ -296,6 +297,10 @@ def test_patch_with_broken_body_is_invalid_request(
 
 
 @pytest.mark.api
+@allure.issue(
+    "16",
+    "SUT unsupported methods return HTML 501",
+)
 @pytest.mark.xfail(
     reason=(
         "The SUT falls through to BaseHTTPRequestHandler's HTML 501 page "

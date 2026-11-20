@@ -45,6 +45,9 @@ quality gates
 - 趋势任务使用 JUnit 和状态 JSON，不解析不可信控制台文本。
 - 趋势历史通过有界 GitHub Actions cache 恢复并追加。
 - 缺陷草稿继续由 pytest 插件生成，不自动创建或关闭正式缺陷。
+- 通过明确人工批准创建真实 GitHub Issue
+  [#16](https://github.com/htb123-maker/quality-engineering-lab/issues/16)，
+  并把缺陷编号回写到 Allure。
 
 ## 本地验证 / Local Verification
 
@@ -105,17 +108,20 @@ emulator 启动路径；iOS 需要恢复 provider 配额。`BLOCKED` 和 `NOT RU
 
 ### 最终轮 / Final Run
 
-Run `44560844554`：
+Run `44563937821`（最终 HEAD）：
 
 | Job | Result | Evidence |
 | --- | --- | --- |
-| Quality | PASS | 385 unit tests + Ruff/Mypy/Governance |
+| Quality | PASS | 387 unit tests + Ruff/Mypy/Governance |
 | Compose SUT | PASS | 45 integration + 238 API |
 | Android Linux emulator | PASS | 6 smoke |
 | iOS macOS Simulator | PASS | 4 smoke，407.712 s |
 | iOS device cloud | BLOCKED (optional) | Free Trial 到期，保留证据但不替代 Simulator |
 | Performance | PASS | isolated smoke |
 | Trend | PASS | required checks all green |
+
+最终趋势 history 保留前几轮的 FAILED/BLOCKED 数据，并记录最终 HEAD 的全部
+必需检查为 PASS。
 
 最终趋势 artifact 同时保留前几轮 FAILED/BLOCKED 历史，证明趋势不是只保存成功
 数据。设备云可选 job 的阻断没有替代或掩盖必需的 Simulator PASS。
@@ -202,8 +208,8 @@ uv run pytest tests/unit -q
 - BrowserStack 设备云当前仍被 Free Trial 到期阻断；macOS Simulator 已作为本周
   必需 iOS 路径通过。
 - Android 只在一个 API 35 AOSP ATD emulator 上执行，尚未覆盖 OEM/API 矩阵。
-- GitHub Issues adapter 已通过 mock contract 验证，但没有在真实仓库创建正式
-  Issue，避免无人工审批的自动缺陷。
+- GitHub Issues adapter 已通过 mock contract 验证，并在人工批准后创建真实
+  Issue `#16`；修复和回归验证仍 open，不能自动关闭。
 - 历史趋势是有界 CI cache，不是永久分析数据库。
 
 ## 下一步 / Next Steps
@@ -212,4 +218,4 @@ uv run pytest tests/unit -q
 2. 可选恢复 BrowserStack 额度，重新运行设备云证据。
 3. 增加 GitHub Pages 或永久趋势存储。
 4. 扩展 Android OEM/API 设备矩阵。
-5. 由人工审批后验证一次真实 GitHub Issue 创建和回归闭环。
+5. 修复 Issue `#16`，执行回归并由人工批准关闭。
