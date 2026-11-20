@@ -88,6 +88,7 @@ def evaluate(tasks_path: Path) -> dict[str, Any]:
     gate_accepted = bool(records) and correct == len(records)
     return {
         "schema_version": 1,
+        "status": "PASS" if gate_accepted else "FAILED",
         "agent": "evidence-triage-v1-deterministic",
         "tasks": len(records),
         "correct": correct,

@@ -83,7 +83,24 @@ artifacts/ai/week32/agent-eval-local.json
 
 ## GitHub Actions 验收 / GitHub Actions Acceptance
 
-最终 Week32 Run：**PENDING**
+首轮完整 Run：`44749806235`，**PASS**。
+
+`https://github.com/htb123-maker/quality-engineering-lab/actions/runs/44749806235`
+
+| Job | Result | Evidence |
+| --- | --- | --- |
+| Quality | PASS | `393 passed`、Ruff、Mypy 232 files |
+| AI Golden Tasks | PASS | 30 tasks，accuracy/evidence `1.0` |
+| Compose SUT | PASS | `45 passed, 1 skipped` integration；`242 passed` API |
+| Android Linux emulator | PASS | 6 smoke，API 35 AOSP ATD |
+| iOS macOS Simulator | PASS | 4 smoke，iPhone 16 / iOS 18.5 |
+| Performance | PASS | isolated smoke 1m1s |
+| iOS cloud optional | BLOCKED | App Automate trial expired |
+| Quality Trend | PASS | 5 checks，overall PASS |
+
+首轮 Trend 已将 AI job 作为必需依赖，但发现成功态 AI JSON 尚无标准 `status`
+字段，因此 checks 仍为 5。已补 `status: PASS/FAILED` 和回归单测，等待第二个
+commit 的 Run 验证 Trend 明确包含 AI Eval。
 
 必需证据：
 
@@ -213,7 +230,6 @@ gh workflow run week31-quality-pipeline.yml `
 
 ## 下一步 / Next Steps
 
-1. 提交并推送 Week32 branch。
-2. 运行统一 pipeline，补齐 Android、iOS Simulator、Performance、AI 和 Trend 证据。
-3. 根据最终 Run 更新本报告状态和 URL。
-4. 请人工确认 Agent 建议采纳率和 Issue #16 是否满足关闭条件。
+1. 提交 AI Trend status 修正并运行第二个统一 pipeline。
+2. 根据最终 Run 更新 Trend checks 和本报告状态。
+3. 请人工确认 Agent 建议采纳率和 Issue #16 是否满足关闭条件。

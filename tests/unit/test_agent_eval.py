@@ -1,6 +1,9 @@
 """Week 32 read-only evidence triage agent contracts."""
 
+import json
 from pathlib import Path
+
+from qa_core.reporting import discover_checks
 
 from ai.agents.evidence_triage import EvidenceTriageAgent
 from ai.evals.run_golden_tasks import evaluate
@@ -38,10 +41,13 @@ def test_agent_prioritizes_failure_over_blocked_platform() -> None:
     assert finding.suspected_layer == "api"
 
 
-def test_golden_tasks_are_reproducible_and_evidence_linked() -> None:
+def test_golden_tasks_are_reproducible_and_evidence_linked(
+    tmp_path: Path,
+) -> None:
     result = evaluate(PROJECT_ROOT / "ai" / "golden_tasks" / "week32.jsonl")
 
     assert result["tasks"] == 30
+    assert result["status"] == "PASS"
     assert result["accuracy"] == 1.0
     assert result["evidence_reference_rate"] == 1.0
     assert result["automatic_writes"] == 0
@@ -51,3 +57,10 @@ def test_golden_tasks_are_reproducible_and_evidence_linked() -> None:
     assert result["human_review"]["acceptance_rate"] is None
     assert result["token_usage"] == 0
     assert result["cost_usd"] == 0.0
+
+    output = tmp_path / "week32-ai-eval" / "agent-eval.json"
+    output.parent.mkdir()
+    output.write_text(json.dumps(result), encoding="utf-8")
+    assert [(check.name, check.outcome) for check in discover_checks(tmp_path)] == [
+        ("json:week32-ai-eval/agent-eval", "PASS")
+    ]
