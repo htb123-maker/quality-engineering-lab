@@ -1,0 +1,165 @@
+version: 1
+agents:
+  - id: performance-monitor
+    purpose: Correlate SLO regressions with performance and infrastructure evidence.
+    triggers:
+      - schedule
+      - slo_breach
+    inputs:
+      - Locust CSV and HTML
+      - SLO result JSON
+      - PostgreSQL and Redis metrics
+    tool_allowlist:
+      - read_metrics
+      - read_performance_artifacts
+      - read_trend_history
+    outputs:
+      - outcome
+      - evidence_paths
+      - suspected_layer
+      - confidence
+      - proposed_actions
+      - requires_human_approval
+    evidence_required: true
+    failure_fallback: INSUFFICIENT_EVIDENCE
+    permissions:
+      mode: read_only
+      write_access: false
+      can_execute_shell: false
+      can_create_defects: false
+      can_close_defects: false
+      can_modify_thresholds: false
+      can_merge_or_release: false
+      human_approval_required_for_proposed_actions: true
+
+  - id: flaky-monitor
+    purpose: Cluster repeated failures and recommend bounded quarantine review.
+    triggers:
+      - test_failure
+      - schedule
+    inputs:
+      - pytest and Allure history
+      - failure fingerprints
+      - rerun records
+    tool_allowlist:
+      - read_allure_artifacts
+      - read_failure_fingerprints
+      - read_test_results
+      - read_trend_history
+    outputs:
+      - outcome
+      - evidence_paths
+      - suspected_layer
+      - confidence
+      - proposed_actions
+      - requires_human_approval
+    evidence_required: true
+    failure_fallback: INSUFFICIENT_EVIDENCE
+    permissions:
+      mode: read_only
+      write_access: false
+      can_execute_shell: false
+      can_create_defects: false
+      can_close_defects: false
+      can_modify_thresholds: false
+      can_merge_or_release: false
+      human_approval_required_for_proposed_actions: true
+
+  - id: ci-monitor
+    purpose: Separate job failures from missing evidence and propose remediation.
+    triggers:
+      - workflow_failure
+      - schedule
+    inputs:
+      - workflow and job metadata
+      - JUnit and status JSON
+      - artifact inventory and commit
+    tool_allowlist:
+      - read_ci_metadata
+      - read_runner_logs
+      - read_test_results
+      - read_trend_history
+    outputs:
+      - outcome
+      - evidence_paths
+      - suspected_layer
+      - confidence
+      - proposed_actions
+      - requires_human_approval
+    evidence_required: true
+    failure_fallback: INSUFFICIENT_EVIDENCE
+    permissions:
+      mode: read_only
+      write_access: false
+      can_execute_shell: false
+      can_create_defects: false
+      can_close_defects: false
+      can_modify_thresholds: false
+      can_merge_or_release: false
+      human_approval_required_for_proposed_actions: true
+
+  - id: ios-environment-monitor
+    purpose: Identify missing Xcode, Simulator, WDA, or provider prerequisites.
+    triggers:
+      - ios_failure
+      - device_preflight_failure
+      - schedule
+    inputs:
+      - iOS preflight JSON
+      - Runner and Appium logs
+      - Xcode and WDA diagnostics
+    tool_allowlist:
+      - read_device_preflight
+      - read_runner_logs
+      - read_test_results
+    outputs:
+      - outcome
+      - evidence_paths
+      - suspected_layer
+      - confidence
+      - proposed_actions
+      - requires_human_approval
+    evidence_required: true
+    failure_fallback: INSUFFICIENT_EVIDENCE
+    permissions:
+      mode: read_only
+      write_access: false
+      can_execute_shell: false
+      can_create_defects: false
+      can_close_defects: false
+      can_modify_thresholds: false
+      can_merge_or_release: false
+      human_approval_required_for_proposed_actions: true
+
+  - id: weekly-maintenance
+    purpose: Find stale claims, unresolved risks, and next-week task candidates.
+    triggers:
+      - weekly_schedule
+      - manual_run
+    inputs:
+      - weekly reports
+      - ADRs and runbooks
+      - quality trends and unverified items
+    tool_allowlist:
+      - read_adr_and_runbooks
+      - read_repository_docs
+      - read_trend_history
+      - read_weekly_reports
+    outputs:
+      - outcome
+      - evidence_paths
+      - suspected_layer
+      - confidence
+      - proposed_actions
+      - requires_human_approval
+    evidence_required: true
+    failure_fallback: INSUFFICIENT_EVIDENCE
+    permissions:
+      mode: read_only
+      write_access: false
+      can_execute_shell: false
+      can_create_defects: false
+      can_close_defects: false
+      can_modify_thresholds: false
+      can_merge_or_release: false
+      human_approval_required_for_proposed_actions: true

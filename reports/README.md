@@ -2,10 +2,11 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-最新进度：[WEEK-31 - CI 质量流水线、门禁与趋势 / CI Quality Pipeline, Gates, and Trends](weekly/WEEK-31.md)
+最新进度：[WEEK-32 - 综合验收、Agent Eval 与面试证据包](weekly/WEEK-32.md)
 
 ## 周报 / Weekly Reports
 
+- [WEEK-32 - 综合验收、Agent Eval 与面试证据包](weekly/WEEK-32.md)
 - [WEEK-31 - CI 质量流水线、门禁与趋势 / CI Quality Pipeline, Gates, and Trends](weekly/WEEK-31.md)
 - [WEEK-30 - Android 真机与 iOS 设备云移动性能 / Android and iOS Mobile Performance](weekly/WEEK-30.md)
 - [WEEK-29 - Soak、Failover、慢查询、锁、连接池、WAL 与缓存](weekly/WEEK-29.md)

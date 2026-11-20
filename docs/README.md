@@ -2,7 +2,7 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-共 74 篇设计文档，按主题分组。
+共 80 篇设计文档，按主题分组。
 
 ## 目标与计划 / Goals and Plan
 
@@ -14,6 +14,7 @@
 - [Android Device Matrix and Parallel Evidence](architecture/android-device-matrix.md)
 - [Android Screen Framework](architecture/android-screen-framework.md)
 - [Android System Interactions](architecture/android-system-interactions.md)
+- [Comprehensive Acceptance and Agent Evaluations](architecture/comprehensive-acceptance-and-agent-evals.md)
 - [Week 23 Cross-Layer E2E / 跨层 E2E](architecture/cross-layer-e2e.md)
 - [Cross-Platform Mobile Framework v1 / 跨平台移动框架 v1](architecture/cross-platform-framework.md)
 - [Week 24 Fault Recovery / 故障注入与恢复](architecture/fault-recovery.md)
@@ -41,6 +42,14 @@
 - [ADR-0011: 独立性能环境与机器可判定 SLO](adr/0011-isolated-performance-environment-and-slo-gates.md)
 - [ADR-0012: 性能指标、Trace 与监控栈边界](adr/0012-performance-observability-and-trace-correlation.md)
 - [ADR-0013: CI Required Evidence, Optional Cloud, and Bounded Trends](adr/0013-ci-pipeline-required-evidence-and-trends.md)
+- [ADR-0014: Comprehensive Acceptance Evidence and Agent Guardrails](adr/0014-comprehensive-acceptance-evidence-and-agent-guardrails.md)
+
+## 面试与复盘 / Interview and Retrospective
+
+- [架构总览 / Architecture Overview](interview/architecture-overview.md)
+- [演示脚本与证据索引 / Demo and Evidence Guide](interview/demo-and-evidence.md)
+- [面试问题库 / Interview Question Bank](interview/question-bank.md)
+- [STAR 故事 / STAR Stories](interview/star-stories.md)
 
 ## 测试策略 / Test Strategy
 

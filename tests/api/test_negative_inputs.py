@@ -4,6 +4,9 @@
 
 from __future__ import annotations
 
+import json
+from http.client import HTTPConnection
+
 import allure
 import httpx
 import pytest
@@ -301,13 +304,6 @@ def test_patch_with_broken_body_is_invalid_request(
     "16",
     "SUT unsupported methods return HTML 501",
 )
-@pytest.mark.xfail(
-    reason=(
-        "The SUT falls through to BaseHTTPRequestHandler's HTML 501 page "
-        "instead of the shared JSON error contract for unsupported methods."
-    ),
-    strict=True,
-)
 def test_unsupported_method_returns_the_json_error_contract(
     sut_api_url: str,
     settings: Settings,
@@ -322,5 +318,81 @@ def test_unsupported_method_returns_the_json_error_contract(
             json={"sku": "QA8-PUT-001", "name": "put", "price_cents": 100},
         )
 
-    assert response.status_code in {404, 405, 501}
-    assert _error_code(response) in {"not_found", "method_not_allowed"}
+    assert response.status_code == 405
+    assert response.headers["Allow"] == "GET, POST, PATCH, DELETE"
+    assert _error_code(response) == "method_not_allowed"
+
+
+@pytest.mark.api
+@allure.issue(
+    "16",
+    "SUT unsupported methods return HTML 501",
+)
+@pytest.mark.parametrize("method", ["OPTIONS", "TRACE"])
+def test_other_unsupported_methods_return_the_json_error_contract(
+    method: str,
+    sut_api_url: str,
+    settings: Settings,
+    namespace: NamespaceLease,
+) -> None:
+    del sut_api_url
+
+    with HttpClient.from_settings(settings) as client:
+        response = client.request(method, items_path(namespace.slug), retry=False)
+
+    assert response.status_code == 405
+    assert response.headers["Allow"] == "GET, POST, PATCH, DELETE"
+    assert _error_code(response) == "method_not_allowed"
+
+
+@pytest.mark.api
+@allure.issue(
+    "16",
+    "SUT unsupported methods return HTML 501",
+)
+def test_connect_returns_the_json_error_contract(
+    settings: Settings,
+    namespace: NamespaceLease,
+) -> None:
+    host = settings.api_base_url.host
+    assert host is not None
+    connection = HTTPConnection(
+        host,
+        settings.api_base_url.port or 80,
+        timeout=10,
+    )
+    try:
+        connection.request("CONNECT", items_path(namespace.slug))
+        response = connection.getresponse()
+        payload = json.loads(response.read())
+    finally:
+        connection.close()
+
+    assert response.status == 405
+    assert response.getheader("Allow") == "GET, POST, PATCH, DELETE"
+    assert payload["error"] == "method_not_allowed"
+
+
+@pytest.mark.api
+@allure.issue(
+    "16",
+    "SUT unsupported methods return HTML 501",
+)
+def test_head_returns_405_headers_without_a_response_body(
+    sut_api_url: str,
+    settings: Settings,
+    namespace: NamespaceLease,
+) -> None:
+    del sut_api_url
+
+    with HttpClient.from_settings(settings) as client:
+        response = client.request(
+            "HEAD",
+            items_path(namespace.slug),
+            retry=False,
+        )
+
+    assert response.status_code == 405
+    assert response.headers["Allow"] == "GET, POST, PATCH, DELETE"
+    assert response.headers["Content-Type"] == "application/json; charset=utf-8"
+    assert response.content == b""

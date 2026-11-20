@@ -70,6 +70,9 @@ uv run pytest tests/unit -q
 
 ## CI
 
-[.github/workflows/](.github/workflows/) 中的 Week 31 统一 pipeline 串联质量门、
-SUT、Android Linux emulator、iOS macOS Simulator/设备云、性能 Smoke 和趋势
-聚合。
+[.github/workflows/](.github/workflows/) 中的统一 pipeline 串联质量门、AI Golden
+Tasks、SUT、Android Linux emulator、iOS macOS Simulator/设备云、性能 Smoke 和
+趋势聚合。
+
+面试演示、STAR 故事和证据索引见
+[docs/interview/README.md](docs/interview/README.md)。

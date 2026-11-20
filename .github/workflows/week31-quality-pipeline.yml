@@ -1,11 +1,11 @@
-name: Week 31 Quality Pipeline
+name: Quality Pipeline
 
 on:
   pull_request:
   push:
     branches:
       - main
-      - study/week-31-ci-pipeline
+      - "study/week-*"
   workflow_dispatch:
   schedule:
     - cron: "0 18 * * *"
@@ -32,7 +32,7 @@ jobs:
       - name: Ruff
         run: uv run --no-sync ruff check .
       - name: Mypy
-        run: uv run --no-sync mypy packages tests performance
+        run: uv run --no-sync mypy packages tests performance ai
       - name: Unit tests
         run: |
           mkdir -p artifacts
@@ -50,6 +50,29 @@ jobs:
             artifacts/allure-quality/
             artifacts/quality-junit.xml
             artifacts/defect-drafts/
+          if-no-files-found: ignore
+
+  ai-eval:
+    name: AI Golden Tasks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Run deterministic evidence triage eval
+        run: |
+          mkdir -p artifacts/ai/week32
+          uv run --no-sync python -m ai.evals.run_golden_tasks \
+            --tasks ai/golden_tasks/week32.jsonl \
+            --output artifacts/ai/week32/agent-eval.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: week32-ai-eval
+          path: artifacts/ai/week32/
           if-no-files-found: ignore
 
   sut:
@@ -360,6 +383,7 @@ jobs:
     name: Quality trend and evidence index
     needs:
       - quality
+      - ai-eval
       - sut
       - android
       - ios-simulator
@@ -383,6 +407,7 @@ jobs:
         shell: bash
         env:
           QUALITY_RESULT: ${{ needs.quality.result }}
+          AI_EVAL_RESULT: ${{ needs.ai-eval.result }}
           SUT_RESULT: ${{ needs.sut.result }}
           ANDROID_RESULT: ${{ needs.android.result }}
           IOS_SIMULATOR_RESULT: ${{ needs.ios-simulator.result }}
@@ -391,6 +416,7 @@ jobs:
           mkdir -p artifacts/collected/required-jobs
           for entry in \
             "quality:$QUALITY_RESULT" \
+            "ai-eval:$AI_EVAL_RESULT" \
             "sut:$SUT_RESULT" \
             "android:$ANDROID_RESULT" \
             "ios-simulator:$IOS_SIMULATOR_RESULT" \

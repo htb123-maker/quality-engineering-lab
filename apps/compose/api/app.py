@@ -2040,6 +2040,34 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                 self._request_counted_in_progress = False
             self._request_started_at = None
 
+    def _method_not_allowed(self) -> None:
+        """Return a JSON 405 for methods without an API route."""
+
+        self.close_connection = True
+        self._send_json(
+            HTTPStatus.METHOD_NOT_ALLOWED,
+            ApiError(
+                error="method_not_allowed",
+                message=f"{self.command} is not supported for {self.path}.",
+            ),
+            headers={"Allow": "GET, POST, PATCH, DELETE"},
+        )
+
+    def do_PUT(self) -> None:  # noqa: N802
+        self._method_not_allowed()
+
+    def do_HEAD(self) -> None:  # noqa: N802
+        self._method_not_allowed()
+
+    def do_OPTIONS(self) -> None:  # noqa: N802
+        self._method_not_allowed()
+
+    def do_TRACE(self) -> None:  # noqa: N802
+        self._method_not_allowed()
+
+    def do_CONNECT(self) -> None:  # noqa: N802
+        self._method_not_allowed()
+
     def do_GET(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
 
@@ -3713,7 +3741,8 @@ class SutRequestHandler(BaseHTTPRequestHandler):
         for name, value in response_headers.items():
             self.send_header(name, value)
         self.end_headers()
-        self.wfile.write(body)
+        if self.command != "HEAD":
+            self.wfile.write(body)
 
     def log_message(self, format: str, *args: Any) -> None:
         LOGGER.info("%s - %s", self.address_string(), format % args)

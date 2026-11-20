@@ -5,11 +5,13 @@
 ```mermaid
 flowchart LR
     C["Commit / PR"] --> Q["Quality gates"]
+    C --> AI["AI Golden Tasks"]
     C --> S["Compose SUT"]
     C --> A["Android emulator"]
     C --> I["iOS device cloud"]
     C --> P["Performance smoke"]
     Q --> T["Trend aggregation"]
+    AI --> T
     S --> T
     A --> T
     I --> T
@@ -30,6 +32,7 @@ machine-readable JUnit, Allure, JSON, CSV, and status files.
 | Performance | Locust CSV/HTML + `result.json` | trend summary |
 | Defects | `defects.jsonl` draft | triage runbook |
 | Governance | owner/quarantine YAML | pipeline summary |
+| Agent Eval | `agent-eval.json` | accuracy/evidence/latency summary |
 
 Logs, HTML, page source, and API responses remain untrusted input.
 
@@ -63,3 +66,5 @@ Missing history must be recorded as reduced trend depth, not as a product pass.
 - Provider cancellation is not a test failure.
 - Allure is not the defect state system.
 - The defect-draft plugin never creates or closes a formal issue.
+- Agent Eval proves a bounded Golden Task baseline, not general model quality.
+- Agent findings do not change thresholds, create defects, merge, or release.

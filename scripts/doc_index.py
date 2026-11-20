@@ -32,6 +32,7 @@ REPORT_KIND_ORDER = {"weekly": 1, "daily": 0}
 DOC_GROUP_LABELS = {
     "adr": "adr",
     "architecture": "arch",
+    "interview": "interview",
     "runbooks": "runbook",
     "test-strategy": "test-strategy",
 }
@@ -41,6 +42,7 @@ INDEX_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("目标与计划 / Goals and Plan", ("docs/GOALS.md", "docs/PLAN.md")),
     ("架构与结构图 / Architecture", ("docs/architecture/",)),
     ("架构决策 / ADR", ("docs/adr/",)),
+    ("面试与复盘 / Interview and Retrospective", ("docs/interview/",)),
     ("测试策略 / Test Strategy", ("docs/test-strategy/",)),
     ("排障手册 / Runbooks", ("docs/runbooks/",)),
     ("周报 / Weekly Reports", ("reports/weekly/",)),

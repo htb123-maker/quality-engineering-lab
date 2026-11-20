@@ -1,0 +1,30 @@
+{"id":"GT-001","signals":{"quality":"PASS","sut":"PASS","android":"PASS","ios":"PASS","performance":"PASS"},"evidence":["quality-junit","sut-junit","android-junit","ios-junit","perf-result"],"required_evidence":["quality-junit","sut-junit","android-junit","ios-junit","perf-result"],"expected":"PASS"}
+{"id":"GT-002","signals":{"api":"PASS","db":"PASS","cache":"PASS"},"evidence":["api-junit","db-junit","cache-junit"],"required_evidence":["api-junit","db-junit","cache-junit"],"expected":"PASS"}
+{"id":"GT-003","signals":{"android":"PASS","ios":"PASS","e2e":"PASS"},"evidence":["android-junit","ios-junit","e2e-junit"],"required_evidence":["android-junit","ios-junit","e2e-junit"],"expected":"PASS"}
+{"id":"GT-004","signals":{"baseline":"PASS","load":"PASS","soak":"PASS"},"evidence":["baseline-json","load-json","soak-json"],"required_evidence":["baseline-json","load-json","soak-json"],"expected":"PASS"}
+{"id":"GT-005","signals":{"auth":"PASS","rbac":"PASS","input":"PASS"},"evidence":["auth-junit","rbac-junit","input-junit"],"required_evidence":["auth-junit","rbac-junit","input-junit"],"expected":"PASS"}
+{"id":"GT-006","signals":{"postgres":"PASS","redis":"PASS"},"evidence":["postgres-json","redis-json"],"required_evidence":["postgres-json","redis-json"],"expected":"PASS"}
+{"id":"GT-007","signals":{"contract":"PASS","compatibility":"PASS"},"evidence":["contract-junit","compatibility-junit"],"required_evidence":["contract-junit","compatibility-junit"],"expected":"PASS"}
+{"id":"GT-008","signals":{"recovery":"PASS","leak_check":"PASS"},"evidence":["recovery-json","leak-json"],"required_evidence":["recovery-json","leak-json"],"expected":"PASS"}
+{"id":"GT-009","signals":{"quality":"FAILED","sut":"PASS"},"evidence":["quality-junit","sut-junit"],"required_evidence":["quality-junit"],"expected":"FAILED"}
+{"id":"GT-010","signals":{"quality":"PASS","sut":"FAILED"},"evidence":["quality-junit","sut-junit"],"required_evidence":["sut-junit"],"expected":"FAILED"}
+{"id":"GT-011","signals":{"android":"FAILED","ios":"PASS"},"evidence":["android-junit","ios-junit"],"required_evidence":["android-junit"],"expected":"FAILED"}
+{"id":"GT-012","signals":{"ios":"FAILED","android":"PASS"},"evidence":["ios-junit","android-junit"],"required_evidence":["ios-junit"],"expected":"FAILED"}
+{"id":"GT-013","signals":{"performance":"FAILED","quality":"PASS"},"evidence":["perf-result","quality-junit"],"required_evidence":["perf-result"],"expected":"FAILED"}
+{"id":"GT-014","signals":{"api":"FAILED","cache":"PASS"},"evidence":["api-junit","cache-junit"],"required_evidence":["api-junit"],"expected":"FAILED"}
+{"id":"GT-015","signals":{"db":"FAILED","api":"PASS"},"evidence":["db-junit","api-junit"],"required_evidence":["db-junit"],"expected":"FAILED"}
+{"id":"GT-016","signals":{"e2e":"FAILED","android":"PASS"},"evidence":["e2e-junit","android-junit"],"required_evidence":["e2e-junit"],"expected":"FAILED"}
+{"id":"GT-017","signals":{"quality":"PASS","ios":"BLOCKED"},"evidence":["quality-junit","ios-status"],"required_evidence":["quality-junit","ios-status"],"expected":"BLOCKED"}
+{"id":"GT-018","signals":{"quality":"PASS","android":"NOT RUN"},"evidence":["quality-junit","android-status"],"required_evidence":["quality-junit","android-status"],"expected":"BLOCKED"}
+{"id":"GT-019","signals":{"quality":"PASS","cloud":"DEFERRED"},"evidence":["quality-junit","cloud-status"],"required_evidence":["quality-junit","cloud-status"],"expected":"BLOCKED"}
+{"id":"GT-020","signals":{"sut":"PASS","performance":"NOT RUN"},"evidence":["sut-junit","perf-status"],"required_evidence":["sut-junit","perf-status"],"expected":"BLOCKED"}
+{"id":"GT-021","signals":{"android":"PASS","ios":"BLOCKED"},"evidence":["android-junit","ios-status"],"required_evidence":["android-junit","ios-status"],"expected":"BLOCKED"}
+{"id":"GT-022","signals":{"api":"PASS","db":"DEFERRED"},"evidence":["api-junit","db-status"],"required_evidence":["api-junit","db-status"],"expected":"BLOCKED"}
+{"id":"GT-023","signals":{"quality":"PASS","cache":"NOT RUN"},"evidence":["quality-junit","cache-status"],"required_evidence":["quality-junit","cache-status"],"expected":"BLOCKED"}
+{"id":"GT-024","signals":{"e2e":"PASS","ios":"BLOCKED"},"evidence":["e2e-junit","ios-status"],"required_evidence":["e2e-junit","ios-status"],"expected":"BLOCKED"}
+{"id":"GT-025","signals":{"quality":"UNKNOWN"},"evidence":[],"required_evidence":[],"expected":"INSUFFICIENT_EVIDENCE"}
+{"id":"GT-026","signals":{"quality":"PASS"},"evidence":[],"required_evidence":[],"expected":"INSUFFICIENT_EVIDENCE"}
+{"id":"GT-027","signals":{},"evidence":["quality-junit"],"required_evidence":["quality-junit"],"expected":"INSUFFICIENT_EVIDENCE"}
+{"id":"GT-028","signals":{"api":"UNKNOWN","db":"PASS"},"evidence":["api-status"],"required_evidence":["api-status"],"expected":"INSUFFICIENT_EVIDENCE"}
+{"id":"GT-029","signals":{"quality":"PASS","sut":"UNKNOWN"},"evidence":["quality-junit"],"required_evidence":["quality-junit"],"expected":"INSUFFICIENT_EVIDENCE"}
+{"id":"GT-030","signals":{"android":"UNKNOWN","ios":"PASS"},"evidence":["ios-junit"],"required_evidence":["ios-junit"],"expected":"INSUFFICIENT_EVIDENCE"}
