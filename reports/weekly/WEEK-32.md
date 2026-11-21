@@ -3,11 +3,13 @@
 - 计划 / Plan: Week 32，完整业务链路、统一质量流水线、Agent Golden Tasks、面试证据包
 - 计划日期范围 / Planned Date Range: 2026-12-17 to 2026-12-23
 - 实际开启日期 / Opened: 2026-11-20
+- 技术验收日期 / Technical Acceptance: 2026-11-21
 - 当前工作区 / Current Worktree:
   `C:\Users\quan\.codex\worktrees\week30-ios-cloud-performance\Appium 2 study`
 - 当前分支 / Current Branch: `study/week-32-comprehensive-acceptance`
 - 基线提交 / Base Commit: `ce26ac5`（Week 31 complete）
-- 状态 / Status: **进行中 / IN PROGRESS**
+- 状态 / Status:
+  **部分通过 / PARTIAL - TECHNICAL PIPELINE GREEN, HUMAN REVIEW PENDING**
 
 ## 计划目标 / Plan Goal
 
@@ -110,6 +112,24 @@ artifacts/ai/week32/agent-eval-local.json
 - 修复方式：在 CI 中独立执行 WDA `build-for-testing`，再启动 Appium 跑
   `test-without-building`，避免把冷构建时间塞进 HTTP session 请求。
 
+最终 Run `44864154116`，**PASS**：
+
+`https://github.com/htb123-maker/quality-engineering-lab/actions/runs/44864154116`
+
+验收代码提交：`4ba27ee`。
+
+| Job | Result | Final Evidence |
+| --- | --- | --- |
+| Quality | PASS | `393 passed`、Ruff、Mypy 232 files、Governance |
+| AI Golden Tasks | PASS | 30 tasks，accuracy/evidence `1.0`，p95 `0.0088 ms` |
+| Compose SUT | PASS | `45 passed, 1 skipped` integration；`242 passed` API |
+| Android Linux emulator | PASS | `6 passed, 54 deselected`，API 35 AOSP ATD |
+| iOS WDA prebuild | PASS | `TEST BUILD SUCCEEDED`，1m32s |
+| iOS macOS Simulator | PASS | `4 passed`，5m13s，iPhone 16 / iOS 18.5 |
+| Performance | PASS | isolated smoke |
+| iOS cloud optional | BLOCKED | `BrowserStack App Automate trial time expired` |
+| Quality Trend | PASS | 6 checks，overall PASS，AI Eval 已显式纳入 |
+
 必需证据：
 
 - Quality：Ruff、Mypy、393 unit、Governance。
@@ -162,7 +182,7 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    W31["Week 31<br/>CI Pipeline<br/>PASS"] --> W32["Week 32<br/>Comprehensive Acceptance<br/>IN PROGRESS"]
+    W31["Week 31<br/>CI Pipeline<br/>PASS"] --> W32["Week 32<br/>Technical Pipeline<br/>PASS / PARTIAL"]
     W32 --> DONE["Interview Demo<br/>and Evidence Pack"]
 ```
 
@@ -215,8 +235,6 @@ gh workflow run week31-quality-pipeline.yml `
 
 ## 未验证项 / Unverified Items
 
-- Week32 最终 GitHub Actions run 尚未执行。
-- Android Linux emulator、iOS macOS Simulator 和 performance job 仍待最终 run。
 - BrowserStack 仍受 Free Trial 额度限制；当前不接受为必需 iOS 证据。
 - Agent 的 30 条 CI gate acceptance 已完成本地验证，但人工建议采纳率为
   `NOT RUN`；不能把 gate acceptance 冒充 human adoption。
@@ -238,6 +256,6 @@ gh workflow run week31-quality-pipeline.yml `
 
 ## 下一步 / Next Steps
 
-1. 运行加入 WDA 预构建后的统一 pipeline。
-2. 根据最终 Run 更新 Trend checks 和本报告状态。
-3. 请人工确认 Agent 建议采纳率和 Issue #16 是否满足关闭条件。
+1. 请人工确认是否采纳 30 条 Golden Tasks 的 Agent 建议。
+2. 请人工确认 Issue #16 修复与回归证据是否满足关闭条件。
+3. BrowserStack 恢复额度后补可选真机云证据，但不能回写或替代本轮 Simulator PASS。
