@@ -150,8 +150,17 @@ jobs:
             | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - name: Start business SUT and fault injection
+        run: |
+          docker compose -f apps/compose/compose.yaml \
+            --profile fault-injection up \
+            --detach --wait --wait-timeout 120 --build
+      - name: Readiness for Android business E2E
+        run: uv run --no-sync python scripts/check_sut.py --wait-seconds 120
       - name: Boot Android and run smoke
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          QA_RUN_ANDROID_BUSINESS_E2E: "1"
         with:
           api-level: 35
           target: aosp_atd
@@ -160,6 +169,11 @@ jobs:
           disable-animations: true
           script: |
             bash scripts/run_android_linux_smoke.sh emulator-5554
+      - name: Stop business SUT
+        if: always()
+        run: |
+          docker compose -f apps/compose/compose.yaml \
+            --profile fault-injection down --volumes --remove-orphans
       - uses: actions/upload-artifact@v4
         if: always()
         with:

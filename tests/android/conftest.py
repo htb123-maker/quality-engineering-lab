@@ -19,6 +19,7 @@ from qa_core.platforms.android.devices import (
     AndroidDeviceProfile,
     load_android_device_matrix,
     select_worker_device,
+    worker_service_ports,
     xdist_worker_context,
 )
 
@@ -64,6 +65,38 @@ def create_android_test_session(
     return driver
 
 
+def _set_fixture_app_locale(
+    adb: str,
+    serial: str,
+) -> None:
+    """Force the fixture into its English baseline without changing the device."""
+
+    result = subprocess.run(
+        [
+            adb,
+            "-s",
+            serial,
+            "shell",
+            "cmd",
+            "locale",
+            "set-app-locales",
+            FIXTURE_PACKAGE,
+            "--locales",
+            "en-US",
+        ],
+        capture_output=True,
+        check=False,
+        text=True,
+        timeout=10,
+    )
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or "no output"
+        pytest.skip(
+            "Android fixture locale baseline requires per-app locale support: "
+            f"{detail}"
+        )
+
+
 @pytest.fixture(scope="session")
 def android_device_profiles(
     settings: Settings,
@@ -98,9 +131,17 @@ def android_settings(
 ) -> Settings:
     """Return settings targeting the device assigned to this worker."""
 
+    worker_index, _ = xdist_worker_context()
+    service_ports = worker_service_ports(
+        worker_index=worker_index,
+        system_port_base=settings.android_system_port,
+        mjpeg_server_port_base=settings.android_mjpeg_server_port,
+    )
     updates: dict[str, object] = {
         "android_udid": android_worker_profile.udid,
         "android_device_name": android_worker_profile.device_id,
+        "android_system_port": service_ports.system_port,
+        "android_mjpeg_server_port": service_ports.mjpeg_server_port,
     }
     if android_worker_profile.platform_version:
         updates["android_platform_version"] = android_worker_profile.platform_version
@@ -226,6 +267,7 @@ def android_fixture_driver(
             f"Android fixture is not installed on {android_settings.android_udid}; "
             "run .\\scripts\\run_android_matrix.ps1."
         )
+    _set_fixture_app_locale(adb, android_settings.android_udid)
 
     driver = create_android_test_session(
         android_settings,
@@ -273,6 +315,7 @@ def android_fixture_session(
             f"Android fixture is not installed on {android_settings.android_udid}; "
             "run .\\scripts\\run_android_matrix.ps1."
         )
+    _set_fixture_app_locale(adb, android_settings.android_udid)
 
     driver = create_android_test_session(
         android_settings,

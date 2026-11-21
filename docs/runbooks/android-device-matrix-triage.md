@@ -122,6 +122,32 @@ adb -s emulator-5556 shell dumpsys activity activities |
 Each serial must have a distinct UDID in its Appium capabilities. After a run,
 the sessions endpoint must return an empty list.
 
+## Parallel Session Becomes Invalid
+
+Check that every worker has distinct auxiliary ports:
+
+```text
+appium:systemPort
+appium:mjpegServerPort
+```
+
+Two workers on different devices still collide if both use `8200` and `7810`.
+The worker index must offset both ports.
+
+Also force a deterministic per-app locale for the fixture:
+
+```powershell
+adb -s <serial> shell cmd locale set-app-locales `
+  com.example.qaweek15 --locales en-US
+```
+
+Do not change the whole device language for an English assertion.
+
+If the physical device has a newer Android System WebView major than Appium's
+bundled ChromeDriver, run Hybrid tests only after pre-provisioning a matching
+driver. A WebView major mismatch can crash the xdist worker; it is a test
+platform failure, not a catalog business failure.
+
 ## Evidence Is Missing
 
 The runner writes:

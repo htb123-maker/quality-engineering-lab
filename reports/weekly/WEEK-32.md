@@ -50,7 +50,7 @@ one commit
 | Check | Result | Evidence |
 | --- | --- | --- |
 | Issue #16 real Compose SUT regression | PASS | `5 passed in 0.71s` |
-| Full unit regression | PASS | `394 passed in 9.53s` |
+| Full unit regression | PASS | `395 passed in 8.98s` |
 | Ruff | PASS | `All checks passed!` |
 | Mypy | PASS | `Success: no issues found in 232 source files` |
 | Governance | PASS | `quality governance valid: 0 quarantined tests` |
@@ -252,12 +252,58 @@ gh workflow run week31-quality-pipeline.yml `
 - 首次 Docker build 遇到 PyPI 网络中断；使用相同 requirements 的临时镜像源完成
   本地构建，临时 env 文件未提交。
 - Windows 默认 pytest temp 目录权限被拒绝；全量单测改用 workspace 内
-  `--basetemp` 后 `394 passed`。
+  `--basetemp` 后 `395 passed`。
 - iOS cloud 外部配额和 GitHub Runner 可用 runtime 不由仓库控制。
 - Agent 基线是确定性规则，不是 LLM，也不替代测试执行或人工判断。
+
+## 后置扩展验收 / Post-Acceptance Extension
+
+Week32 核心验收仍为 `PASS`。项目所有者随后要求尝试此前未闭环的最后三项，
+本节的扩展结论为 **PARTIAL**，不改变核心验收，也不把未完成项写成通过。
+
+| Attempt | Result | Evidence |
+| --- | --- | --- |
+| 双 AVD 并行 | PASS | 并行 `6 passed`；两个 AVD 分别 `6 passed` |
+| API 15 AVD + API 14 HyperOS 真机业务链 | PASS | 真实 SUT catalog 各 `30 passed` |
+| 真实 SUT 弱网恢复 | PASS | AVD 与真机各 `1 passed` |
+| 三设备完整 Android 套件 | PARTIAL | `58 passed, 1 failed, 1 error` |
+| 非充电电量测量 | NOT RUN | Redmi 当前 `USB powered: true`，不能伪造非充电结论 |
+| Week21 重构前耗时基线 | NOT RUN | 历史预重构耗时工件不存在，事后重跑不能生成真正基线 |
+| 跨主机 Android 设备池/压测 | DEFERRED | 当前只有一台设备主机 |
+
+真实业务套装不是纯本地假数据。它在 AVD 和物理 Redmi 上通过真实认证、角色、
+catalog API、Redis fixture session、状态变更和最终 API 状态验证。弱网证据使用
+Toxiproxy 拦截真实 SUT：
+
+- `latency_ms=1500`；
+- AVD observed delay `2.645s`；
+- Redmi observed delay `2.631s`；
+- `7000ms` packet timeout 产生 UI `error`；
+- 移除故障后恢复 `active`；
+- 恢复后归档，API 最终状态为 `archived`。
+
+本轮同时修复了两个测试平台缺陷：
+
+- 并行 worker 共用 `systemPort=8200` 和 `mjpegServerPort=7810`；
+- 物理机中文 App locale 与固定英文断言冲突。
+
+真实 catalog 跨层套件和 Toxiproxy 弱网测试已接入 Android CI，SUT job 与
+Android job 都会使用真实 Compose 服务，不再只跑 fixture 自测。
+
+仍未闭环的三设备失败来自物理机 Hybrid：设备 WebView 为 `130.x`，Appium 当前
+绑定 ChromeDriver 为 `124.x`，运行中切换 context 导致 worker 崩溃。它不影响
+catalog 业务 E2E，但证明 Android Hybrid 的设备驱动矩阵仍不完整。
+
+业务真实性仍是 `PARTIAL`：当前真实 SUT 业务主要是 workspace + catalog + auth +
+job，移动 UI 只覆盖 catalog 的读取和归档。它比纯 fixture 强，但还不能代表完整
+订单、支付、库存、履约和多步骤业务。要声称“真实业务复杂性”，还需要一个连接
+真实 SUT 的示例产品 App，覆盖订单生命周期、角色边界、幂等、失败重试和跨
+PostgreSQL/Redis 的最终一致性。
 
 ## 下一步 / Next Steps
 
 1. BrowserStack 恢复额度后补可选真机云证据，但不能回写或替代本轮 Simulator PASS。
-2. 保持 nightly/weekly 只读监控与趋势任务运行，防止质量退化。
-3. 由项目所有者选择下一阶段的学习或扩展方向。
+2. 为物理 Android WebView 预置匹配的 ChromeDriver，补齐 Hybrid 设备矩阵。
+3. 获取第二台合法主机后执行跨主机 Locust 与 Android 设备池。
+4. 使用非充电状态的物理设备重新采集电量与性能。
+5. 建设真实订单/支付/库存业务应用，避免只靠测试夹具证明业务能力。

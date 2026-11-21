@@ -32,6 +32,34 @@ class AndroidDeviceProfile:
             raise ValueError("device udid must not be empty")
 
 
+@dataclass(frozen=True, slots=True)
+class AndroidServicePorts:
+    """Appium auxiliary ports assigned to one Android worker."""
+
+    system_port: int
+    mjpeg_server_port: int
+
+
+def worker_service_ports(
+    *,
+    worker_index: int,
+    system_port_base: int,
+    mjpeg_server_port_base: int,
+) -> AndroidServicePorts:
+    """Offset Appium service ports so parallel workers cannot collide."""
+
+    if worker_index < 0:
+        raise ValueError("worker index must not be negative")
+    system_port = system_port_base + worker_index
+    mjpeg_server_port = mjpeg_server_port_base + worker_index
+    if system_port > 65535 or mjpeg_server_port > 65535:
+        raise ValueError("allocated Android Appium port exceeds 65535")
+    return AndroidServicePorts(
+        system_port=system_port,
+        mjpeg_server_port=mjpeg_server_port,
+    )
+
+
 def load_android_device_matrix(
     matrix_path: Path,
     environment: Mapping[str, str] | None = None,

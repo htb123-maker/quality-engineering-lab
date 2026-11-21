@@ -47,3 +47,15 @@ QA_ANDROID_DEVICE_IDS=local-primary-avd \
 uv run --no-sync pytest tests/android -m smoke -q \
   --alluredir=artifacts/allure-android \
   --junitxml=artifacts/android-junit.xml
+
+if [[ "${QA_RUN_ANDROID_BUSINESS_E2E:-0}" == "1" ]]; then
+  QA_ANDROID_UDID="$SERIAL" \
+  QA_ANDROID_DEVICE_NAME=Pixel_API_35_AOSP_ATD \
+  QA_ANDROID_DEVICE_IDS=local-primary-avd \
+  uv run --no-sync pytest \
+    tests/e2e/test_catalog_cross_layer.py \
+    tests/e2e/test_catalog_weak_network.py \
+    -q \
+    --alluredir=artifacts/allure-android-business \
+    --junitxml=artifacts/android-business-junit.xml
+fi

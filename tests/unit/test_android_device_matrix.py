@@ -7,6 +7,7 @@ from qa_core.platforms.android.devices import (
     AndroidDeviceProfile,
     load_android_device_matrix,
     select_worker_device,
+    worker_service_ports,
     xdist_worker_context,
 )
 
@@ -14,6 +15,25 @@ from qa_core.platforms.android.devices import (
 def write_matrix(path: Path, devices: str) -> Path:
     path.write_text(f"version: 1\ndevices:\n{devices}", encoding="utf-8")
     return path
+
+
+@pytest.mark.unit
+def test_parallel_workers_receive_distinct_appium_service_ports() -> None:
+    first = worker_service_ports(
+        worker_index=0,
+        system_port_base=8200,
+        mjpeg_server_port_base=7810,
+    )
+    second = worker_service_ports(
+        worker_index=1,
+        system_port_base=8200,
+        mjpeg_server_port_base=7810,
+    )
+
+    assert first.system_port == 8200
+    assert second.system_port == 8201
+    assert first.mjpeg_server_port == 7810
+    assert second.mjpeg_server_port == 7811
 
 
 @pytest.mark.unit
