@@ -99,8 +99,16 @@ artifacts/ai/week32/agent-eval-local.json
 | Quality Trend | PASS | 5 checks，overall PASS |
 
 首轮 Trend 已将 AI job 作为必需依赖，但发现成功态 AI JSON 尚无标准 `status`
-字段，因此 checks 仍为 5。已补 `status: PASS/FAILED` 和回归单测，等待第二个
-commit 的 Run 验证 Trend 明确包含 AI Eval。
+字段，因此 checks 仍为 5。已补 `status: PASS/FAILED` 和回归单测。
+
+第二个 Run `44753042860` 为 **FAILED**：
+
+- Quality、AI Eval、SUT、Android 和 Performance 通过。
+- iOS Simulator 的 WDA 冷构建在首个 `POST /session` 中耗时约 11 分 35 秒，
+  客户端连接最终以 `RemoteDisconnected` 结束；结果为 `1 failed, 3 passed`。
+- Trend 正确因为 iOS 证据不完整而失败，没有把 `FAILED` 改写成 `PASS`。
+- 修复方式：在 CI 中独立执行 WDA `build-for-testing`，再启动 Appium 跑
+  `test-without-building`，避免把冷构建时间塞进 HTTP session 请求。
 
 必需证据：
 
@@ -230,6 +238,6 @@ gh workflow run week31-quality-pipeline.yml `
 
 ## 下一步 / Next Steps
 
-1. 提交 AI Trend status 修正并运行第二个统一 pipeline。
+1. 运行加入 WDA 预构建后的统一 pipeline。
 2. 根据最终 Run 更新 Trend checks 和本报告状态。
 3. 请人工确认 Agent 建议采纳率和 Issue #16 是否满足关闭条件。

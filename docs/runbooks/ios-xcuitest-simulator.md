@@ -181,6 +181,12 @@ SpringBoard is ready.
 
 ## 5. Start Appium and Run the Smoke
 
+Fresh macOS runners may cold-build WebDriverAgent inside the first
+`POST /session` request. For CI acceptance, run `xcodebuild build-for-testing`
+for `WebDriverAgentRunner` in a separate step before starting Appium. This
+keeps a build failure attributable to the build environment and prevents a
+long-lived client request from ending as `RemoteDisconnected`.
+
 In a second terminal:
 
 ```bash

@@ -249,6 +249,20 @@ jobs:
           app_path="artifacts/ios-fixture-simulator-derived/Build/Products/Debug-iphonesimulator/QaIosFixture.app"
           test -d "$app_path"
           xcrun simctl install "$QA_IOS_SIM_CURRENT_UDID" "$app_path"
+      - name: Prebuild WebDriverAgent
+        shell: bash
+        run: |
+          set -euo pipefail
+          module_root="$HOME/.appium/node_modules/appium-xcuitest-driver/node_modules"
+          test -d "$module_root/appium-webdriveragent/WebDriverAgent.xcodeproj"
+          xcodebuild build-for-testing \
+            -project "$module_root/appium-webdriveragent/WebDriverAgent.xcodeproj" \
+            -scheme WebDriverAgentRunner \
+            -derivedDataPath "$module_root" \
+            -destination "id=$QA_IOS_SIM_CURRENT_UDID" \
+            "IPHONEOS_DEPLOYMENT_TARGET=$QA_IOS_SIM_CURRENT_VERSION" \
+            GCC_TREAT_WARNINGS_AS_ERRORS=0 \
+            COMPILER_INDEX_STORE_ENABLE=NO
       - name: Start Appium
         shell: bash
         run: |
