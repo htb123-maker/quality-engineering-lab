@@ -67,6 +67,7 @@ jobs:
           mkdir -p artifacts/ai/week32
           uv run --no-sync python -m ai.evals.run_golden_tasks \
             --tasks ai/golden_tasks/week32.jsonl \
+            --review ai/evals/week32-human-review.json \
             --output artifacts/ai/week32/agent-eval.json
       - uses: actions/upload-artifact@v4
         if: always()

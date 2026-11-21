@@ -7,6 +7,7 @@ import json
 import math
 import time
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
@@ -15,6 +16,30 @@ from ai.agents.evidence_triage import EvidenceTriageAgent, SignalState
 KNOWN_SIGNALS = frozenset(
     {"PASS", "FAILED", "BLOCKED", "NOT RUN", "DEFERRED", "UNKNOWN"}
 )
+REVIEW_STATUSES = frozenset({"ACCEPTED", "MODIFIED", "REJECTED"})
+
+
+@dataclass(frozen=True, slots=True)
+class HumanReviewMetrics:
+    """Human decisions attached to one reproducible eval run."""
+
+    status: str
+    reviewed: int
+    accepted: int
+    modified: int
+    acceptance_rate: float | None
+    modification_rate: float | None
+
+    @classmethod
+    def not_run(cls) -> HumanReviewMetrics:
+        return cls(
+            status="NOT RUN",
+            reviewed=0,
+            accepted=0,
+            modified=0,
+            acceptance_rate=None,
+            modification_rate=None,
+        )
 
 
 def _signals(payload: dict[str, Any]) -> dict[str, SignalState]:
@@ -46,7 +71,57 @@ def _percentile(values: Sequence[float], percentage: float) -> float:
     )
 
 
-def evaluate(tasks_path: Path) -> dict[str, Any]:
+def _load_review(
+    path: Path | None,
+    *,
+    task_ids: set[str],
+    agent_name: str,
+) -> HumanReviewMetrics:
+    if path is None:
+        return HumanReviewMetrics.not_run()
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("human review must be a JSON object")
+    if payload.get("schema_version") != 1:
+        raise ValueError("unsupported human review schema version")
+    if payload.get("agent") != agent_name:
+        raise ValueError("human review agent does not match eval agent")
+    decisions = payload.get("decisions")
+    if not isinstance(decisions, list):
+        raise ValueError("human review decisions must be a list")
+
+    reviewed: dict[str, str] = {}
+    for decision in decisions:
+        if not isinstance(decision, dict):
+            raise ValueError("each human review decision must be an object")
+        task_id = decision.get("task_id")
+        status = decision.get("status")
+        if not isinstance(task_id, str) or not isinstance(status, str):
+            raise ValueError("human review decisions require task_id and status")
+        if status not in REVIEW_STATUSES:
+            raise ValueError(f"unsupported human review status: {status}")
+        if task_id in reviewed:
+            raise ValueError(f"duplicate human review task: {task_id}")
+        reviewed[task_id] = status
+
+    if set(reviewed) != task_ids:
+        raise ValueError("human review must cover every Golden Task exactly once")
+
+    accepted = sum(status == "ACCEPTED" for status in reviewed.values())
+    modified = sum(status == "MODIFIED" for status in reviewed.values())
+    total = len(reviewed)
+    return HumanReviewMetrics(
+        status="APPROVED",
+        reviewed=total,
+        accepted=accepted,
+        modified=modified,
+        acceptance_rate=round(accepted / total, 4),
+        modification_rate=round(modified / total, 4),
+    )
+
+
+def evaluate(tasks_path: Path, review_path: Path | None = None) -> dict[str, Any]:
     agent = EvidenceTriageAgent()
     records: list[dict[str, Any]] = []
     latencies: list[float] = []
@@ -86,10 +161,16 @@ def evaluate(tasks_path: Path) -> dict[str, Any]:
         for record in records
     )
     gate_accepted = bool(records) and correct == len(records)
+    agent_name = "evidence-triage-v1-deterministic"
+    review = _load_review(
+        review_path,
+        task_ids={str(record["task_id"]) for record in records},
+        agent_name=agent_name,
+    )
     return {
         "schema_version": 1,
         "status": "PASS" if gate_accepted else "FAILED",
-        "agent": "evidence-triage-v1-deterministic",
+        "agent": agent_name,
         "tasks": len(records),
         "correct": correct,
         "accuracy": round(correct / len(records), 4) if records else 0.0,
@@ -103,12 +184,12 @@ def evaluate(tasks_path: Path) -> dict[str, Any]:
         "false_pass_count": false_pass_count,
         "gate_acceptance_rate": 1.0 if gate_accepted else 0.0,
         "human_review": {
-            "status": "NOT RUN",
-            "reviewed": 0,
-            "accepted": 0,
-            "modified": 0,
-            "acceptance_rate": None,
-            "modification_rate": None,
+            "status": review.status,
+            "reviewed": review.reviewed,
+            "accepted": review.accepted,
+            "modified": review.modified,
+            "acceptance_rate": review.acceptance_rate,
+            "modification_rate": review.modification_rate,
         },
         "records": records,
     }
@@ -126,12 +207,17 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("artifacts/ai/week32/agent-eval.json"),
     )
+    parser.add_argument(
+        "--review",
+        type=Path,
+        help="optional human review JSON covering every Golden Task",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    result = evaluate(args.tasks)
+    result = evaluate(args.tasks, args.review)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n",

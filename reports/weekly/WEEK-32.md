@@ -48,7 +48,7 @@ one commit
 | Check | Result | Evidence |
 | --- | --- | --- |
 | Issue #16 real Compose SUT regression | PASS | `5 passed in 0.71s` |
-| Full unit regression | PASS | `393 passed in 8.78s` |
+| Full unit regression | PASS | `394 passed in 9.53s` |
 | Ruff | PASS | `All checks passed!` |
 | Mypy | PASS | `Success: no issues found in 232 source files` |
 | Governance | PASS | `quality governance valid: 0 quarantined tests` |
@@ -56,7 +56,7 @@ one commit
 | Agent false pass | PASS | `false_pass_count=0` |
 | Agent automatic writes | PASS | `0` |
 | Workflow YAML parse | PASS | jobs 包含 `ai-eval`，Trend needs 已接入 |
-| Human suggestion adoption | NOT RUN | 尚无人工 review artifact |
+| Human suggestion adoption | PASS | 30/30 approved，acceptance `1.0`，modification `0.0` |
 
 Agent Eval 的实际输出：
 
@@ -70,7 +70,10 @@ automatic_writes=0
 token_usage=0
 cost_usd=0.0
 p95_latency_ms=0.0088
-human_review.status=NOT RUN
+human_review.status=APPROVED
+human_review.accepted=30
+human_review.acceptance_rate=1.0
+human_review.modification_rate=0.0
 ```
 
 这些数字描述确定性规则基线，不是 LLM 准确率或模型节省时间。
@@ -236,9 +239,8 @@ gh workflow run week31-quality-pipeline.yml `
 ## 未验证项 / Unverified Items
 
 - BrowserStack 仍受 Free Trial 额度限制；当前不接受为必需 iOS 证据。
-- Agent 的 30 条 CI gate acceptance 已完成本地验证，但人工建议采纳率为
-  `NOT RUN`；不能把 gate acceptance 冒充 human adoption。
-- Issue #16 修复和本地真实 SUT 回归已完成，但正式关闭仍需人工审批。
+- Agent 人工 review artifact 已完成本地验证，但仍待最终 CI 重跑。
+- Issue #16 已在项目所有者明确批准后关闭；最终 CI 仍需确认 review artifact。
 - 上一主版本 iOS runtime、WebView context、Notification Center UI 和 Week21
   前后性能基线等继承 gaps 保持不变。
 
@@ -256,6 +258,6 @@ gh workflow run week31-quality-pipeline.yml `
 
 ## 下一步 / Next Steps
 
-1. 请人工确认是否采纳 30 条 Golden Tasks 的 Agent 建议。
-2. 请人工确认 Issue #16 修复与回归证据是否满足关闭条件。
+1. 运行最终 review artifact pipeline，确认 `human_review.status=APPROVED`。
+2. 根据最终 Run 将 Week32 从技术 `PARTIAL` 更新为最终 `PASS`。
 3. BrowserStack 恢复额度后补可选真机云证据，但不能回写或替代本轮 Simulator PASS。
