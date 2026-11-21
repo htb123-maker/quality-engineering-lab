@@ -261,15 +261,15 @@ gh workflow run week31-quality-pipeline.yml `
 Week32 核心验收仍为 `PASS`。项目所有者随后要求尝试此前未闭环的最后三项，
 本节的扩展结论为 **PARTIAL**，不改变核心验收，也不把未完成项写成通过。
 
-后置扩展 CI Run `44920919289` 全绿，Android job 在 4m20s 内实际执行 fixture
-smoke、30 条真实 SUT catalog 跨层场景和 Toxiproxy 弱网恢复。
+后置扩展 CI Run `44920919289` 全绿，Android job 在 4m20s 内实际执行 `6` 条
+fixture smoke、`30` 条真实 SUT catalog 跨层场景和 `1` 条 Toxiproxy 弱网恢复。
 
 | Attempt | Result | Evidence |
 | --- | --- | --- |
 | 双 AVD 并行 | PASS | 并行 `6 passed`；两个 AVD 分别 `6 passed` |
 | API 15 AVD + API 14 HyperOS 真机业务链 | PASS | 真实 SUT catalog 各 `30 passed` |
 | 真实 SUT 弱网恢复 | PASS | AVD 与真机各 `1 passed` |
-| Android CI 业务与弱网 | PASS | Run `44920919289`，Android job 4m20s |
+| Android CI 业务与弱网 | PASS | Run `44920919289`：`6 smoke + 31 business` |
 | 三设备完整 Android 套件 | PARTIAL | `58 passed, 1 failed, 1 error` |
 | 非充电电量测量 | NOT RUN | Redmi 当前 `USB powered: true`，不能伪造非充电结论 |
 | Week21 重构前耗时基线 | NOT RUN | 历史预重构耗时工件不存在，事后重跑不能生成真正基线 |
