@@ -4,7 +4,8 @@
 - 日期范围 / Date Range: 2026-11-23
 - 分支 / Branch: `study/week-34-agent-monitoring-hardening`
 - 基线提交 / Base Commit: `a779cd1`
-- 计划提交 / Plan Commit: Not committed
+- 计划提交 / Plan Commit: `c35771a`
+- 证据保留提交 / Evidence Commit: `4f4f6b2`
 - Pull Request: Not opened
 
 ## 计划目标 / Plan Goal
@@ -25,10 +26,16 @@ collected JUnit / JSON
 
 ## 完成状态 / Completion Status
 
-本地实现与专项验证为 **通过 / PASS**。
+本地实现、Agent runtime 和主要平台验证为 **通过 / PASS**。
 
-仓库级状态暂为 **部分通过 / PARTIAL**：新 commit 尚未推送，尚未执行 Week34
-GitHub Actions run。
+仓库级最终状态为 **部分通过 / PARTIAL**：
+
+- Run `45202168815` 在 `c35771a` 上全部必需 job PASS，Agent Monitor 与
+  required evidence 已验证。
+- 后续证据保留提交 `4f4f6b2` 的 Run `45205912718` 中，Agent、SUT、Android、
+  Performance 和 AI Eval 均 PASS；iOS Simulator 在 macOS Runner 上冷启动超时，
+  fail-closed Trend 正确失败。只重跑失败 job 时同一 iOS 步骤再次长时间卡住，
+  因此取消并保留 `PARTIAL`。
 
 ## 按优先级完成 / Priority Order
 
@@ -40,7 +47,7 @@ GitHub Actions run。
 | P2-A | Eval 门禁、review hash、有效期 | PASS | 过期或任务集不匹配会失败 |
 | P2-B | CI + Performance 运行时 Agent | PASS | `ci-monitor` 与 `performance-monitor` 已接 workflow |
 | P3 | BrowserStack 403 降噪 | PASS | 403 写 `BLOCKED` artifact |
-| P4 | 文档与 CI | PARTIAL | 文档完成，CI 待运行 |
+| P4 | 文档与 CI | PARTIAL | Agent 链路 CI PASS；最终 commit 被 iOS Runner 超时阻塞 |
 
 ## 质量检查 / Quality Checks
 
@@ -56,7 +63,8 @@ GitHub Actions run。
 | Workflow YAML parse | PASS | Quality Pipeline + iOS cloud workflow |
 | Real artifact monitor | PASS | 真实 artifacts 缺失 iOS 时正确返回 `INSUFFICIENT_EVIDENCE` |
 | Trend replay | PASS | Performance 出现；缺失 iOS 与 collected evidence 为 `NOT RUN` |
-| GitHub Actions | NOT RUN | 尚未推送 |
+| Agent runtime CI | PASS | Run `45202168815`；`agent-monitor status=PASS missing=0` |
+| Final commit CI | PARTIAL | Run `45205912718`；iOS Simulator 超时，其余 job PASS |
 
 ## 术语解释 / Glossary
 
@@ -82,7 +90,8 @@ GitHub Actions run。
 
 ## 未验证项 / Unverified Items
 
-- Week34 GitHub Actions：`NOT RUN`。
+- 最终证据保留 commit 的 iOS Simulator：`FAILED`，实际为 macOS Runner 冷启动
+  超时；同 commit 其他 job 为 PASS。
 - `flaky-monitor`：仍为声明式注册，尚未接 Allure/history。
 - `ios-environment-monitor`：尚未接 preflight 与 Runner 日志。
 - `weekly-maintenance`：仍为 manual/weekly 后续能力。
@@ -103,7 +112,7 @@ GitHub Actions run。
 
 ## 下一步 / Next Plan
 
-1. 提交并推送 Week34，运行 Quality Pipeline。
-2. 检查 CI 生成的 `agent-monitor.json` 和 Trend 的真实 Performance check。
-3. 若 CI 通过，将 Week34 标记为 `PASS`。
+1. 优化 iOS Simulator job 的构建缓存与 WDA 预热，解决 Runner 冷启动超时。
+2. 在稳定 Runner 或 self-hosted Mac 上重跑最终证据 commit。
+3. 最终 commit CI 全绿后，再把 Week34 从 `PARTIAL` 提升为 `PASS`。
 4. 下一阶段再接 `flaky-monitor` 与 `ios-environment-monitor`。
