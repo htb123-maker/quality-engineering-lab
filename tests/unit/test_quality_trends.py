@@ -6,14 +6,17 @@ from pathlib import Path
 import pytest
 import yaml
 from qa_core.reporting import (
+    REQUIRED_PIPELINE_CHECKS,
     JUnitCounts,
     TrendHistory,
     append_history,
     build_trend_point,
     discover_checks,
     load_quality_governance,
+    missing_required_checks,
     parse_junit,
     render_trend_html,
+    with_required_check_placeholders,
 )
 
 
@@ -51,10 +54,34 @@ def test_discover_checks_reads_junit_and_status_json(tmp_path: Path) -> None:
         '{"status":"PASS"}',
         encoding="utf-8",
     )
+    (tmp_path / "performance").mkdir()
+    (tmp_path / "performance" / "result.json").write_text(
+        '{"slo_passed":true}',
+        encoding="utf-8",
+    )
+    (tmp_path / "performance" / "warmup").mkdir()
+    (tmp_path / "performance" / "warmup" / "result.json").write_text(
+        '{"slo_passed":true}',
+        encoding="utf-8",
+    )
 
     checks = discover_checks(tmp_path)
 
-    assert [check.outcome for check in checks] == ["PASS", "PASS"]
+    assert [check.outcome for check in checks] == ["PASS", "PASS", "PASS"]
+    assert checks[-1].name == "json:performance/result"
+    assert [check.name for check in checks].count("json:performance/result") == 1
+
+
+def test_performance_slo_failure_is_failed(tmp_path: Path) -> None:
+    path = tmp_path / "performance" / "result.json"
+    path.parent.mkdir()
+    path.write_text('{"slo_passed":false}', encoding="utf-8")
+
+    checks = discover_checks(tmp_path)
+
+    assert [(check.name, check.outcome) for check in checks] == [
+        ("json:performance/result", "FAILED")
+    ]
 
 
 def test_append_history_replaces_same_run_and_is_bounded() -> None:
@@ -69,6 +96,20 @@ def test_append_history_replaces_same_run_and_is_bounded() -> None:
     assert history.points[-1].commit == "c"
     assert len(bounded.points) == 1
     assert "Quality Trend" in render_trend_html(history)
+
+
+def test_required_pipeline_checks_turn_missing_evidence_into_not_run() -> None:
+    observed = build_trend_point(run_id="1", commit="a", checks=()).checks
+
+    missing = missing_required_checks(observed, REQUIRED_PIPELINE_CHECKS)
+    completed = with_required_check_placeholders(
+        observed,
+        REQUIRED_PIPELINE_CHECKS,
+    )
+
+    assert len(missing) == len(REQUIRED_PIPELINE_CHECKS)
+    assert {check.outcome for check in completed} == {"NOT RUN"}
+    assert {check.name for check in completed} == set(REQUIRED_PIPELINE_CHECKS)
 
 
 def test_governance_rejects_expired_quarantine(tmp_path: Path) -> None:

@@ -50,6 +50,7 @@ jobs:
       QA_IOS_CLOUD_SESSION_NAME: ios-cloud-${{ inputs.acceptance_target }}
       QA_IOS_CLOUD_APPIUM_VERSION: "2.19.0"
       QA_IOS_BUNDLE_ID: com.example.qaweek19
+      QA_ACCEPTANCE_TARGET: ${{ inputs.acceptance_target || 'week19' }}
       QA_IOS_WEBVIEW_CONNECT_TIMEOUT_MS: "60000"
       QA_IOS_WEBVIEW_CONNECT_RETRIES: "3"
 
@@ -98,21 +99,35 @@ jobs:
           set -euo pipefail
           test -n "${QA_IOS_CLOUD_USER:-}"
           test -n "${QA_IOS_CLOUD_ACCESS_KEY:-}"
-          curl --fail --silent --show-error \
-            -u "$QA_IOS_CLOUD_USER:$QA_IOS_CLOUD_ACCESS_KEY" \
-            -X POST \
-            -F "file=@artifacts/QaIosFixture.ipa" \
-            https://api-cloud.browserstack.com/app-automate/upload \
-            > artifacts/browserstack-upload.json
-          app_url="$(
-            python3 -c \
-              'import json; print(json.load(open("artifacts/browserstack-upload.json"))["app_url"])'
+          status="$(
+            curl --silent --show-error \
+              --write-out "%{http_code}" \
+              -u "$QA_IOS_CLOUD_USER:$QA_IOS_CLOUD_ACCESS_KEY" \
+              -X POST \
+              -F "file=@artifacts/QaIosFixture.ipa" \
+              -o artifacts/browserstack-upload.json \
+              https://api-cloud.browserstack.com/app-automate/upload
           )"
-          test -n "$app_url"
-          echo "QA_IOS_CLOUD_APP=$app_url" >> "$GITHUB_ENV"
+          if [ "$status" = "200" ]; then
+            app_url="$(
+              python3 -c \
+                'import json; print(json.load(open("artifacts/browserstack-upload.json"))["app_url"])'
+            )"
+            test -n "$app_url"
+            echo "QA_IOS_CLOUD_APP=$app_url" >> "$GITHUB_ENV"
+            echo "CLOUD_BLOCKED=false" >> "$GITHUB_ENV"
+          elif [ "$status" = "403" ]; then
+            printf '%s\n' \
+              '{"status":"BLOCKED","reason":"BrowserStack upload returned HTTP 403"}' \
+              > artifacts/ios-cloud-status.json
+            echo "CLOUD_BLOCKED=true" >> "$GITHUB_ENV"
+          else
+            cat artifacts/browserstack-upload.json || true
+            exit 1
+          fi
 
       - name: Run Week 19 acceptance cases
-        if: ${{ inputs.acceptance_target == 'week19' }}
+        if: ${{ env.CLOUD_BLOCKED != 'true' && env.QA_ACCEPTANCE_TARGET == 'week19' }}
         run: |
           mkdir -p artifacts/allure-results
           uv run --no-sync pytest \
@@ -121,7 +136,7 @@ jobs:
             --junitxml=artifacts/week19-junit.xml
 
       - name: Run Week 24 cloud recovery cases
-        if: ${{ inputs.acceptance_target == 'week24' }}
+        if: ${{ env.CLOUD_BLOCKED != 'true' && env.QA_ACCEPTANCE_TARGET == 'week24' }}
         run: |
           mkdir -p artifacts/allure-results
           uv run --no-sync pytest \

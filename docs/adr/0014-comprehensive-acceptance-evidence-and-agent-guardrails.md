@@ -39,6 +39,12 @@ summary is not a substitute for deterministic test and platform results.
 8. Automated acceptance of a Golden Task run is reported separately from human
    suggestion adoption. The pipeline must not invent a human review when no
    reviewer evidence exists.
+9. Required evidence names are explicit; a successful job without its expected
+   artifact is represented as `NOT RUN` and fails the trend gate.
+10. Human review is bound to the Golden Task file SHA-256 and a `valid_until`
+    date. A stale or mismatched review cannot satisfy the AI gate.
+11. CI and performance monitoring agents consume collected artifacts and write
+    a read-only `agent-monitor.json`; their findings feed the trend gate.
 
 ## Consequences
 

@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
@@ -76,6 +78,8 @@ def _load_review(
     *,
     task_ids: set[str],
     agent_name: str,
+    task_set_sha256: str,
+    today: date,
 ) -> HumanReviewMetrics:
     if path is None:
         return HumanReviewMetrics.not_run()
@@ -87,6 +91,17 @@ def _load_review(
         raise ValueError("unsupported human review schema version")
     if payload.get("agent") != agent_name:
         raise ValueError("human review agent does not match eval agent")
+    if payload.get("task_set_sha256") != task_set_sha256:
+        raise ValueError("human review does not match the Golden Task hash")
+    valid_until_raw = payload.get("valid_until")
+    if not isinstance(valid_until_raw, str):
+        raise ValueError("human review requires valid_until")
+    try:
+        valid_until = date.fromisoformat(valid_until_raw)
+    except ValueError as exc:
+        raise ValueError("human review valid_until must be ISO date") from exc
+    if valid_until < today:
+        raise ValueError("human review has expired")
     decisions = payload.get("decisions")
     if not isinstance(decisions, list):
         raise ValueError("human review decisions must be a list")
@@ -121,8 +136,19 @@ def _load_review(
     )
 
 
-def evaluate(tasks_path: Path, review_path: Path | None = None) -> dict[str, Any]:
+def _task_set_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def evaluate(
+    tasks_path: Path,
+    review_path: Path | None = None,
+    *,
+    require_human_review: bool = False,
+    today: date | None = None,
+) -> dict[str, Any]:
     agent = EvidenceTriageAgent()
+    task_set_sha256 = _task_set_sha256(tasks_path)
     records: list[dict[str, Any]] = []
     latencies: list[float] = []
     for line in tasks_path.read_text(encoding="utf-8").splitlines():
@@ -160,17 +186,27 @@ def evaluate(tasks_path: Path, review_path: Path | None = None) -> dict[str, Any
         )
         for record in records
     )
-    gate_accepted = bool(records) and correct == len(records)
     agent_name = "evidence-triage-v1-deterministic"
     review = _load_review(
         review_path,
         task_ids={str(record["task_id"]) for record in records},
         agent_name=agent_name,
+        task_set_sha256=task_set_sha256,
+        today=today or date.today(),
     )
+    task_gate = (
+        bool(records)
+        and correct == len(records)
+        and evidence_complete == len(records)
+        and false_pass_count == 0
+    )
+    human_gate = not require_human_review or review.status == "APPROVED"
+    gate_accepted = task_gate and human_gate
     return {
         "schema_version": 1,
         "status": "PASS" if gate_accepted else "FAILED",
         "agent": agent_name,
+        "task_set_sha256": task_set_sha256,
         "tasks": len(records),
         "correct": correct,
         "accuracy": round(correct / len(records), 4) if records else 0.0,
@@ -212,12 +248,21 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="optional human review JSON covering every Golden Task",
     )
+    parser.add_argument(
+        "--require-human-review",
+        action="store_true",
+        help="fail unless the bound human review is approved and current",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    result = evaluate(args.tasks, args.review)
+    result = evaluate(
+        args.tasks,
+        args.review,
+        require_human_review=args.require_human_review,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n",
@@ -228,7 +273,14 @@ def main() -> int:
         f"evidence={result['evidence_reference_rate']} "
         f"p95_ms={result['p95_latency_ms']}"
     )
-    return 0 if math.isclose(result["accuracy"], 1.0) else 1
+    return (
+        0
+        if result["status"] == "PASS"
+        and result["false_pass_count"] == 0
+        and math.isclose(result["accuracy"], 1.0)
+        and math.isclose(result["evidence_reference_rate"], 1.0)
+        else 1
+    )
 
 
 if __name__ == "__main__":

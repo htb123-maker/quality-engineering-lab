@@ -71,6 +71,23 @@ The registry is declarative because no monitor needs autonomous execution to
 produce a reviewable finding. Scheduling and event triggers remain in CI or a
 manual runner.
 
+The Week34 runtime bridge reads only collected machine-readable artifacts:
+
+```text
+quality/sut/api/android/ios JUnit
++ performance result.json
++ agent-eval.json
+-> artifact monitor
+-> ci-monitor + performance-monitor findings
+-> agent-monitor.json
+-> trend required-check validation
+```
+
+Only `ci-monitor` and `performance-monitor` are blocking runtime agents in this
+step. The other three remain bounded follow-ups. Missing required artifacts are
+represented as `NOT RUN` checks; a required job's green status alone is not
+accepted as evidence.
+
 ## 5. Status Semantics
 
 `PASS`, `FAILED`, `BLOCKED`, `NOT RUN`, `DEFERRED`, and

@@ -2,6 +2,8 @@
   "schema_version": 1,
   "agent": "evidence-triage-v1-deterministic",
   "reviewed_at": "2026-11-21T00:00:00+08:00",
+  "task_set_sha256": "382c0e2b4a1208f95dc29a1bea96aef7efb1e5f69a903884283af5085142f840",
+  "valid_until": "2026-12-31",
   "reviewer_role": "project-owner",
   "approval_basis": "Explicit human approval in the Week 32 task: adopt all Golden Task suggestions.",
   "decisions": [

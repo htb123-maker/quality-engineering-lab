@@ -1499,3 +1499,103 @@ Git 和文档负责证据
 AI 负责提效
 执行结果负责真相
 ```
+
+## 19. Week34 Agent 监控加固执行计划
+
+状态：Active<br>
+日期：2026-11-23<br>
+目标：把 Agent 层从“静态 Golden Task 规则基线”推进到“真实 CI artifact
+驱动、required evidence 完整、人工审查可失效”的只读监控闭环。
+
+### P1-A Performance 证据归一化
+
+问题：Performance artifact 使用 `slo_passed`，Trend 只识别
+`status/passed/all_passed`，导致 Performance 证据未进入历史点。
+
+执行：
+
+1. 扩展 JSON outcome 归一化，支持 `slo_passed`。
+2. 增加 PASS 和失败回归。
+3. 用本次真实 Performance artifact 验证 Trend 出现 Performance 检查。
+
+验收：Trend 中必须有 `json:smoke/result`，且 `slo_passed=false` 映射为 `FAILED`。
+
+### P1-B Required Evidence 清单
+
+问题：required job 成功但 artifact 缺失时，Trend 仍可能通过。
+
+执行：
+
+1. 定义统一 required check profile。
+2. 缺失 check 自动注入 `NOT RUN` 证据，而不是静默忽略。
+3. CI Trend 强制启用 required profile。
+4. 增加“job 成功但 artifact 缺失”的回归测试。
+
+验收：缺少 Quality、SUT、Android、iOS、Performance、Agent Eval 或 Agent
+Monitor 任一证据时，Trend 不允许 PASS。
+
+### P1-C 真实 Artifact Agent Monitor
+
+问题：Evidence Triage 目前从静态 JSONL 接收 signals，没有读取真实 JUnit、JSON
+或 CI 状态。
+
+执行：
+
+1. 新增 artifact-to-signal collector。
+2. 将 JUnit、Performance `result.json`、Agent Eval 和状态 JSON 映射为已知
+   signal。
+3. 调用只读 Evidence Triage Agent 生成结构化 `agent-monitor.json`。
+4. 在 Trend job 中先运行 Monitor，再构建 Trend。
+
+验收：Monitor 输出必须包含 `run_id`、commit、evidence paths、missing signals、
+agents、`requires_human_approval` 和最终 outcome；缺证据返回
+`INSUFFICIENT_EVIDENCE`。
+
+### P2-A Agent Eval 门禁强化
+
+问题：Eval CLI 当前只按 accuracy 决定退出码；人工审查没有任务集 hash 或有效期。
+
+执行：
+
+1. 增加任务集 SHA-256。
+2. 人类审查文件绑定任务集 hash 和 `valid_until`。
+3. Eval gate 同时检查 accuracy、evidence rate、false-pass、任务数和人工审查。
+4. 修改 CI 使用 `--require-human-review`。
+
+验收：任务集变化、审查过期或人工审查缺失时 AI Eval job 必须失败。
+
+### P2-B 运行时监控接线
+
+问题：五类 Agent 只有声明式 trigger，没有运行时消费者。
+
+执行顺序：
+
+1. 先接 `ci-monitor`：读取 required job 与 artifact inventory。
+2. 再接 `performance-monitor`：读取 SLO result 与 Trend 历史。
+3. `flaky-monitor`、`ios-environment-monitor` 后续接 JUnit/Allure 与 preflight。
+4. `weekly-maintenance` 保持 weekly/manual，不进入每次 push 的阻塞路径。
+
+验收：至少 CI 和 Performance 两个 Monitor 在本轮真实 CI 运行中产出 finding。
+
+### P3 可选云工作流降噪
+
+问题：BrowserStack 返回 403 时，历史 cloud workflow 以红色失败结束，而不是
+结构化 `BLOCKED`。
+
+执行：
+
+1. 上传失败区分为 `BLOCKED` 与真实 `FAILED`。
+2. 403、额度耗尽和 provider 不可用写 `BLOCKED` artifact。
+3. 真实产品/测试失败保持 FAILED。
+
+验收：外部额度阻断不再污染仓库红灯，但必需 iOS Simulator 证据不受影响。
+
+### P4 文档与最终验收
+
+执行：
+
+1. 更新 Week34 周报和 Agent 架构说明。
+2. 重建文档索引。
+3. 本地运行 Ruff、Mypy、Unit、API、Integration。
+4. 提交、推送并运行 GitHub Actions。
+5. 只有 CI 通过后，Week34 才标记 PASS。

@@ -2,10 +2,11 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-最新进度：[WEEK-33 - SUT 商业闭环与真实业务事实](weekly/WEEK-33.md)
+最新进度：[WEEK-34 - Agent 监控运行时加固 / Agent Monitoring Runtime Hardening](weekly/WEEK-34.md)
 
 ## 周报 / Weekly Reports
 
+- [WEEK-34 - Agent 监控运行时加固 / Agent Monitoring Runtime Hardening](weekly/WEEK-34.md)
 - [WEEK-33 - SUT 商业闭环与真实业务事实](weekly/WEEK-33.md)
 - [WEEK-32 - 综合验收、Agent Eval 与面试证据包](weekly/WEEK-32.md)
 - [WEEK-31 - CI 质量流水线、门禁与趋势 / CI Quality Pipeline, Gates, and Trends](weekly/WEEK-31.md)

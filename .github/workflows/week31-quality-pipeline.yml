@@ -68,6 +68,7 @@ jobs:
           uv run --no-sync python -m ai.evals.run_golden_tasks \
             --tasks ai/golden_tasks/week32.jsonl \
             --review ai/evals/week32-human-review.json \
+            --require-human-review \
             --output artifacts/ai/week32/agent-eval.json
       - uses: actions/upload-artifact@v4
         if: always()
@@ -458,6 +459,15 @@ jobs:
                 > "artifacts/collected/required-jobs/${name}.json"
             fi
           done
+      - name: Run CI and performance monitoring agents
+        continue-on-error: true
+        run: |-
+          uv run --no-sync python -m ai.agents.artifact_monitor \
+            --artifacts-root artifacts/collected \
+            --run-id "${{ github.run_id }}" \
+            --commit "${{ github.sha }}" \
+            --output artifacts/collected/agent-monitor.json \
+            --fail-on-incomplete
       - uses: actions/cache/restore@v4
         with:
           path: artifacts/quality-history
@@ -473,6 +483,7 @@ jobs:
             --commit "${{ github.sha }}" \
             --json-output artifacts/quality-history/history.json \
             --html-output artifacts/quality-trends/index.html \
+            --require-pipeline-checks \
             --fail-on-incomplete
       - uses: actions/cache/save@v4
         if: always()

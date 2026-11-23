@@ -1,6 +1,7 @@
 """Week 32 read-only evidence triage agent contracts."""
 
 import json
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -86,4 +87,49 @@ def test_human_review_requires_every_golden_task(tmp_path: Path) -> None:
         evaluate(
             PROJECT_ROOT / "ai" / "golden_tasks" / "week32.jsonl",
             review_path,
+        )
+
+
+def test_eval_gate_requires_approved_human_review() -> None:
+    result = evaluate(
+        PROJECT_ROOT / "ai" / "golden_tasks" / "week32.jsonl",
+        require_human_review=True,
+    )
+
+    assert result["status"] == "FAILED"
+    assert result["human_review"]["status"] == "NOT RUN"
+
+
+def test_review_must_match_task_set_hash(tmp_path: Path) -> None:
+    payload = json.loads(
+        (PROJECT_ROOT / "ai" / "evals" / "week32-human-review.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    payload["task_set_sha256"] = "0" * 64
+    review_path = tmp_path / "review.json"
+    review_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Golden Task hash"):
+        evaluate(
+            PROJECT_ROOT / "ai" / "golden_tasks" / "week32.jsonl",
+            review_path,
+        )
+
+
+def test_review_must_not_be_expired(tmp_path: Path) -> None:
+    payload = json.loads(
+        (PROJECT_ROOT / "ai" / "evals" / "week32-human-review.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    payload["valid_until"] = "2026-01-01"
+    review_path = tmp_path / "review.json"
+    review_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="expired"):
+        evaluate(
+            PROJECT_ROOT / "ai" / "golden_tasks" / "week32.jsonl",
+            review_path,
+            today=date(2026, 11, 23),
         )

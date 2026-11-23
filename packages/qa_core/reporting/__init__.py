@@ -20,6 +20,7 @@ from qa_core.reporting.leak_report import (
     parse_pytest_summary,
 )
 from qa_core.reporting.quality_trends import (
+    REQUIRED_PIPELINE_CHECKS,
     JUnitCounts,
     TrendCheck,
     TrendHistory,
@@ -29,8 +30,10 @@ from qa_core.reporting.quality_trends import (
     build_trend_point,
     discover_checks,
     load_history,
+    missing_required_checks,
     parse_junit,
     render_trend_html,
+    with_required_check_placeholders,
 )
 
 __all__ = [
@@ -43,6 +46,7 @@ __all__ = [
     "QuarantineEntry",
     "QualityGovernance",
     "QualityOwners",
+    "REQUIRED_PIPELINE_CHECKS",
     "JUnitCounts",
     "TrendCheck",
     "TrendHistory",
@@ -55,7 +59,9 @@ __all__ = [
     "discover_checks",
     "load_history",
     "load_quality_governance",
+    "missing_required_checks",
     "parse_junit",
     "parse_pytest_summary",
     "render_trend_html",
+    "with_required_check_placeholders",
 ]

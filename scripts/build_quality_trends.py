@@ -7,12 +7,14 @@ import json
 from pathlib import Path
 
 from qa_core.reporting import (
+    REQUIRED_PIPELINE_CHECKS,
     TrendHistory,
     append_history,
     build_trend_point,
     discover_checks,
     load_history,
     render_trend_html,
+    with_required_check_placeholders,
 )
 
 
@@ -25,6 +27,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--json-output", type=Path, required=True)
     parser.add_argument("--html-output", type=Path, required=True)
     parser.add_argument("--fail-on-incomplete", action="store_true")
+    parser.add_argument("--require-pipeline-checks", action="store_true")
     return parser.parse_args()
 
 
@@ -32,6 +35,11 @@ def main() -> int:
     args = parse_args()
     history = load_history(args.history) if args.history else TrendHistory()
     checks = discover_checks(args.artifacts_root)
+    if args.require_pipeline_checks:
+        checks = with_required_check_placeholders(
+            checks,
+            REQUIRED_PIPELINE_CHECKS,
+        )
     point = build_trend_point(
         run_id=args.run_id,
         commit=args.commit,

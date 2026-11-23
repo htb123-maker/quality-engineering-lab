@@ -20,6 +20,18 @@ TrendOutcome = Literal[
     "DEFERRED",
 ]
 
+REQUIRED_PIPELINE_CHECKS: tuple[str, ...] = (
+    "junit:quality-junit",
+    "junit:sut-junit",
+    "junit:api-junit",
+    "junit:android-junit",
+    "junit:android-business-junit",
+    "junit:ios-simulator-junit",
+    "json:performance/result",
+    "json:collected/agent-eval",
+    "json:collected/agent-monitor",
+)
+
 
 class JUnitCounts(BaseModel):
     """One JUnit suite's aggregate counts."""
@@ -127,7 +139,19 @@ def _json_outcome(path: Path) -> TrendOutcome | None:
         return "FAILED"
     if isinstance(payload.get("all_passed"), bool):
         return "PASS" if payload["all_passed"] else "FAILED"
+    if isinstance(payload.get("slo_passed"), bool):
+        return "PASS" if payload["slo_passed"] else "FAILED"
     return None
+
+
+def _json_check_name(path: Path) -> str:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        payload = None
+    if isinstance(payload, dict) and isinstance(payload.get("slo_passed"), bool):
+        return "json:performance/result"
+    return f"json:{path.parent.name}/{path.stem}"
 
 
 def discover_checks(artifacts_root: Path) -> tuple[TrendCheck, ...]:
@@ -159,12 +183,47 @@ def discover_checks(artifacts_root: Path) -> tuple[TrendCheck, ...]:
             continue
         checks.append(
             TrendCheck(
-                name=f"json:{path.parent.name}/{path.stem}",
+                name=_json_check_name(path),
                 outcome=json_outcome,
                 evidence=str(path),
             )
         )
-    return tuple(checks)
+    unique: list[TrendCheck] = []
+    names: set[str] = set()
+    for check in checks:
+        if check.name in names:
+            continue
+        names.add(check.name)
+        unique.append(check)
+    return tuple(unique)
+
+
+def missing_required_checks(
+    checks: Iterable[TrendCheck],
+    required: Iterable[str] = REQUIRED_PIPELINE_CHECKS,
+) -> tuple[str, ...]:
+    """Return required evidence names absent from one trend point."""
+
+    observed = {check.name for check in checks}
+    return tuple(name for name in required if name not in observed)
+
+
+def with_required_check_placeholders(
+    checks: Iterable[TrendCheck],
+    required: Iterable[str] = REQUIRED_PIPELINE_CHECKS,
+) -> tuple[TrendCheck, ...]:
+    """Add explicit NOT RUN checks so missing artifacts cannot disappear."""
+
+    collected = list(checks)
+    for name in missing_required_checks(collected, required):
+        collected.append(
+            TrendCheck(
+                name=name,
+                outcome="NOT RUN",
+                evidence=f"required artifact missing: {name}",
+            )
+        )
+    return tuple(collected)
 
 
 def build_trend_point(
