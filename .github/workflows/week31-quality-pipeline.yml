@@ -497,4 +497,6 @@ jobs:
           path: |
             artifacts/quality-history/
             artifacts/quality-trends/
+            artifacts/collected/agent-monitor.json
+            artifacts/collected/required-jobs/
           if-no-files-found: ignore

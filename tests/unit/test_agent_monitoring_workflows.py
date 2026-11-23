@@ -47,6 +47,13 @@ def test_quality_pipeline_runs_monitor_and_requires_full_evidence() -> None:
     assert "--require-pipeline-checks" in trends["run"]
     assert "--fail-on-incomplete" in trends["run"]
 
+    upload = next(
+        step
+        for step in workflow["jobs"]["trends"]["steps"]
+        if step.get("uses") == "actions/upload-artifact@v4"
+    )
+    assert "artifacts/collected/agent-monitor.json" in upload["with"]["path"]
+
 
 def test_ios_cloud_upload_403_becomes_blocked_evidence() -> None:
     workflow = _workflow(IOS_CLOUD_PATH)
