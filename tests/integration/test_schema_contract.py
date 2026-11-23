@@ -36,7 +36,17 @@ def test_public_schema_matches_the_expected_contract(database: DatabaseClient) -
 @allure.story("Schema contract")
 @pytest.mark.integration
 def test_seeded_tables_and_views_are_enumerated(database: DatabaseClient) -> None:
-    assert list_tables(database) == ("catalog_items", "users", "workspaces")
+    assert list_tables(database) == (
+        "catalog_items",
+        "inventory",
+        "inventory_reservations",
+        "order_events",
+        "order_lines",
+        "orders",
+        "payments",
+        "users",
+        "workspaces",
+    )
     assert list_views(database) == ("workspace_catalog_summary",)
 
 

@@ -7,6 +7,8 @@ from typing import Any
 import pytest
 from qa_core.contracts import (
     CatalogItemCreate,
+    CommerceOrder,
+    CommerceOrderCreate,
     ContractValidationError,
     HealthLiveResponse,
     TokenResponse,
@@ -101,6 +103,56 @@ def test_openapi_document_exposes_catalog_write_contracts() -> None:
         "ValidationErrorResponse",
     }.issubset(schemas)
     assert schemas["CatalogItemCreate"]["additionalProperties"] is False
+
+
+def test_openapi_document_exposes_commerce_contracts() -> None:
+    document = openapi_document()
+
+    assert {
+        "/api/v1/workspaces/{slug}/commerce/inventory",
+        "/api/v1/workspaces/{slug}/commerce/orders",
+        "/api/v1/workspaces/{slug}/commerce/orders/{order_id}",
+        "/api/v1/workspaces/{slug}/commerce/orders/{order_id}/payments",
+        "/api/v1/workspaces/{slug}/commerce/orders/{order_id}/fulfill",
+        "/api/v1/workspaces/{slug}/commerce/orders/{order_id}/cancel",
+        "/api/v1/workspaces/{slug}/commerce/orders/{order_id}/refund",
+    }.issubset(document["paths"])
+    schemas = document["components"]["schemas"]
+    assert {
+        "CommerceOrder",
+        "CommerceOrderCreate",
+        "CommerceInventory",
+        "CommercePaymentCreate",
+    }.issubset(schemas)
+    assert schemas["CommerceOrderCreate"]["additionalProperties"] is False
+
+
+def test_commerce_order_contract_rejects_unknown_state_and_extra_field() -> None:
+    with pytest.raises(ContractValidationError):
+        validate_contract(
+            CommerceOrderCreate,
+            {"item_id": 1, "quantity": 1, "unexpected": True},
+        )
+
+    order_payload = {
+        "order_id": 1,
+        "workspace_slug": "atlas",
+        "status": "UNKNOWN",
+        "total_cents": 100,
+        "version": 1,
+        "lines": [],
+        "inventory": {
+            "item_id": 1,
+            "sku": "LAB-001",
+            "on_hand": 1,
+            "reserved": 0,
+            "available": 1,
+        },
+        "created_at": "2026-11-22T00:00:00Z",
+        "updated_at": "2026-11-22T00:00:00Z",
+    }
+    with pytest.raises(ContractValidationError):
+        validate_contract(CommerceOrder, order_payload)
 
 
 def test_catalog_item_create_contract_rejects_negative_price() -> None:

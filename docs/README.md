@@ -2,7 +2,7 @@
 
 > 本页由 `scripts/build_doc_index.py` 自动生成，请勿手工编辑。
 
-共 81 篇设计文档，按主题分组。
+共 82 篇设计文档，按主题分组。
 
 ## 目标与计划 / Goals and Plan
 
@@ -44,6 +44,7 @@
 - [ADR-0013: CI Required Evidence, Optional Cloud, and Bounded Trends](adr/0013-ci-pipeline-required-evidence-and-trends.md)
 - [ADR-0014: Comprehensive Acceptance Evidence and Agent Guardrails](adr/0014-comprehensive-acceptance-evidence-and-agent-guardrails.md)
 - [ADR-0015: Business-Realistic Evidence and Android Device Matrix](adr/0015-business-realism-and-android-device-evidence.md)
+- [ADR-0016: Commerce Vertical Slice for Business Complexity Evidence](adr/0016-commerce-vertical-slice.md)
 
 ## 面试与复盘 / Interview and Retrospective
 

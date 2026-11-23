@@ -16,6 +16,7 @@ from qa_core.auth import AuthClient
 from qa_core.config.settings import Settings
 from qa_core.data_factories import NamespaceFactory, items_path
 from qa_core.db import (
+    EXPECTED_TABLES,
     DatabaseClient,
     SchemaViolation,
     check_schema_contract,
@@ -225,11 +226,9 @@ def test_injection_payloads_leave_the_schema_and_seed_rows_intact(
         assert before_contract == ()
         assert after_contract == ()
         assert before_seed == after_seed
-        assert sorted(row["table_name"] for row in tables) == [
-            "catalog_items",
-            "users",
-            "workspaces",
-        ]
+        assert sorted(str(row["table_name"]) for row in tables) == sorted(
+            expectation.name for expectation in EXPECTED_TABLES
+        )
         assert [row["name"] for row in stored_names] == list(HOSTILE_NAMES.values())
     finally:
         namespace_factory.purge(identity)

@@ -18,6 +18,8 @@ CAPABILITIES: tuple[str, ...] = (
     "catalog:read",
     "catalog:refresh",
     "catalog:write",
+    "commerce:read",
+    "commerce:write",
     "events:read",
     "jobs:read",
     "members:read",
@@ -32,6 +34,8 @@ ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
             "catalog:read",
             "catalog:refresh",
             "catalog:write",
+            "commerce:read",
+            "commerce:write",
             "events:read",
             "jobs:read",
             "members:read",
@@ -40,6 +44,7 @@ ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
     "viewer": frozenset(
         {
             "catalog:read",
+            "commerce:read",
             "events:read",
             "jobs:read",
         }

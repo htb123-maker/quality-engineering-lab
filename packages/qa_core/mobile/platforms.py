@@ -59,6 +59,33 @@ class CatalogSnapshot:
             raise ValueError("catalog status must be active, archived, or error")
 
 
+@dataclass(frozen=True, slots=True)
+class CommerceSnapshot:
+    """Normalized state observed from the API-backed commerce view."""
+
+    session_id: str
+    order_id: int
+    status: str
+    available: int
+
+    def __post_init__(self) -> None:
+        if len(self.session_id) < 32:
+            raise ValueError("commerce session ID is too short")
+        if self.order_id < 0:
+            raise ValueError("commerce order ID must not be negative")
+        if self.status not in {
+            "AWAITING_PAYMENT",
+            "PAID",
+            "FULFILLED",
+            "CANCELLED",
+            "REFUNDED",
+            "error",
+        }:
+            raise ValueError("commerce status is not recognized")
+        if self.available < 0:
+            raise ValueError("commerce available quantity must not be negative")
+
+
 class MissingLocatorError(KeyError):
     """A semantic locator key is absent from one platform adapter."""
 

@@ -55,6 +55,7 @@ if [[ "${QA_RUN_ANDROID_BUSINESS_E2E:-0}" == "1" ]]; then
   uv run --no-sync pytest \
     tests/e2e/test_catalog_cross_layer.py \
     tests/e2e/test_catalog_weak_network.py \
+    tests/e2e/test_commerce_cross_layer.py \
     -q \
     --alluredir=artifacts/allure-android-business \
     --junitxml=artifacts/android-business-junit.xml

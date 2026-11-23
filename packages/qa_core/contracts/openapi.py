@@ -15,6 +15,12 @@ from qa_core.contracts.api import (
     CatalogItemCreate,
     CatalogItemStatusUpdate,
     CatalogResponse,
+    CommerceInventory,
+    CommerceInventoryUpdate,
+    CommerceOrder,
+    CommerceOrderCreate,
+    CommerceOrderLine,
+    CommercePaymentCreate,
     E2eFixtureSession,
     E2eFixtureSessionCreate,
     FieldError,
@@ -56,6 +62,12 @@ class _ContractBundle(BaseModel):
     catalog_item: CatalogItem
     catalog_item_create: CatalogItemCreate
     catalog_item_status_update: CatalogItemStatusUpdate
+    commerce_inventory: CommerceInventory
+    commerce_inventory_update: CommerceInventoryUpdate
+    commerce_order: CommerceOrder
+    commerce_order_create: CommerceOrderCreate
+    commerce_order_line: CommerceOrderLine
+    commerce_payment_create: CommercePaymentCreate
     e2e_fixture_session_create: E2eFixtureSessionCreate
     e2e_fixture_session: E2eFixtureSession
     cache_refresh: CacheRefreshRequest
@@ -314,6 +326,161 @@ def openapi_document() -> dict[str, Any]:
                         },
                         "404": _response("Workspace not found", ApiError),
                         "503": _response("Database unavailable", ApiError),
+                    },
+                }
+            },
+            "/api/v1/workspaces/{slug}/commerce/inventory": {
+                "post": {
+                    "summary": "Set stock for one catalog item",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [_path_parameter("slug")],
+                    "requestBody": _json_request_body(CommerceInventoryUpdate),
+                    "responses": {
+                        "200": _response("Updated inventory", CommerceInventory),
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Item not found", ApiError),
+                        "409": _response("Inventory constraint conflict", ApiError),
+                        "422": _response(
+                            "Request validation failed",
+                            ValidationErrorResponse,
+                        ),
+                    },
+                }
+            },
+            "/api/v1/workspaces/{slug}/commerce/inventory/{item_id}": {
+                "get": {
+                    "summary": "Read stock for one catalog item",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        _path_parameter("slug"),
+                        _path_parameter("item_id", schema={"type": "integer"}),
+                    ],
+                    "responses": {
+                        "200": _response("Inventory", CommerceInventory),
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Inventory not found", ApiError),
+                    },
+                }
+            },
+            "/api/v1/workspaces/{slug}/commerce/orders": {
+                "post": {
+                    "summary": "Create an order and reserve inventory",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        _path_parameter("slug"),
+                        _idempotency_parameter(),
+                    ],
+                    "requestBody": _json_request_body(CommerceOrderCreate),
+                    "responses": {
+                        "201": _response("Created order", CommerceOrder),
+                        "400": _response("Idempotency key required", ApiError),
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Item not found", ApiError),
+                        "409": _response(
+                            "Stock or idempotency conflict",
+                            ApiError,
+                        ),
+                        "422": _response(
+                            "Request validation failed",
+                            ValidationErrorResponse,
+                        ),
+                    },
+                }
+            },
+            "/api/v1/workspaces/{slug}/commerce/orders/{order_id}": {
+                "get": {
+                    "summary": "Read an order from PostgreSQL truth",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        _path_parameter("slug"),
+                        _path_parameter("order_id", schema={"type": "integer"}),
+                    ],
+                    "responses": {
+                        "200": _response("Order", CommerceOrder),
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Order not found", ApiError),
+                    },
+                }
+            },
+            "/api/v1/workspaces/{slug}/commerce/orders/{order_id}/payments": {
+                "post": {
+                    "summary": "Pay an order idempotently",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        _path_parameter("slug"),
+                        _path_parameter("order_id", schema={"type": "integer"}),
+                        _idempotency_parameter(),
+                    ],
+                    "requestBody": {
+                        **_json_request_body(CommercePaymentCreate),
+                        "required": False,
+                    },
+                    "responses": {
+                        "200": _response("Paid order", CommerceOrder),
+                        "400": _response("Idempotency key required", ApiError),
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Order not found", ApiError),
+                        "409": _response("Payment conflict", ApiError),
+                        "422": _response(
+                            "Request validation failed",
+                            ValidationErrorResponse,
+                        ),
+                    },
+                }
+            },
+            "/api/v1/workspaces/{slug}/commerce/orders/{order_id}/fulfill": {
+                "post": {
+                    "summary": "Consume a reservation and fulfill an order",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        _path_parameter("slug"),
+                        _path_parameter("order_id", schema={"type": "integer"}),
+                    ],
+                    "responses": {
+                        "200": _response("Fulfilled order", CommerceOrder),
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Order not found", ApiError),
+                        "409": _response("Invalid state transition", ApiError),
+                    },
+                }
+            },
+            "/api/v1/workspaces/{slug}/commerce/orders/{order_id}/cancel": {
+                "post": {
+                    "summary": "Cancel an unpaid order and release inventory",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        _path_parameter("slug"),
+                        _path_parameter("order_id", schema={"type": "integer"}),
+                    ],
+                    "responses": {
+                        "200": _response("Cancelled order", CommerceOrder),
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Order not found", ApiError),
+                        "409": _response("Invalid state transition", ApiError),
+                    },
+                }
+            },
+            "/api/v1/workspaces/{slug}/commerce/orders/{order_id}/refund": {
+                "post": {
+                    "summary": "Refund a paid or fulfilled order",
+                    "security": [{"bearerAuth": []}],
+                    "parameters": [
+                        _path_parameter("slug"),
+                        _path_parameter("order_id", schema={"type": "integer"}),
+                    ],
+                    "responses": {
+                        "200": _response("Refunded order", CommerceOrder),
+                        "401": _response("Authentication required", ApiError),
+                        "403": _response("Permission denied", ApiError),
+                        "404": _response("Order not found", ApiError),
+                        "409": _response("Invalid state transition", ApiError),
                     },
                 }
             },
@@ -599,6 +766,15 @@ def _client_id_parameter() -> dict[str, Any]:
         "in": "header",
         "required": False,
         "schema": {"type": "string", "minLength": 1},
+    }
+
+
+def _idempotency_parameter() -> dict[str, Any]:
+    return {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": True,
+        "schema": {"type": "string", "minLength": 1, "maxLength": 200},
     }
 
 

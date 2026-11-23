@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -9,6 +10,15 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 Role = Literal["owner", "admin", "member", "viewer"]
 UserStatus = Literal["active", "disabled"]
 CatalogStatus = Literal["active", "archived"]
+CommerceOrderStatus = Literal[
+    "CREATED",
+    "AWAITING_PAYMENT",
+    "PAID",
+    "FULFILLED",
+    "CANCELLED",
+    "REFUNDED",
+]
+CommercePaymentStatus = Literal["PENDING", "SUCCEEDED", "FAILED", "REFUNDED"]
 GrantType = Literal["password", "refresh_token"]
 JobStatus = Literal["queued", "running", "succeeded", "failed"]
 SkuPattern = r"^[A-Z0-9][A-Z0-9-]*$"
@@ -17,6 +27,8 @@ Capability = Literal[
     "catalog:read",
     "catalog:refresh",
     "catalog:write",
+    "commerce:read",
+    "commerce:write",
     "events:read",
     "jobs:read",
     "members:read",
@@ -203,6 +215,63 @@ class CatalogResponse(ContractModel):
     count: int = Field(ge=0)
 
 
+class CommerceInventoryUpdate(ContractModel):
+    """Set the real stock count for one catalog item."""
+
+    item_id: int = Field(gt=0)
+    on_hand: int = Field(ge=0, le=1_000_000)
+
+
+class CommerceInventory(ContractModel):
+    """Current stock for one item, including active reservations."""
+
+    item_id: int = Field(gt=0)
+    sku: str = Field(min_length=1)
+    on_hand: int = Field(ge=0)
+    reserved: int = Field(ge=0)
+    available: int = Field(ge=0)
+
+
+class CommerceOrderCreate(ContractModel):
+    """Create one order for a single catalog item."""
+
+    item_id: int = Field(gt=0)
+    quantity: int = Field(ge=1, le=100)
+
+
+class CommercePaymentCreate(ContractModel):
+    """Pay an order; the amount defaults to the order total."""
+
+    amount_cents: int | None = Field(default=None, ge=0)
+
+
+class CommerceOrderLine(ContractModel):
+    """One immutable line captured when the order was created."""
+
+    item_id: int | None = None
+    sku: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    unit_price_cents: int = Field(ge=0)
+    quantity: int = Field(ge=1)
+    line_total_cents: int = Field(ge=0)
+
+
+class CommerceOrder(ContractModel):
+    """Authoritative order view assembled from PostgreSQL facts."""
+
+    order_id: int = Field(gt=0)
+    workspace_slug: str = Field(min_length=1)
+    status: CommerceOrderStatus
+    total_cents: int = Field(ge=0)
+    version: int = Field(ge=1)
+    lines: list[CommerceOrderLine]
+    inventory: CommerceInventory
+    payment_id: int | None = Field(default=None, gt=0)
+    payment_status: CommercePaymentStatus | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
 class E2eFixtureSessionCreate(ContractModel):
     """Create a short-lived fixture session for one catalog item."""
 
@@ -216,6 +285,7 @@ class E2eFixtureSession(ContractModel):
     item: CatalogItem
     expires_in: int = Field(gt=0)
     can_archive: bool
+    can_commerce: bool
 
 
 class CacheRefreshRequest(ContractModel):

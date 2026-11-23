@@ -7,6 +7,7 @@ from qa_core.platforms.android.activities import (
 )
 from qa_core.platforms.android.adapter import (
     AndroidFixtureAdapter,
+    AndroidFixtureCommercePort,
     AndroidFixtureFilePort,
 )
 from qa_core.platforms.android.clipboard import AndroidClipboard
@@ -32,6 +33,7 @@ __all__ = [
     "AndroidClipboard",
     "AndroidDeviceProfile",
     "AndroidFixtureAdapter",
+    "AndroidFixtureCommercePort",
     "AndroidFixtureFilePort",
     "AndroidFiles",
     "AndroidGestures",

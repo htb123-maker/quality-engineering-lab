@@ -22,6 +22,7 @@ from qa_core.cache import CatalogCacheProbe
 from qa_core.config.settings import Settings
 from qa_core.data_factories import (
     CatalogApiFactory,
+    CommerceApiFactory,
     NamespaceFactory,
     item_path,
     items_path,
@@ -214,6 +215,20 @@ def catalog_items(
         yield factory
     finally:
         factory.cleanup()
+
+
+@pytest.fixture
+def commerce(
+    owner_auth: AuthClient,
+    namespace: NamespaceLease,
+) -> CommerceApiFactory:
+    """Return the real commerce API driver for the leased workspace."""
+
+    return CommerceApiFactory(
+        auth=owner_auth,
+        workspace_slug=namespace.slug,
+        client_id=unique_client_id("commerce"),
+    )
 
 
 @pytest.fixture

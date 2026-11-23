@@ -3,7 +3,14 @@
 from __future__ import annotations
 
 import pytest
-from qa_core.cache import IDEMPOTENCY_KEY_PREFIX, idempotency_key_pattern, purge_idempotency_keys
+from qa_core.cache import (
+    IDEMPOTENCY_KEY_PREFIX,
+    commerce_idempotency_pattern,
+    commerce_read_model_pattern,
+    idempotency_key_pattern,
+    purge_commerce_state,
+    purge_idempotency_keys,
+)
 
 
 def test_key_pattern_targets_one_workspace() -> None:
@@ -19,3 +26,14 @@ def test_key_pattern_is_namespaced_by_workspace() -> None:
 def test_purge_rejects_an_invalid_batch_size() -> None:
     with pytest.raises(ValueError, match="batch_size must be at least 1"):
         purge_idempotency_keys("redis://127.0.0.1:1/0", 1, batch_size=0)
+
+
+def test_commerce_patterns_are_scoped_to_one_workspace() -> None:
+    assert commerce_idempotency_pattern(7) == "idem:commerce:7:*"
+    assert commerce_read_model_pattern(7) == "commerce:order:7:*"
+    assert commerce_idempotency_pattern(1) != commerce_idempotency_pattern(11)
+
+
+def test_commerce_purge_rejects_an_invalid_batch_size() -> None:
+    with pytest.raises(ValueError, match="batch_size must be at least 1"):
+        purge_commerce_state("redis://127.0.0.1:1/0", 1, batch_size=0)

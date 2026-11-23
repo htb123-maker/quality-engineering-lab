@@ -5,6 +5,12 @@ from qa_core.data_factories.catalog import (
     item_path,
     items_path,
 )
+from qa_core.data_factories.commerce import (
+    CommerceApiFactory,
+    commerce_base_path,
+    inventory_path,
+    orders_path,
+)
 from qa_core.data_factories.namespaces import (
     NamespaceFactory,
     NamespaceIdentity,
@@ -12,8 +18,12 @@ from qa_core.data_factories.namespaces import (
 
 __all__ = [
     "CatalogApiFactory",
+    "CommerceApiFactory",
     "NamespaceFactory",
     "NamespaceIdentity",
+    "commerce_base_path",
+    "inventory_path",
     "item_path",
     "items_path",
+    "orders_path",
 ]

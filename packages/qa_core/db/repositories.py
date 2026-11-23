@@ -164,8 +164,16 @@ class WorkspaceRepository:
         return self._db.execute("DELETE FROM workspaces WHERE slug = %s", (slug,))
 
     def delete_workspace_items(self, workspace_id: int) -> int:
-        """Delete every catalog item in one workspace without deleting the workspace."""
+        """Delete commerce state and catalog items inside one workspace."""
 
+        self._db.execute(
+            "DELETE FROM orders WHERE workspace_id = %s",
+            (workspace_id,),
+        )
+        self._db.execute(
+            "DELETE FROM inventory WHERE workspace_id = %s",
+            (workspace_id,),
+        )
         return self._db.execute(
             "DELETE FROM catalog_items WHERE workspace_id = %s",
             (workspace_id,),

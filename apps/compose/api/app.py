@@ -38,6 +38,7 @@ from opentelemetry.trace import Status, StatusCode, set_span_in_context
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, generate_latest
 from psycopg import Connection
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 from pydantic import BaseModel
 from qa_core.contracts import (
     AdminAuditResponse,
@@ -48,6 +49,12 @@ from qa_core.contracts import (
     CatalogItemStatusUpdate,
     CatalogResponse,
     CatalogWorkspace,
+    CommerceInventory,
+    CommerceInventoryUpdate,
+    CommerceOrder,
+    CommerceOrderCreate,
+    CommerceOrderLine,
+    CommercePaymentCreate,
     ContractValidationError,
     E2eFixtureSession,
     E2eFixtureSessionCreate,
@@ -107,9 +114,42 @@ CATALOG_ITEMS_PATH = re.compile(r"^/api/v1/workspaces/([^/]+)/catalog/items$")
 CATALOG_ITEM_PATH = re.compile(
     r"^/api/v1/workspaces/([^/]+)/catalog/items/([0-9]+)$"
 )
+COMMERCE_INVENTORY_PATH = re.compile(
+    r"^/api/v1/workspaces/([^/]+)/commerce/inventory$"
+)
+COMMERCE_INVENTORY_ITEM_PATH = re.compile(
+    r"^/api/v1/workspaces/([^/]+)/commerce/inventory/([0-9]+)$"
+)
+COMMERCE_ORDERS_PATH = re.compile(
+    r"^/api/v1/workspaces/([^/]+)/commerce/orders$"
+)
+COMMERCE_ORDER_PATH = re.compile(
+    r"^/api/v1/workspaces/([^/]+)/commerce/orders/([0-9]+)$"
+)
+COMMERCE_ORDER_PAY_PATH = re.compile(
+    r"^/api/v1/workspaces/([^/]+)/commerce/orders/([0-9]+)/payments$"
+)
+COMMERCE_ORDER_FULFILL_PATH = re.compile(
+    r"^/api/v1/workspaces/([^/]+)/commerce/orders/([0-9]+)/fulfill$"
+)
+COMMERCE_ORDER_CANCEL_PATH = re.compile(
+    r"^/api/v1/workspaces/([^/]+)/commerce/orders/([0-9]+)/cancel$"
+)
+COMMERCE_ORDER_REFUND_PATH = re.compile(
+    r"^/api/v1/workspaces/([^/]+)/commerce/orders/([0-9]+)/refund$"
+)
 E2E_SESSION_PATH = re.compile(r"^/api/v1/e2e/sessions/([A-Za-z0-9_-]+)$")
 E2E_SESSION_ARCHIVE_PATH = re.compile(
     r"^/api/v1/e2e/sessions/([A-Za-z0-9_-]+)/archive$"
+)
+E2E_COMMERCE_ORDERS_PATH = re.compile(
+    r"^/api/v1/e2e/sessions/([A-Za-z0-9_-]+)/commerce/orders$"
+)
+E2E_COMMERCE_ORDER_PAY_PATH = re.compile(
+    r"^/api/v1/e2e/sessions/([A-Za-z0-9_-]+)/commerce/orders/([0-9]+)/payments$"
+)
+E2E_COMMERCE_ORDER_FULFILL_PATH = re.compile(
+    r"^/api/v1/e2e/sessions/([A-Za-z0-9_-]+)/commerce/orders/([0-9]+)/fulfill$"
 )
 CACHE_REFRESH_PATH = re.compile(
     r"^/api/v1/workspaces/([^/]+)/catalog/cache/refresh$"
@@ -240,6 +280,50 @@ def _metric_route(path: str) -> str:
             CACHE_REFRESH_PATH,
             "/api/v1/workspaces/{slug}/catalog/cache/refresh",
         ),
+        (
+            COMMERCE_INVENTORY_PATH,
+            "/api/v1/workspaces/{slug}/commerce/inventory",
+        ),
+        (
+            COMMERCE_INVENTORY_ITEM_PATH,
+            "/api/v1/workspaces/{slug}/commerce/inventory/{item_id}",
+        ),
+        (
+            COMMERCE_ORDERS_PATH,
+            "/api/v1/workspaces/{slug}/commerce/orders",
+        ),
+        (
+            COMMERCE_ORDER_PATH,
+            "/api/v1/workspaces/{slug}/commerce/orders/{order_id}",
+        ),
+        (
+            COMMERCE_ORDER_PAY_PATH,
+            "/api/v1/workspaces/{slug}/commerce/orders/{order_id}/payments",
+        ),
+        (
+            COMMERCE_ORDER_FULFILL_PATH,
+            "/api/v1/workspaces/{slug}/commerce/orders/{order_id}/fulfill",
+        ),
+        (
+            COMMERCE_ORDER_CANCEL_PATH,
+            "/api/v1/workspaces/{slug}/commerce/orders/{order_id}/cancel",
+        ),
+        (
+            COMMERCE_ORDER_REFUND_PATH,
+            "/api/v1/workspaces/{slug}/commerce/orders/{order_id}/refund",
+        ),
+        (
+            E2E_COMMERCE_ORDERS_PATH,
+            "/api/v1/e2e/sessions/{session_id}/commerce/orders",
+        ),
+        (
+            E2E_COMMERCE_ORDER_PAY_PATH,
+            "/api/v1/e2e/sessions/{session_id}/commerce/orders/{order_id}/payments",
+        ),
+        (
+            E2E_COMMERCE_ORDER_FULFILL_PATH,
+            "/api/v1/e2e/sessions/{session_id}/commerce/orders/{order_id}/fulfill",
+        ),
         (EVENTS_PATH, "/api/v1/workspaces/{slug}/events"),
         (MEMBERS_PATH, "/api/v1/workspaces/{slug}/members"),
         (MEMBER_PATH, "/api/v1/workspaces/{slug}/members/{user_id}"),
@@ -295,6 +379,8 @@ ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
             "catalog:read",
             "catalog:refresh",
             "catalog:write",
+            "commerce:read",
+            "commerce:write",
             "events:read",
             "jobs:read",
             "members:read",
@@ -307,6 +393,8 @@ ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
             "catalog:read",
             "catalog:refresh",
             "catalog:write",
+            "commerce:read",
+            "commerce:write",
             "events:read",
             "jobs:read",
             "members:read",
@@ -318,6 +406,8 @@ ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
             "catalog:read",
             "catalog:refresh",
             "catalog:write",
+            "commerce:read",
+            "commerce:write",
             "events:read",
             "jobs:read",
             "members:read",
@@ -326,6 +416,7 @@ ROLE_CAPABILITIES: dict[str, frozenset[str]] = {
     "viewer": frozenset(
         {
             "catalog:read",
+            "commerce:read",
             "events:read",
             "jobs:read",
         }
@@ -1244,6 +1335,774 @@ def _delete_catalog_item(workspace_id: int, item_id: int) -> bool:
             return cursor.rowcount > 0
 
 
+class CommerceNotFound(RuntimeError):
+    """A commerce resource does not exist inside the caller's workspace."""
+
+
+class CommerceConflict(RuntimeError):
+    """A commerce invariant or state transition rejected the request."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
+def _commerce_idempotency_key(
+    workspace_id: int,
+    operation: str,
+    key: str,
+) -> str:
+    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()
+    return f"idem:commerce:{workspace_id}:{operation}:{digest}"
+
+
+def _commerce_order_cache_key(workspace_id: int, order_id: int) -> str:
+    return f"commerce:order:{workspace_id}:{order_id}"
+
+
+def _read_cached_commerce_order(
+    store_key: str,
+    fingerprint: str,
+) -> tuple[HTTPStatus, CommerceOrder] | None:
+    cached = _read_idempotent_response(store_key)
+    if cached is None:
+        return None
+    if cached.get("fingerprint") != fingerprint:
+        raise CommerceConflict(
+            "idempotency_conflict",
+            "The idempotency key was already used with a different request.",
+        )
+    payload = cached.get("payload")
+    if not isinstance(payload, dict):
+        return None
+    return (
+        HTTPStatus(int(cached.get("status_code", HTTPStatus.OK.value))),
+        CommerceOrder.model_validate(payload),
+    )
+
+
+def _store_cached_commerce_order(
+    store_key: str,
+    *,
+    fingerprint: str,
+    status: HTTPStatus,
+    order: CommerceOrder,
+) -> None:
+    _store_idempotent_response(
+        store_key,
+        fingerprint=fingerprint,
+        status_code=status.value,
+        payload=order.model_dump(mode="json"),
+    )
+
+
+def _store_commerce_read_model(
+    workspace_id: int,
+    order: CommerceOrder,
+) -> None:
+    """Refresh Redis from PostgreSQL without making Redis business truth."""
+
+    client = _redis_client()
+    try:
+        client.setex(
+            _commerce_order_cache_key(workspace_id, order.order_id),
+            CATALOG_CACHE_TTL_SECONDS,
+            json.dumps(order.model_dump(mode="json"), sort_keys=True),
+        )
+    except redis.RedisError as exc:
+        LOGGER.warning("Commerce read-model refresh failed: %s", exc)
+    finally:
+        _close_quietly(client)
+
+
+def _commerce_inventory_from_cursor(
+    cursor: Any,
+    workspace_id: int,
+    item_id: int,
+) -> CommerceInventory | None:
+    cursor.execute(
+        """
+        SELECT
+            i.item_id,
+            c.sku,
+            i.on_hand,
+            i.reserved,
+            i.on_hand - i.reserved AS available
+        FROM inventory AS i
+        JOIN catalog_items AS c
+          ON c.id = i.item_id
+         AND c.workspace_id = i.workspace_id
+        WHERE i.workspace_id = %s AND i.item_id = %s
+        """,
+        (workspace_id, item_id),
+    )
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    return CommerceInventory.model_validate(row)
+
+
+def _commerce_order_from_cursor(
+    cursor: Any,
+    *,
+    workspace_id: int,
+    workspace_slug: str,
+    order_id: int,
+) -> CommerceOrder | None:
+    cursor.execute(
+        """
+        SELECT id, status, total_cents, version, created_at, updated_at
+        FROM orders
+        WHERE workspace_id = %s AND id = %s
+        """,
+        (workspace_id, order_id),
+    )
+    order = cursor.fetchone()
+    if order is None:
+        return None
+
+    cursor.execute(
+        """
+        SELECT
+            item_id,
+            sku,
+            name,
+            unit_price_cents,
+            quantity,
+            line_total_cents
+        FROM order_lines
+        WHERE order_id = %s
+        ORDER BY id
+        """,
+        (order_id,),
+    )
+    line_rows = list(cursor.fetchall())
+    if not line_rows:
+        raise RuntimeError(f"order {order_id} has no lines")
+    first_item_id = line_rows[0]["item_id"]
+    if first_item_id is None:
+        raise RuntimeError(f"order {order_id} no longer has an inventory item")
+    inventory = _commerce_inventory_from_cursor(
+        cursor,
+        workspace_id,
+        int(first_item_id),
+    )
+    if inventory is None:
+        raise RuntimeError(f"order {order_id} has no inventory row")
+
+    cursor.execute(
+        """
+        SELECT id, status
+        FROM payments
+        WHERE order_id = %s
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (order_id,),
+    )
+    payment = cursor.fetchone()
+
+    return CommerceOrder(
+        order_id=int(order["id"]),
+        workspace_slug=workspace_slug,
+        status=str(order["status"]),
+        total_cents=int(order["total_cents"]),
+        version=int(order["version"]),
+        lines=[CommerceOrderLine.model_validate(row) for row in line_rows],
+        inventory=inventory,
+        payment_id=None if payment is None else int(payment["id"]),
+        payment_status=None if payment is None else str(payment["status"]),
+        created_at=order["created_at"],
+        updated_at=order["updated_at"],
+    )
+
+
+def _load_commerce_order(
+    workspace_id: int,
+    workspace_slug: str,
+    order_id: int,
+) -> CommerceOrder | None:
+    with _postgres_connection() as connection:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            return _commerce_order_from_cursor(
+                cursor,
+                workspace_id=workspace_id,
+                workspace_slug=workspace_slug,
+                order_id=order_id,
+            )
+
+
+def _load_commerce_inventory(
+    workspace_id: int,
+    item_id: int,
+) -> CommerceInventory | None:
+    with _postgres_connection() as connection:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            return _commerce_inventory_from_cursor(
+                cursor,
+                workspace_id,
+                item_id,
+            )
+
+
+def _set_commerce_inventory(
+    workspace_id: int,
+    request: CommerceInventoryUpdate,
+) -> CommerceInventory:
+    with _postgres_connection() as connection:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                """
+                SELECT id
+                FROM catalog_items
+                WHERE workspace_id = %s AND id = %s
+                """,
+                (workspace_id, request.item_id),
+            )
+            if cursor.fetchone() is None:
+                raise CommerceNotFound("Catalog item was not found.")
+
+            cursor.execute(
+                """
+                INSERT INTO inventory (workspace_id, item_id, on_hand, reserved)
+                VALUES (%s, %s, %s, 0)
+                ON CONFLICT (workspace_id, item_id) DO UPDATE
+                    SET on_hand = EXCLUDED.on_hand,
+                        updated_at = CURRENT_TIMESTAMP
+                """,
+                (workspace_id, request.item_id, request.on_hand),
+            )
+            inventory = _commerce_inventory_from_cursor(
+                cursor,
+                workspace_id,
+                request.item_id,
+            )
+
+    if inventory is None:
+        raise RuntimeError("inventory upsert returned no row")
+    return inventory
+
+
+def _create_commerce_order(
+    *,
+    workspace_id: int,
+    workspace_slug: str,
+    request: CommerceOrderCreate,
+    idempotency_key: str,
+) -> tuple[HTTPStatus, CommerceOrder]:
+    fingerprint = _body_fingerprint(request.model_dump(mode="json"))
+    store_key = _commerce_idempotency_key(
+        workspace_id,
+        "order.create",
+        idempotency_key,
+    )
+    cached = _read_cached_commerce_order(store_key, fingerprint)
+    if cached is not None:
+        return cached
+
+    replayed = False
+    order: CommerceOrder | None = None
+    with _postgres_connection() as connection:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                """
+                SELECT id, sku, name, price_cents, status
+                FROM catalog_items
+                WHERE workspace_id = %s AND id = %s
+                """,
+                (workspace_id, request.item_id),
+            )
+            item = cursor.fetchone()
+            if item is None:
+                raise CommerceNotFound("Catalog item was not found.")
+            if item["status"] != "active":
+                raise CommerceConflict(
+                    "item_unavailable",
+                    "Only an active catalog item can be ordered.",
+                )
+
+            cursor.execute(
+                """
+                SELECT on_hand, reserved
+                FROM inventory
+                WHERE workspace_id = %s AND item_id = %s
+                FOR UPDATE
+                """,
+                (workspace_id, request.item_id),
+            )
+            inventory_row = cursor.fetchone()
+            if inventory_row is None:
+                raise CommerceConflict(
+                    "inventory_not_configured",
+                    "The catalog item has no inventory record.",
+                )
+            available = int(inventory_row["on_hand"]) - int(
+                inventory_row["reserved"]
+            )
+            if available < request.quantity:
+                raise CommerceConflict(
+                    "insufficient_stock",
+                    f"Only {available} unit(s) are available.",
+                )
+
+            total_cents = int(item["price_cents"]) * request.quantity
+            cursor.execute(
+                """
+                INSERT INTO orders (
+                    workspace_id,
+                    idempotency_key,
+                    status,
+                    total_cents,
+                    version
+                )
+                VALUES (%s, %s, 'AWAITING_PAYMENT', %s, 1)
+                ON CONFLICT (workspace_id, idempotency_key) DO NOTHING
+                RETURNING id
+                """,
+                (workspace_id, idempotency_key, total_cents),
+            )
+            inserted = cursor.fetchone()
+            if inserted is None:
+                cursor.execute(
+                    """
+                    SELECT id
+                    FROM orders
+                    WHERE workspace_id = %s AND idempotency_key = %s
+                    """,
+                    (workspace_id, idempotency_key),
+                )
+                existing = cursor.fetchone()
+                if existing is None:
+                    raise RuntimeError("idempotent order lookup returned no row")
+                order_id = int(existing["id"])
+                cursor.execute(
+                    """
+                    SELECT item_id, quantity
+                    FROM order_lines
+                    WHERE order_id = %s
+                    ORDER BY id
+                    LIMIT 1
+                    """,
+                    (order_id,),
+                )
+                line = cursor.fetchone()
+                if (
+                    line is None
+                    or line["item_id"] != request.item_id
+                    or int(line["quantity"]) != request.quantity
+                ):
+                    raise CommerceConflict(
+                        "idempotency_conflict",
+                        "The idempotency key was used for another order.",
+                    )
+            else:
+                order_id = int(inserted["id"])
+                cursor.execute(
+                    """
+                    INSERT INTO order_lines (
+                        order_id,
+                        item_id,
+                        sku,
+                        name,
+                        unit_price_cents,
+                        quantity,
+                        line_total_cents
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        order_id,
+                        request.item_id,
+                        item["sku"],
+                        item["name"],
+                        item["price_cents"],
+                        request.quantity,
+                        total_cents,
+                    ),
+                )
+                cursor.execute(
+                    """
+                    UPDATE inventory
+                    SET reserved = reserved + %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE workspace_id = %s AND item_id = %s
+                    """,
+                    (request.quantity, workspace_id, request.item_id),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO inventory_reservations (
+                        order_id,
+                        item_id,
+                        quantity,
+                        status
+                    )
+                    VALUES (%s, %s, %s, 'RESERVED')
+                    """,
+                    (order_id, request.item_id, request.quantity),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO order_events (order_id, event_type, payload)
+                    VALUES (
+                        %s,
+                        'order.created',
+                        %s
+                    )
+                    """,
+                    (
+                        order_id,
+                        Jsonb(
+                            {
+                                "item_id": request.item_id,
+                                "quantity": request.quantity,
+                                "total_cents": total_cents,
+                            }
+                        ),
+                    ),
+                )
+
+            order = _commerce_order_from_cursor(
+                cursor,
+                workspace_id=workspace_id,
+                workspace_slug=workspace_slug,
+                order_id=order_id,
+            )
+
+    if order is None:
+        raise RuntimeError("created order could not be read")
+    status = HTTPStatus.OK if replayed else HTTPStatus.CREATED
+    _store_cached_commerce_order(
+        store_key,
+        fingerprint=fingerprint,
+        status=status,
+        order=order,
+    )
+    _store_commerce_read_model(workspace_id, order)
+    EVENT_BROKER.publish(
+        workspace_slug,
+        "commerce.order.created",
+        order.model_dump(mode="json"),
+    )
+    return status, order
+
+
+def _pay_commerce_order(
+    *,
+    workspace_id: int,
+    workspace_slug: str,
+    order_id: int,
+    request: CommercePaymentCreate,
+    idempotency_key: str,
+) -> tuple[HTTPStatus, CommerceOrder]:
+    fingerprint = _body_fingerprint(request.model_dump(mode="json"))
+    store_key = _commerce_idempotency_key(
+        workspace_id,
+        f"order.{order_id}.pay",
+        idempotency_key,
+    )
+    cached = _read_cached_commerce_order(store_key, fingerprint)
+    if cached is not None:
+        return cached
+
+    order: CommerceOrder | None = None
+    with _postgres_connection() as connection:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                """
+                SELECT id, status, total_cents
+                FROM orders
+                WHERE workspace_id = %s AND id = %s
+                FOR UPDATE
+                """,
+                (workspace_id, order_id),
+            )
+            current = cursor.fetchone()
+            if current is None:
+                raise CommerceNotFound("Order was not found.")
+
+            cursor.execute(
+                """
+                SELECT id, amount_cents, status
+                FROM payments
+                WHERE order_id = %s AND idempotency_key = %s
+                """,
+                (order_id, idempotency_key),
+            )
+            existing_payment = cursor.fetchone()
+            expected_amount = int(current["total_cents"])
+            if request.amount_cents is not None and request.amount_cents != expected_amount:
+                raise CommerceConflict(
+                    "amount_mismatch",
+                    f"Payment amount must equal {expected_amount} cents.",
+                )
+            if existing_payment is not None:
+                if int(existing_payment["amount_cents"]) != expected_amount:
+                    raise CommerceConflict(
+                        "idempotency_conflict",
+                        "The payment key was used with another amount.",
+                    )
+            else:
+                if current["status"] != "AWAITING_PAYMENT":
+                    raise CommerceConflict(
+                        "order_already_paid",
+                        "Only an order awaiting payment can be paid.",
+                    )
+                cursor.execute(
+                    """
+                    INSERT INTO payments (
+                        order_id,
+                        idempotency_key,
+                        amount_cents,
+                        status,
+                        provider_reference
+                    )
+                    VALUES (%s, %s, %s, 'SUCCEEDED', %s)
+                    RETURNING id
+                    """,
+                    (
+                        order_id,
+                        idempotency_key,
+                        expected_amount,
+                        f"local-{uuid4().hex}",
+                    ),
+                )
+                payment = cursor.fetchone()
+                if payment is None:
+                    raise RuntimeError("payment insert returned no row")
+                cursor.execute(
+                    """
+                    UPDATE orders
+                    SET status = 'PAID',
+                        version = version + 1,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE workspace_id = %s AND id = %s
+                    """,
+                    (workspace_id, order_id),
+                )
+                cursor.execute(
+                    """
+                    INSERT INTO order_events (order_id, event_type, payload)
+                    VALUES (%s, 'payment.succeeded', %s)
+                    """,
+                    (
+                        order_id,
+                        Jsonb(
+                            {
+                                "payment_id": int(payment["id"]),
+                                "amount_cents": expected_amount,
+                            }
+                        ),
+                    ),
+                )
+
+            order = _commerce_order_from_cursor(
+                cursor,
+                workspace_id=workspace_id,
+                workspace_slug=workspace_slug,
+                order_id=order_id,
+            )
+
+    if order is None:
+        raise RuntimeError("paid order could not be read")
+    status = HTTPStatus.OK
+    _store_cached_commerce_order(
+        store_key,
+        fingerprint=fingerprint,
+        status=status,
+        order=order,
+    )
+    _store_commerce_read_model(workspace_id, order)
+    EVENT_BROKER.publish(
+        workspace_slug,
+        "commerce.order.paid",
+        order.model_dump(mode="json"),
+    )
+    return status, order
+
+
+def _transition_commerce_order(
+    *,
+    workspace_id: int,
+    workspace_slug: str,
+    order_id: int,
+    target: str,
+) -> CommerceOrder:
+    with _postgres_connection() as connection:
+        with connection.cursor(row_factory=dict_row) as cursor:
+            cursor.execute(
+                """
+                SELECT id, status
+                FROM orders
+                WHERE workspace_id = %s AND id = %s
+                FOR UPDATE
+                """,
+                (workspace_id, order_id),
+            )
+            current = cursor.fetchone()
+            if current is None:
+                raise CommerceNotFound("Order was not found.")
+            current_status = str(current["status"])
+            if current_status == target:
+                order = _commerce_order_from_cursor(
+                    cursor,
+                    workspace_id=workspace_id,
+                    workspace_slug=workspace_slug,
+                    order_id=order_id,
+                )
+                if order is None:
+                    raise RuntimeError("idempotent transition order was not found")
+                return order
+
+            allowed: dict[str, frozenset[str]] = {
+                "CANCELLED": frozenset({"CREATED", "AWAITING_PAYMENT"}),
+                "FULFILLED": frozenset({"PAID"}),
+                "REFUNDED": frozenset({"PAID", "FULFILLED"}),
+            }
+            if current_status not in allowed[target]:
+                raise CommerceConflict(
+                    "invalid_state_transition",
+                    f"Cannot move order from {current_status} to {target}.",
+                )
+
+            cursor.execute(
+                """
+                SELECT
+                    l.item_id,
+                    l.quantity,
+                    r.status AS reservation_status
+                FROM order_lines AS l
+                JOIN inventory_reservations AS r
+                  ON r.order_id = l.order_id
+                 AND r.item_id = l.item_id
+                WHERE l.order_id = %s
+                ORDER BY l.id
+                LIMIT 1
+                """,
+                (order_id,),
+            )
+            line = cursor.fetchone()
+            if line is None or line["item_id"] is None:
+                raise RuntimeError("order has no reservable line")
+            item_id = int(line["item_id"])
+            quantity = int(line["quantity"])
+
+            reservation_status = "RELEASED"
+            if target == "CANCELLED":
+                cursor.execute(
+                    """
+                    UPDATE inventory
+                    SET reserved = reserved - %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE workspace_id = %s AND item_id = %s
+                    """,
+                    (quantity, workspace_id, item_id),
+                )
+            elif target == "FULFILLED":
+                reservation_status = "CONSUMED"
+                cursor.execute(
+                    """
+                    UPDATE inventory
+                    SET on_hand = on_hand - %s,
+                        reserved = reserved - %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE workspace_id = %s AND item_id = %s
+                    """,
+                    (quantity, quantity, workspace_id, item_id),
+                )
+            elif target == "REFUNDED":
+                if current_status == "FULFILLED":
+                    cursor.execute(
+                        """
+                        UPDATE inventory
+                        SET on_hand = on_hand + %s,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE workspace_id = %s AND item_id = %s
+                        """,
+                        (quantity, workspace_id, item_id),
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        UPDATE inventory
+                        SET reserved = reserved - %s,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE workspace_id = %s AND item_id = %s
+                        """,
+                        (quantity, workspace_id, item_id),
+                    )
+
+            cursor.execute(
+                """
+                UPDATE inventory_reservations
+                SET status = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE order_id = %s
+                """,
+                (reservation_status, order_id),
+            )
+            if target == "REFUNDED":
+                cursor.execute(
+                    """
+                    UPDATE payments
+                    SET status = 'REFUNDED',
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = (
+                        SELECT id
+                        FROM payments
+                        WHERE order_id = %s AND status = 'SUCCEEDED'
+                        ORDER BY id DESC
+                        LIMIT 1
+                    )
+                    """,
+                    (order_id,),
+                )
+            cursor.execute(
+                """
+                UPDATE orders
+                SET status = %s,
+                    version = version + 1,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE workspace_id = %s AND id = %s
+                """,
+                (target, workspace_id, order_id),
+            )
+            cursor.execute(
+                """
+                INSERT INTO order_events (order_id, event_type, payload)
+                VALUES (%s, %s, %s)
+                """,
+                (
+                    order_id,
+                    f"order.{target.lower()}",
+                    Jsonb(
+                        {
+                            "from": current_status,
+                            "to": target,
+                            "quantity": quantity,
+                        }
+                    ),
+                ),
+            )
+            order = _commerce_order_from_cursor(
+                cursor,
+                workspace_id=workspace_id,
+                workspace_slug=workspace_slug,
+                order_id=order_id,
+            )
+
+    if order is None:
+        raise RuntimeError("transitioned order could not be read")
+    _store_commerce_read_model(workspace_id, order)
+    EVENT_BROKER.publish(
+        workspace_slug,
+        f"commerce.order.{target.lower()}",
+        order.model_dump(mode="json"),
+    )
+    return order
+
+
 class E2eStateConflict(RuntimeError):
     """A fixture session requested an invalid catalog state transition."""
 
@@ -1262,6 +2121,7 @@ def _create_e2e_fixture_session(
     workspace_slug: str,
     item_id: int,
     can_archive: bool,
+    can_commerce: bool,
 ) -> tuple[str, CatalogItem]:
     item = _catalog_item_by_id(workspace_id, item_id)
     if item is None:
@@ -1273,6 +2133,7 @@ def _create_e2e_fixture_session(
         "workspace_slug": workspace_slug,
         "item_id": item_id,
         "can_archive": can_archive,
+        "can_commerce": can_commerce,
     }
     client = _redis_client()
     try:
@@ -1303,6 +2164,7 @@ def _load_e2e_fixture_session(session_id: str) -> dict[str, Any] | None:
             "workspace_slug": str(payload["workspace_slug"]),
             "item_id": int(payload["item_id"]),
             "can_archive": bool(payload["can_archive"]),
+            "can_commerce": bool(payload.get("can_commerce", False)),
         }
     except (KeyError, TypeError, ValueError):
         return None
@@ -2092,12 +2954,29 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                         "/api/v1/workspaces/{slug}/catalog/items",
                         "/api/v1/workspaces/{slug}/catalog/items/{item_id}",
                         "/api/v1/workspaces/{slug}/catalog/cache/refresh",
+                        "/api/v1/workspaces/{slug}/commerce/inventory",
+                        "/api/v1/workspaces/{slug}/commerce/inventory/{item_id}",
+                        "/api/v1/workspaces/{slug}/commerce/orders",
+                        "/api/v1/workspaces/{slug}/commerce/orders/{order_id}",
+                        "/api/v1/workspaces/{slug}/commerce/orders/{order_id}/payments",
+                        "/api/v1/workspaces/{slug}/commerce/orders/{order_id}/fulfill",
+                        "/api/v1/workspaces/{slug}/commerce/orders/{order_id}/cancel",
+                        "/api/v1/workspaces/{slug}/commerce/orders/{order_id}/refund",
                         "/api/v1/workspaces/{slug}/members",
                         "/api/v1/workspaces/{slug}/members/{user_id}",
                         "/api/v1/workspaces/{slug}/events",
                         "/api/v1/jobs",
                         "/api/v1/jobs/{job_id}",
                         "/api/v1/e2e/sessions/{session_id}",
+                        "/api/v1/e2e/sessions/{session_id}/commerce/orders",
+                        (
+                            "/api/v1/e2e/sessions/{session_id}/commerce/"
+                            "orders/{order_id}/payments"
+                        ),
+                        (
+                            "/api/v1/e2e/sessions/{session_id}/commerce/"
+                            "orders/{order_id}/fulfill"
+                        ),
                     ],
                 ),
             )
@@ -2171,6 +3050,22 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             self._handle_e2e_fixture_read(e2e_session_match.group(1))
             return
 
+        commerce_order_match = COMMERCE_ORDER_PATH.fullmatch(path)
+        if commerce_order_match:
+            self._handle_commerce_order_read(
+                commerce_order_match.group(1),
+                int(commerce_order_match.group(2)),
+            )
+            return
+
+        commerce_inventory_item_match = COMMERCE_INVENTORY_ITEM_PATH.fullmatch(path)
+        if commerce_inventory_item_match:
+            self._handle_commerce_inventory_read(
+                commerce_inventory_item_match.group(1),
+                int(commerce_inventory_item_match.group(2)),
+            )
+            return
+
         item_match = CATALOG_ITEM_PATH.fullmatch(path)
         if item_match:
             self._handle_catalog_item_read(
@@ -2210,6 +3105,74 @@ class SutRequestHandler(BaseHTTPRequestHandler):
         e2e_archive_match = E2E_SESSION_ARCHIVE_PATH.fullmatch(path)
         if e2e_archive_match:
             self._handle_e2e_fixture_archive(e2e_archive_match.group(1))
+            return
+
+        e2e_commerce_orders_match = E2E_COMMERCE_ORDERS_PATH.fullmatch(path)
+        if e2e_commerce_orders_match:
+            self._handle_e2e_commerce_order_create(
+                e2e_commerce_orders_match.group(1)
+            )
+            return
+
+        e2e_commerce_pay_match = E2E_COMMERCE_ORDER_PAY_PATH.fullmatch(path)
+        if e2e_commerce_pay_match:
+            self._handle_e2e_commerce_payment(
+                e2e_commerce_pay_match.group(1),
+                int(e2e_commerce_pay_match.group(2)),
+            )
+            return
+
+        e2e_commerce_fulfill_match = E2E_COMMERCE_ORDER_FULFILL_PATH.fullmatch(path)
+        if e2e_commerce_fulfill_match:
+            self._handle_e2e_commerce_fulfill(
+                e2e_commerce_fulfill_match.group(1),
+                int(e2e_commerce_fulfill_match.group(2)),
+            )
+            return
+
+        commerce_inventory_match = COMMERCE_INVENTORY_PATH.fullmatch(path)
+        if commerce_inventory_match:
+            self._handle_commerce_inventory_update(commerce_inventory_match.group(1))
+            return
+
+        commerce_orders_match = COMMERCE_ORDERS_PATH.fullmatch(path)
+        if commerce_orders_match:
+            self._handle_commerce_order_create(commerce_orders_match.group(1))
+            return
+
+        commerce_pay_match = COMMERCE_ORDER_PAY_PATH.fullmatch(path)
+        if commerce_pay_match:
+            self._handle_commerce_payment(
+                commerce_pay_match.group(1),
+                int(commerce_pay_match.group(2)),
+            )
+            return
+
+        commerce_fulfill_match = COMMERCE_ORDER_FULFILL_PATH.fullmatch(path)
+        if commerce_fulfill_match:
+            self._handle_commerce_transition(
+                commerce_fulfill_match.group(1),
+                int(commerce_fulfill_match.group(2)),
+                "FULFILLED",
+            )
+            return
+
+        commerce_cancel_match = COMMERCE_ORDER_CANCEL_PATH.fullmatch(path)
+        if commerce_cancel_match:
+            self._handle_commerce_transition(
+                commerce_cancel_match.group(1),
+                int(commerce_cancel_match.group(2)),
+                "CANCELLED",
+            )
+            return
+
+        commerce_refund_match = COMMERCE_ORDER_REFUND_PATH.fullmatch(path)
+        if commerce_refund_match:
+            self._handle_commerce_transition(
+                commerce_refund_match.group(1),
+                int(commerce_refund_match.group(2)),
+                "REFUNDED",
+            )
             return
 
         items_match = CATALOG_ITEMS_PATH.fullmatch(path)
@@ -2351,6 +3314,7 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                 workspace_slug=str(user["workspace_slug"]),
                 item_id=request.item_id,
                 can_archive=has_capability(str(user["role"]), "catalog:write"),
+                can_commerce=has_capability(str(user["role"]), "commerce:write"),
             )
         except LookupError:
             self._send_json(
@@ -2379,6 +3343,7 @@ class SutRequestHandler(BaseHTTPRequestHandler):
                 item=item,
                 expires_in=E2E_SESSION_TTL_SECONDS,
                 can_archive=has_capability(str(user["role"]), "catalog:write"),
+                can_commerce=has_capability(str(user["role"]), "commerce:write"),
             ),
             headers={"Cache-Control": "no-store"},
         )
@@ -2446,6 +3411,475 @@ class SutRequestHandler(BaseHTTPRequestHandler):
             )
             return
         self._send_json(HTTPStatus.OK, item)
+
+    def _e2e_commerce_context(
+        self,
+        session_id: str,
+    ) -> dict[str, Any] | None:
+        if not self._require_e2e_fixture_enabled():
+            return None
+        context = _load_e2e_fixture_session(session_id)
+        if context is None:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(
+                    error="fixture_session_not_found",
+                    message="The fixture session is no longer available.",
+                ),
+            )
+            return None
+        if not context["can_commerce"]:
+            self._send_json(
+                HTTPStatus.FORBIDDEN,
+                ApiError(
+                    error="permission_denied",
+                    message="This fixture session cannot execute commerce writes.",
+                ),
+            )
+            return None
+        return context
+
+    def _handle_e2e_commerce_order_create(self, session_id: str) -> None:
+        context = self._e2e_commerce_context(session_id)
+        if context is None:
+            return
+        idempotency_key = self._require_idempotency_key()
+        if idempotency_key is None:
+            return
+        payload = self._read_json_payload()
+        if payload is None:
+            return
+        try:
+            request = validate_contract(CommerceOrderCreate, payload)
+        except ContractValidationError as exc:
+            self._send_json(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                _validation_error_payload(exc),
+            )
+            return
+        if request.item_id != context["item_id"]:
+            self._send_json(
+                HTTPStatus.CONFLICT,
+                ApiError(
+                    error="session_item_mismatch",
+                    message="The order item must match the fixture session item.",
+                ),
+            )
+            return
+        try:
+            status, order = _create_commerce_order(
+                workspace_id=int(context["workspace_id"]),
+                workspace_slug=str(context["workspace_slug"]),
+                request=request,
+                idempotency_key=idempotency_key,
+            )
+        except CommerceNotFound as exc:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(error="item_not_found", message=str(exc)),
+            )
+            return
+        except CommerceConflict as exc:
+            self._send_json(
+                HTTPStatus.CONFLICT,
+                ApiError(error=exc.code, message=exc.message),
+            )
+            return
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Mobile commerce order creation failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="database_unavailable", message=type(exc).__name__),
+            )
+            return
+        self._send_json(status, order)
+
+    def _handle_e2e_commerce_payment(
+        self,
+        session_id: str,
+        order_id: int,
+    ) -> None:
+        context = self._e2e_commerce_context(session_id)
+        if context is None:
+            return
+        idempotency_key = self._require_idempotency_key()
+        if idempotency_key is None:
+            return
+        payload = self._read_json_payload()
+        if payload is None:
+            return
+        try:
+            request = validate_contract(CommercePaymentCreate, payload)
+        except ContractValidationError as exc:
+            self._send_json(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                _validation_error_payload(exc),
+            )
+            return
+        try:
+            status, order = _pay_commerce_order(
+                workspace_id=int(context["workspace_id"]),
+                workspace_slug=str(context["workspace_slug"]),
+                order_id=order_id,
+                request=request,
+                idempotency_key=idempotency_key,
+            )
+        except CommerceNotFound as exc:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(error="order_not_found", message=str(exc)),
+            )
+            return
+        except CommerceConflict as exc:
+            self._send_json(
+                HTTPStatus.CONFLICT,
+                ApiError(error=exc.code, message=exc.message),
+            )
+            return
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Mobile commerce payment failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="database_unavailable", message=type(exc).__name__),
+            )
+            return
+        self._send_json(status, order)
+
+    def _handle_e2e_commerce_fulfill(
+        self,
+        session_id: str,
+        order_id: int,
+    ) -> None:
+        context = self._e2e_commerce_context(session_id)
+        if context is None:
+            return
+        try:
+            order = _transition_commerce_order(
+                workspace_id=int(context["workspace_id"]),
+                workspace_slug=str(context["workspace_slug"]),
+                order_id=order_id,
+                target="FULFILLED",
+            )
+        except CommerceNotFound as exc:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(error="order_not_found", message=str(exc)),
+            )
+            return
+        except CommerceConflict as exc:
+            self._send_json(
+                HTTPStatus.CONFLICT,
+                ApiError(error=exc.code, message=exc.message),
+            )
+            return
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Mobile commerce fulfillment failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="database_unavailable", message=type(exc).__name__),
+            )
+            return
+        self._send_json(HTTPStatus.OK, order)
+
+    def _require_idempotency_key(self) -> str | None:
+        key = (self.headers.get("Idempotency-Key") or "").strip()
+        if not key:
+            self._send_json(
+                HTTPStatus.BAD_REQUEST,
+                ApiError(
+                    error="idempotency_key_required",
+                    message="Commerce writes require an Idempotency-Key header.",
+                ),
+            )
+            return None
+        if len(key) > 200:
+            self._send_json(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                ApiError(
+                    error="idempotency_key_invalid",
+                    message="Idempotency-Key must be at most 200 characters.",
+                ),
+            )
+            return None
+        return key
+
+    def _handle_commerce_inventory_update(self, slug: str) -> None:
+        scope = self._workspace_scope(
+            slug,
+            "commerce:write",
+            denied_message="The authenticated role cannot change commerce inventory.",
+            cross_tenant_message=(
+                "The authenticated user cannot change another workspace's inventory."
+            ),
+        )
+        if scope is None:
+            return
+        payload = self._read_json_payload()
+        if payload is None:
+            return
+        try:
+            request = validate_contract(CommerceInventoryUpdate, payload)
+        except ContractValidationError as exc:
+            self._send_json(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                _validation_error_payload(exc),
+            )
+            return
+
+        try:
+            inventory = _set_commerce_inventory(
+                int(scope["workspace"]["id"]),
+                request,
+            )
+        except CommerceNotFound as exc:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(error="item_not_found", message=str(exc)),
+            )
+            return
+        except psycopg.errors.CheckViolation:
+            self._send_json(
+                HTTPStatus.CONFLICT,
+                ApiError(
+                    error="inventory_constraint",
+                    message="on_hand cannot be lower than reserved stock.",
+                ),
+            )
+            return
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Commerce inventory update failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="database_unavailable", message=type(exc).__name__),
+            )
+            return
+        self._send_json(HTTPStatus.OK, inventory)
+
+    def _handle_commerce_inventory_read(self, slug: str, item_id: int) -> None:
+        scope = self._workspace_scope(
+            slug,
+            "commerce:read",
+            denied_message="The authenticated role cannot read commerce inventory.",
+            cross_tenant_message=(
+                "The authenticated user cannot read another workspace's inventory."
+            ),
+        )
+        if scope is None:
+            return
+        try:
+            inventory = _load_commerce_inventory(
+                int(scope["workspace"]["id"]),
+                item_id,
+            )
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Commerce inventory read failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="database_unavailable", message=type(exc).__name__),
+            )
+            return
+        if inventory is None:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(
+                    error="inventory_not_found",
+                    message="Inventory was not found for this item.",
+                ),
+            )
+            return
+        self._send_json(HTTPStatus.OK, inventory)
+
+    def _handle_commerce_order_create(self, slug: str) -> None:
+        scope = self._workspace_scope(
+            slug,
+            "commerce:write",
+            denied_message="The authenticated role cannot create commerce orders.",
+            cross_tenant_message=(
+                "The authenticated user cannot create orders in another workspace."
+            ),
+        )
+        if scope is None:
+            return
+        idempotency_key = self._require_idempotency_key()
+        if idempotency_key is None:
+            return
+        payload = self._read_json_payload()
+        if payload is None:
+            return
+        try:
+            request = validate_contract(CommerceOrderCreate, payload)
+        except ContractValidationError as exc:
+            self._send_json(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                _validation_error_payload(exc),
+            )
+            return
+
+        try:
+            status, order = _create_commerce_order(
+                workspace_id=int(scope["workspace"]["id"]),
+                workspace_slug=str(scope["workspace"]["slug"]),
+                request=request,
+                idempotency_key=idempotency_key,
+            )
+        except CommerceNotFound as exc:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(error="item_not_found", message=str(exc)),
+            )
+            return
+        except CommerceConflict as exc:
+            self._send_json(
+                HTTPStatus.CONFLICT,
+                ApiError(error=exc.code, message=exc.message),
+            )
+            return
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Commerce order creation failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="database_unavailable", message=type(exc).__name__),
+            )
+            return
+        self._send_json(
+            status,
+            order,
+            headers={"Location": (
+                f"/api/v1/workspaces/{slug}/commerce/orders/{order.order_id}"
+            )},
+        )
+
+    def _handle_commerce_order_read(self, slug: str, order_id: int) -> None:
+        scope = self._workspace_scope(
+            slug,
+            "commerce:read",
+            denied_message="The authenticated role cannot read commerce orders.",
+            cross_tenant_message=(
+                "The authenticated user cannot read another workspace's orders."
+            ),
+        )
+        if scope is None:
+            return
+        workspace_id = int(scope["workspace"]["id"])
+        try:
+            order = _load_commerce_order(
+                workspace_id,
+                str(scope["workspace"]["slug"]),
+                order_id,
+            )
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Commerce order read failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="database_unavailable", message=type(exc).__name__),
+            )
+            return
+        if order is None:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(error="order_not_found", message="Order was not found."),
+            )
+            return
+        _store_commerce_read_model(workspace_id, order)
+        self._send_json(HTTPStatus.OK, order)
+
+    def _handle_commerce_payment(self, slug: str, order_id: int) -> None:
+        scope = self._workspace_scope(
+            slug,
+            "commerce:write",
+            denied_message="The authenticated role cannot pay commerce orders.",
+            cross_tenant_message=(
+                "The authenticated user cannot pay another workspace's order."
+            ),
+        )
+        if scope is None:
+            return
+        idempotency_key = self._require_idempotency_key()
+        if idempotency_key is None:
+            return
+        payload = self._read_json_payload()
+        if payload is None:
+            return
+        try:
+            request = validate_contract(CommercePaymentCreate, payload)
+        except ContractValidationError as exc:
+            self._send_json(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                _validation_error_payload(exc),
+            )
+            return
+        try:
+            status, order = _pay_commerce_order(
+                workspace_id=int(scope["workspace"]["id"]),
+                workspace_slug=str(scope["workspace"]["slug"]),
+                order_id=order_id,
+                request=request,
+                idempotency_key=idempotency_key,
+            )
+        except CommerceNotFound as exc:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(error="order_not_found", message=str(exc)),
+            )
+            return
+        except CommerceConflict as exc:
+            self._send_json(
+                HTTPStatus.CONFLICT,
+                ApiError(error=exc.code, message=exc.message),
+            )
+            return
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Commerce payment failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="database_unavailable", message=type(exc).__name__),
+            )
+            return
+        self._send_json(status, order)
+
+    def _handle_commerce_transition(
+        self,
+        slug: str,
+        order_id: int,
+        target: str,
+    ) -> None:
+        scope = self._workspace_scope(
+            slug,
+            "commerce:write",
+            denied_message="The authenticated role cannot change commerce orders.",
+            cross_tenant_message=(
+                "The authenticated user cannot change another workspace's order."
+            ),
+        )
+        if scope is None:
+            return
+        try:
+            order = _transition_commerce_order(
+                workspace_id=int(scope["workspace"]["id"]),
+                workspace_slug=str(scope["workspace"]["slug"]),
+                order_id=order_id,
+                target=target,
+            )
+        except CommerceNotFound as exc:
+            self._send_json(
+                HTTPStatus.NOT_FOUND,
+                ApiError(error="order_not_found", message=str(exc)),
+            )
+            return
+        except CommerceConflict as exc:
+            self._send_json(
+                HTTPStatus.CONFLICT,
+                ApiError(error=exc.code, message=exc.message),
+            )
+            return
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.exception("Commerce order transition failed")
+            self._send_json(
+                HTTPStatus.SERVICE_UNAVAILABLE,
+                ApiError(error="database_unavailable", message=type(exc).__name__),
+            )
+            return
+        self._send_json(HTTPStatus.OK, order)
 
     def _handle_catalog(self, slug: str) -> None:
         try:

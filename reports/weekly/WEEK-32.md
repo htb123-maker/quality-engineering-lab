@@ -304,10 +304,44 @@ job，移动 UI 只覆盖 catalog 的读取和归档。它比纯 fixture 强，�
 真实 SUT 的示例产品 App，覆盖订单生命周期、角色边界、幂等、失败重试和跨
 PostgreSQL/Redis 的最终一致性。
 
+### 业务复杂性复审 / Business Complexity Reassessment
+
+2026-11-22 对“测试夹具能否验证新增业务功能”重新做了代码和真实执行审计。
+
+当前 SUT schema 只有 `workspaces`、`users` 和 `catalog_items`。仓库没有订单、
+库存预留、支付、履约、退款或补偿表，因此当前产品不能声称已经具备完整交易
+业务。
+
+本轮真实执行：
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Catalog 状态机与幂等 | PASS | state machine + idempotency `21 passed` |
+| PostgreSQL、Redis、RBAC 与事务 | PASS | integration `16 passed` |
+| 物理 Android catalog 跨层 | FAILED | E2E-CAT-001 在 10 秒内未找到 `catalog-status`；没有产生 PATCH，API 最终仍为 `active` |
+| 完整订单/支付/库存业务 | NOT IMPLEMENTED | schema、API、移动客户端和真实执行证据均不存在 |
+
+物理 Android 失败发生在 Appium session 已建立、API item 和 fixture session
+已创建之后；移动端没有找到可访问的 `catalog-status`，随后设备从 `adb devices`
+消失。本轮保留 `FAILED`，不把设备态或选择器问题推断为产品缺陷。相关工件位于
+`artifacts/e2e/week23/E2E-CAT-001/android/e2e-result.json` 和
+`artifacts/week32-business-proof/appium/`。
+
+结论：
+
+- 夹具可以验证“一个新增功能是否接通了 UI、API、认证、数据库和缓存”。
+- 夹具不能独自生成订单状态机、库存约束、支付幂等或补偿规则。
+- 要证明业务复杂性，必须扩展真实产品 SUT，而不是继续给 fixture 增加按钮。
+- 方案已记录为
+  `docs/adr/0016-commerce-vertical-slice.md`。项目所有者随后批准实施，
+  具体新增表和真实执行证据见 `reports/weekly/WEEK-33.md`；本节保留 Week32
+  复审当时的结论。
+
 ## 下一步 / Next Steps
 
 1. BrowserStack 恢复额度后补可选真机云证据，但不能回写或替代本轮 Simulator PASS。
 2. 为物理 Android WebView 预置匹配的 ChromeDriver，补齐 Hybrid 设备矩阵。
 3. 获取第二台合法主机后执行跨主机 Locust 与 Android 设备池。
 4. 使用非充电状态的物理设备重新采集电量与性能。
-5. 建设真实订单/支付/库存业务应用，避免只靠测试夹具证明业务能力。
+5. 已获批准并进入 Week33 的 commerce vertical slice；后续 CI 证据见
+   `reports/weekly/WEEK-33.md`。

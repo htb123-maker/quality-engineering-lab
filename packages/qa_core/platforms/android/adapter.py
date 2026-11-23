@@ -14,6 +14,7 @@ from qa_core.mobile.diagnostics import MobileDiagnostics, MobileFailureEvidence
 from qa_core.mobile.locators import Locator, LocatorStrategy
 from qa_core.mobile.platforms import (
     CatalogSnapshot,
+    CommerceSnapshot,
     LocatorSet,
     MobilePlatform,
     NavigationOutcome,
@@ -81,6 +82,31 @@ class AndroidFixtureCatalogPort:
         return self._adapter.wait_catalog_snapshot(self._adapter.catalog_session_id)
 
 
+class AndroidFixtureCommercePort:
+    """Exercise the real SUT commerce flow through the Android client."""
+
+    def __init__(self, adapter: AndroidFixtureAdapter) -> None:
+        self._adapter = adapter
+
+    def open(self, *, base_url: str, session_id: str) -> CatalogSnapshot:
+        return self._adapter.catalog.open(
+            base_url=base_url,
+            session_id=session_id,
+        )
+
+    def create_order(self) -> CommerceSnapshot:
+        self._adapter.tap("fixture.commerce_order")
+        return self._adapter.wait_commerce_snapshot("AWAITING_PAYMENT")
+
+    def pay(self) -> CommerceSnapshot:
+        self._adapter.tap("fixture.commerce_pay")
+        return self._adapter.wait_commerce_snapshot("PAID")
+
+    def fulfill(self) -> CommerceSnapshot:
+        self._adapter.tap("fixture.commerce_fulfill")
+        return self._adapter.wait_commerce_snapshot("FULFILLED")
+
+
 class AndroidFixtureAdapter:
     """Cross-platform fixture operations backed by UiAutomator2."""
 
@@ -101,6 +127,7 @@ class AndroidFixtureAdapter:
         self._wait = MobileWait(driver, self._policy)
         self._files = AndroidFixtureFilePort(driver)
         self._catalog = AndroidFixtureCatalogPort(self)
+        self._commerce = AndroidFixtureCommercePort(self)
         self.catalog_session_id = ""
         self._diagnostics = (
             MobileDiagnostics(driver, diagnostics_directory)
@@ -140,6 +167,26 @@ class AndroidFixtureAdapter:
                     "catalog-archive",
                     "Android archive catalog item button",
                 ),
+                "fixture.commerce_status": Locator(
+                    LocatorStrategy.ACCESSIBILITY_ID,
+                    "commerce-status",
+                    "Android API-backed commerce status",
+                ),
+                "fixture.commerce_order": Locator(
+                    LocatorStrategy.ACCESSIBILITY_ID,
+                    "commerce-order",
+                    "Android create commerce order button",
+                ),
+                "fixture.commerce_pay": Locator(
+                    LocatorStrategy.ACCESSIBILITY_ID,
+                    "commerce-pay",
+                    "Android pay commerce order button",
+                ),
+                "fixture.commerce_fulfill": Locator(
+                    LocatorStrategy.ACCESSIBILITY_ID,
+                    "commerce-fulfill",
+                    "Android fulfill commerce order button",
+                ),
             },
         )
 
@@ -169,6 +216,10 @@ class AndroidFixtureAdapter:
     @property
     def catalog(self) -> AndroidFixtureCatalogPort:
         return self._catalog
+
+    @property
+    def commerce(self) -> AndroidFixtureCommercePort:
+        return self._commerce
 
     def launch_fixture(self) -> None:
         self._activities.start(
@@ -217,6 +268,35 @@ class AndroidFixtureAdapter:
             time.sleep(self._policy.poll_interval_seconds)
         raise TimeoutError(
             f"Android catalog status did not settle: {last_status!r}"
+        )
+
+    def wait_commerce_snapshot(self, expected_status: str) -> CommerceSnapshot:
+        deadline = time.monotonic() + self._policy.timeout_seconds
+        last_status = ""
+        while time.monotonic() < deadline:
+            last_status = self.text("fixture.commerce_status")
+            if last_status.startswith(
+                (
+                    "commerce: AWAITING_PAYMENT|",
+                    "commerce: PAID|",
+                    "commerce: FULFILLED|",
+                    "commerce: CANCELLED|",
+                    "commerce: REFUNDED|",
+                    "commerce: error|",
+                )
+            ):
+                snapshot = _commerce_snapshot_from_status(
+                    last_status,
+                    self.catalog_session_id,
+                )
+                if snapshot.status == "error":
+                    return snapshot
+                if snapshot.status == expected_status:
+                    return snapshot
+            time.sleep(self._policy.poll_interval_seconds)
+        raise TimeoutError(
+            f"Android commerce status did not reach {expected_status!r}: "
+            f"{last_status!r}"
         )
 
     def trigger_navigation(self) -> NavigationOutcome:
@@ -281,4 +361,28 @@ def _snapshot_from_status(status: str, session_id: str) -> CatalogSnapshot:
         item_id=int(raw_item_id),
         name=name,
         status=state,
+    )
+
+
+def _commerce_snapshot_from_status(
+    status: str,
+    session_id: str,
+) -> CommerceSnapshot:
+    payload = status.removeprefix("commerce: ")
+    if payload.startswith("error|"):
+        return CommerceSnapshot(
+            session_id=session_id,
+            order_id=0,
+            status="error",
+            available=0,
+        )
+    parts = payload.split("|", 2)
+    if len(parts) != 3:
+        raise RuntimeError(f"invalid Android commerce status: {status!r}")
+    state, raw_order_id, raw_available = parts
+    return CommerceSnapshot(
+        session_id=session_id,
+        order_id=int(raw_order_id),
+        status=state,
+        available=int(raw_available),
     )

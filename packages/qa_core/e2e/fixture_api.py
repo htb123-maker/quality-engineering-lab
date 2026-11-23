@@ -20,6 +20,7 @@ class FixtureSession:
     item: CatalogItem
     expires_in: int
     can_archive: bool
+    can_commerce: bool
 
 
 class FixtureSessionApi:
@@ -52,6 +53,7 @@ class FixtureSessionApi:
                 item=session.item,
                 expires_in=session.expires_in,
                 can_archive=session.can_archive,
+                can_commerce=session.can_commerce,
             ),
             response.headers.get("X-QA-Request-Id"),
         )

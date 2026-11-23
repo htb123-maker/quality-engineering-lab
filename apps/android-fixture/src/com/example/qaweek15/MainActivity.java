@@ -33,12 +33,14 @@ import android.widget.TextView;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.OutputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -54,10 +56,16 @@ public final class MainActivity extends Activity {
     private TextView counterView;
     private TextView catalogStatusView;
     private TextView catalogItemView;
+    private TextView commerceStatusView;
     private Button catalogArchiveButton;
+    private Button commerceOrderButton;
+    private Button commercePayButton;
+    private Button commerceFulfillButton;
     private EditText inputView;
     private String catalogBaseUrl = "";
     private String catalogSessionId = "";
+    private int commerceItemId;
+    private int commerceOrderId;
     private int resumeCount;
     private int counter;
     private final ExecutorService catalogExecutor = Executors.newSingleThreadExecutor();
@@ -123,6 +131,48 @@ public final class MainActivity extends Activity {
             }
         });
         root.addView(catalogArchiveButton);
+
+        commerceStatusView = textDirection(new TextView(this));
+        commerceStatusView.setText("commerce: idle");
+        commerceStatusView.setContentDescription("commerce-status");
+        commerceStatusView.setTextSize(16);
+        root.addView(commerceStatusView);
+
+        commerceOrderButton = textDirection(new Button(this));
+        commerceOrderButton.setText("Create order");
+        commerceOrderButton.setContentDescription("commerce-order");
+        commerceOrderButton.setEnabled(false);
+        commerceOrderButton.setOnClickListener(new android.view.View.OnClickListener() {
+            @Override
+            public void onClick(android.view.View view) {
+                requestCommerceCreate();
+            }
+        });
+        root.addView(commerceOrderButton);
+
+        commercePayButton = textDirection(new Button(this));
+        commercePayButton.setText("Pay order");
+        commercePayButton.setContentDescription("commerce-pay");
+        commercePayButton.setEnabled(false);
+        commercePayButton.setOnClickListener(new android.view.View.OnClickListener() {
+            @Override
+            public void onClick(android.view.View view) {
+                requestCommercePayment();
+            }
+        });
+        root.addView(commercePayButton);
+
+        commerceFulfillButton = textDirection(new Button(this));
+        commerceFulfillButton.setText("Fulfill order");
+        commerceFulfillButton.setContentDescription("commerce-fulfill");
+        commerceFulfillButton.setEnabled(false);
+        commerceFulfillButton.setOnClickListener(new android.view.View.OnClickListener() {
+            @Override
+            public void onClick(android.view.View view) {
+                requestCommerceFulfillment();
+            }
+        });
+        root.addView(commerceFulfillButton);
 
         resumeView = textDirection(new TextView(this));
         resumeView.setText(t("Resume count: 0", "恢复次数：0", "عدد الاستئناف: 0"));
@@ -431,6 +481,12 @@ public final class MainActivity extends Activity {
                 catalogBaseUrl = baseUrl;
                 catalogSessionId = sessionId;
                 catalogArchiveButton.setEnabled(false);
+                commerceItemId = 0;
+                commerceOrderId = 0;
+                commerceStatusView.setText("commerce: idle");
+                commerceOrderButton.setEnabled(false);
+                commercePayButton.setEnabled(false);
+                commerceFulfillButton.setEnabled(false);
                 requestCatalog(false);
                 return;
             }
@@ -489,6 +545,8 @@ public final class MainActivity extends Activity {
                             );
                             catalogItemView.setText("catalog item: " + itemName);
                             catalogArchiveButton.setEnabled("active".equals(itemStatus));
+                            commerceItemId = itemId;
+                            commerceOrderButton.setEnabled("active".equals(itemStatus));
                         }
                     });
                 } catch (Exception error) {
@@ -497,6 +555,128 @@ public final class MainActivity extends Activity {
                         public void run() {
                             catalogStatusView.setText(
                                     "catalog: error|" + error.getClass().getSimpleName()
+                            );
+                            commerceOrderButton.setEnabled(false);
+                        }
+                    });
+                } finally {
+                    if (connection != null) {
+                        connection.disconnect();
+                    }
+                }
+            }
+        });
+    }
+
+    private void requestCommerceCreate() {
+        requestCommerce("create", 0);
+    }
+
+    private void requestCommercePayment() {
+        if (commerceOrderId > 0) {
+            requestCommerce("pay", commerceOrderId);
+        }
+    }
+
+    private void requestCommerceFulfillment() {
+        if (commerceOrderId > 0) {
+            requestCommerce("fulfill", commerceOrderId);
+        }
+    }
+
+    private void requestCommerce(String operation, int orderId) {
+        if (catalogBaseUrl.isEmpty() || catalogSessionId.isEmpty() || commerceItemId <= 0) {
+            commerceStatusView.setText("commerce: error|missing-session");
+            return;
+        }
+        commerceStatusView.setText("commerce: loading");
+        commerceOrderButton.setEnabled(false);
+        commercePayButton.setEnabled(false);
+        commerceFulfillButton.setEnabled(false);
+        catalogExecutor.execute(new Runnable() {
+            @Override
+            public void run() {
+                HttpURLConnection connection = null;
+                try {
+                    String suffix = "/api/v1/e2e/sessions/"
+                            + URLEncoder.encode(catalogSessionId, "UTF-8")
+                            + "/commerce/orders";
+                    String body = "{}";
+                    if ("create".equals(operation)) {
+                        body = "{\"item_id\":" + commerceItemId
+                                + ",\"quantity\":1}";
+                    } else if ("pay".equals(operation)) {
+                        suffix += "/" + orderId + "/payments";
+                    } else if ("fulfill".equals(operation)) {
+                        suffix += "/" + orderId + "/fulfill";
+                    }
+
+                    URL url = new URL(catalogBaseUrl.replaceAll("/+$", "") + suffix);
+                    connection = (HttpURLConnection) url.openConnection();
+                    connection.setConnectTimeout(5000);
+                    connection.setReadTimeout(5000);
+                    connection.setRequestMethod("POST");
+                    connection.setDoOutput(true);
+                    connection.setRequestProperty(
+                            "Content-Type",
+                            "application/json; charset=utf-8"
+                    );
+                    if (!"fulfill".equals(operation)) {
+                        connection.setRequestProperty(
+                                "Idempotency-Key",
+                                UUID.randomUUID().toString()
+                        );
+                    }
+                    byte[] encodedBody = body.getBytes(StandardCharsets.UTF_8);
+                    connection.setFixedLengthStreamingMode(encodedBody.length);
+                    try (OutputStream output = connection.getOutputStream()) {
+                        output.write(encodedBody);
+                    }
+                    int statusCode = connection.getResponseCode();
+                    if (statusCode < 200 || statusCode >= 300) {
+                        throw new IllegalStateException("HTTP " + statusCode);
+                    }
+                    String responseBody;
+                    try (BufferedReader reader = new BufferedReader(
+                            new InputStreamReader(
+                                    connection.getInputStream(),
+                                    StandardCharsets.UTF_8
+                            )
+                    )) {
+                        StringBuilder builder = new StringBuilder();
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            builder.append(line);
+                        }
+                        responseBody = builder.toString();
+                    }
+                    JSONObject order = new JSONObject(responseBody);
+                    int returnedOrderId = order.getInt("order_id");
+                    String orderStatus = order.getString("status");
+                    int available = order.getJSONObject("inventory").getInt("available");
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            commerceOrderId = returnedOrderId;
+                            commerceStatusView.setText(
+                                    "commerce: " + orderStatus
+                                            + "|" + returnedOrderId
+                                            + "|" + available
+                            );
+                            commercePayButton.setEnabled(
+                                    "AWAITING_PAYMENT".equals(orderStatus)
+                            );
+                            commerceFulfillButton.setEnabled(
+                                    "PAID".equals(orderStatus)
+                            );
+                        }
+                    });
+                } catch (Exception error) {
+                    mainHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            commerceStatusView.setText(
+                                    "commerce: error|" + error.getClass().getSimpleName()
                             );
                         }
                     });

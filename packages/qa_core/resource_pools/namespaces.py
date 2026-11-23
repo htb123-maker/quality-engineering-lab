@@ -7,7 +7,11 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Protocol
 
-from qa_core.cache import purge_catalog_cache, purge_idempotency_keys
+from qa_core.cache import (
+    purge_catalog_cache,
+    purge_commerce_state,
+    purge_idempotency_keys,
+)
 from qa_core.data_factories import NamespaceIdentity
 from qa_core.security import purge_write_budget
 
@@ -208,6 +212,7 @@ class NamespacePool:
         if self._redis_url is None:
             return
         purge_idempotency_keys(self._redis_url, identity.workspace_id)
+        purge_commerce_state(self._redis_url, identity.workspace_id)
         purge_catalog_cache(self._redis_url, identity.slug)
         user_ids = [identity.owner.user_id]
         if identity.viewer is not None:

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from uuid import uuid4
+
 import httpx
 import pytest
 from qa_core.auth import AuthClient
-from qa_core.data_factories import CatalogApiFactory
+from qa_core.data_factories import CatalogApiFactory, CommerceApiFactory
 
 
 def _create_session(
@@ -35,6 +37,7 @@ def test_fixture_session_reads_and_archives_an_api_created_item(
     session_id = str(session["session_id"])
     assert session["item"]["id"] == item_id
     assert session["can_archive"] is True
+    assert session["can_commerce"] is True
     assert session_response.headers["X-QA-Request-Id"]
 
     with httpx.Client(base_url=sut_api_url, timeout=5.0) as public:
@@ -67,16 +70,24 @@ def test_viewer_fixture_session_is_read_only(
     assert session_response.status_code == 201
     session = session_response.json()
     assert session["can_archive"] is False
+    assert session["can_commerce"] is False
     session_id = str(session["session_id"])
 
     with httpx.Client(base_url=sut_api_url, timeout=5.0) as public:
         read = public.get(f"/api/v1/e2e/sessions/{session_id}")
         denied = public.post(f"/api/v1/e2e/sessions/{session_id}/archive")
+        denied_commerce = public.post(
+            f"/api/v1/e2e/sessions/{session_id}/commerce/orders",
+            json={"item_id": item_id, "quantity": 1},
+            headers={"Idempotency-Key": uuid4().hex},
+        )
 
     assert read.status_code == 200
     assert read.json()["status"] == "active"
     assert denied.status_code == 403
     assert denied.json()["error"] == "permission_denied"
+    assert denied_commerce.status_code == 403
+    assert denied_commerce.json()["error"] == "permission_denied"
     items = catalog_items.catalog_items()
     assert [item["status"] for item in items if item["id"] == item_id] == [
         "active"
@@ -129,3 +140,47 @@ def test_fixture_session_rejects_a_second_archive(
     assert [item["status"] for item in items if item["id"] == item_id] == [
         "archived"
     ]
+
+
+@pytest.mark.api
+def test_fixture_session_runs_real_commerce_flow(
+    catalog_items: CatalogApiFactory,
+    commerce: CommerceApiFactory,
+    sut_api_url: str,
+) -> None:
+    item_id = int(catalog_items.create(price_cents=999).json()["id"])
+    commerce.set_inventory(item_id, 2)
+    session_response = _create_session(catalog_items.auth, item_id=item_id)
+    assert session_response.status_code == 201
+    session_id = str(session_response.json()["session_id"])
+
+    with httpx.Client(base_url=sut_api_url, timeout=5.0) as public:
+        created = public.post(
+            f"/api/v1/e2e/sessions/{session_id}/commerce/orders",
+            json={"item_id": item_id, "quantity": 1},
+            headers={"Idempotency-Key": uuid4().hex},
+        )
+        order_id = int(created.json()["order_id"])
+        paid = public.post(
+            (
+                f"/api/v1/e2e/sessions/{session_id}/commerce/"
+                f"orders/{order_id}/payments"
+            ),
+            json={},
+            headers={"Idempotency-Key": uuid4().hex},
+        )
+        fulfilled = public.post(
+            (
+                f"/api/v1/e2e/sessions/{session_id}/commerce/"
+                f"orders/{order_id}/fulfill"
+            ),
+            json={},
+        )
+
+    assert created.status_code == 201
+    assert created.json()["status"] == "AWAITING_PAYMENT"
+    assert paid.status_code == 200
+    assert paid.json()["status"] == "PAID"
+    assert fulfilled.status_code == 200
+    assert fulfilled.json()["status"] == "FULFILLED"
+    assert fulfilled.json()["inventory"]["available"] == 1
