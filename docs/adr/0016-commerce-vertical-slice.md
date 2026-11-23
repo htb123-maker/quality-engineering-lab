@@ -236,6 +236,7 @@ Commerce focused tests:         16 passed
 Integration tests:              46 passed
 Full API tests:                254 passed
 Physical Android commerce E2E:    1 passed
+GitHub Actions run 45190276965: required jobs passed
 ```
 
 The weekly report records environment, paths, and remaining `NOT RUN` items in
@@ -246,5 +247,5 @@ The weekly report records environment, paths, and remaining `NOT RUN` items in
 - Existing Week 32 catalog evidence remains valid for its stated scope.
 - The project does not claim that catalog coverage proves commerce complexity.
 - The initial commerce vertical slice is now implemented and locally verified.
-- CI and iOS commerce remain pending.
+- CI is verified; iOS commerce remains pending.
 - A full e-commerce platform is still outside the accepted scope.

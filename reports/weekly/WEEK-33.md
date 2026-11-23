@@ -1,10 +1,10 @@
 # WEEK-33 - SUT 商业闭环与真实业务事实 / Commerce Vertical Slice and SUT Business Facts
 
 - 计划 / Plan: Week 33，commerce vertical slice、真实移动端业务链、库存和支付一致性
-- 日期范围 / Date Range: 2026-11-22
-- 分支 / Branch: `study/week-32-comprehensive-acceptance`
+- 日期范围 / Date Range: 2026-11-22 to 2026-11-23
+- 分支 / Branch: `study/week-33-commerce-vertical-slice`
 - 基线提交 / Base Commit: `f6ed98a`
-- 计划提交 / Plan Commit: Not committed
+- 计划提交 / Plan Commit: `1970cc5`
 - Pull Request: Not opened
 
 ## 计划目标 / Plan Goal
@@ -29,10 +29,14 @@ cancellation, refund compensation, weak-network retry, and mobile evidence.
 
 ## 完成状态 / Completion Status
 
-本机与物理 Android 验收为 **通过 / PASS**。
+本机、物理 Android 和 GitHub Actions 验收均为 **通过 / PASS**。
 
-仓库级完成状态仍为 **部分通过 / PARTIAL**，因为本轮没有提交、推送或执行新的
-GitHub Actions 运行。不能把本地 PASS 写成 CI PASS。
+验收 Run：`45190276965`
+
+`https://github.com/htb123-maker/quality-engineering-lab/actions/runs/45190276965`
+
+该 run 覆盖 Quality、AI Golden Tasks、Compose SUT、Android Linux emulator、
+iOS Simulator、Performance smoke 和 Quality Trend，所有必需 job 均通过。
 
 实际执行：
 
@@ -90,7 +94,7 @@ PENDING -> FAILED
 | Android build | PASS | JDK / Android SDK 35 | `fixture-debug.apk` installed |
 | Physical Android commerce E2E | PASS | Redmi K50 / Android 14 | `1 passed in 14.34s` |
 | Weak-network payment retry | PASS | Toxiproxy / real SUT | `1 passed` |
-| GitHub Actions | NOT RUN | GitHub | No pushed commit in this task |
+| GitHub Actions | PASS | GitHub | Run `45190276965`，所有必需 jobs PASS |
 | iOS commerce client | NOT RUN | iOS | Commerce UI is Android-only in this slice |
 
 ## 验收方式 / Acceptance Method
@@ -148,8 +152,7 @@ Final inventory:  on_hand restored on refund; reserved=0
 
 ## 未验证项 / Unverified Items
 
-- 新 GitHub Actions run：`NOT RUN`。
-- 提交、推送和 PR：`NOT RUN`。
+- Pull Request：未创建；提交已推送至 `study/week-33-commerce-vertical-slice`。
 - iOS commerce 客户端：`NOT RUN`，本轮只实现 Android。
 - 真实支付服务、3DS、退款渠道回调：不在本轮范围。
 - 多商品购物车、优惠、税费和拆单：不在本轮范围。
@@ -183,8 +186,6 @@ Final inventory:  on_hand restored on refund; reserved=0
 
 ## 下一步 / Next Plan
 
-1. 提交并推送本分支，运行新 GitHub Actions，确认 API、Compose SUT 和 Android
-   Linux emulator 三条真实路径。
-2. 增加 CI artifact 校验：订单 ID、payment ID、request ID、幂等键和数据库行。
-3. 增加支付失败注入和 Redis 故障后的 reconciliation。
-4. 只有 CI 和所有必需环境通过后，才把 Week 33 从 `PARTIAL` 提升为 `PASS`。
+1. 增加 CI artifact 校验：订单 ID、payment ID、request ID、幂等键和数据库行。
+2. 增加支付失败注入和 Redis 故障后的 reconciliation。
+3. 完成 iOS commerce 客户端后，补齐跨平台业务链。
