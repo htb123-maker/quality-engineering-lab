@@ -192,7 +192,7 @@ jobs:
       QA_IOS_DEVICE_IDS: simulator-current-primary
       QA_IOS_RUN_ID: ${{ github.run_id }}
       QA_IOS_BUNDLE_ID: com.example.qaweek19
-      QA_IOS_USE_NEW_WDA: "false"
+      QA_IOS_USE_NEW_WDA: "true"
       QA_IOS_SHOW_XCODE_LOG: "true"
       QA_IOS_WDA_LAUNCH_TIMEOUT_MS: "600000"
       QA_IOS_WDA_STARTUP_RETRIES: "1"
@@ -265,20 +265,29 @@ jobs:
           app_path="artifacts/ios-fixture-simulator-derived/Build/Products/Debug-iphonesimulator/QaIosFixture.app"
           test -d "$app_path"
           xcrun simctl install "$QA_IOS_SIM_CURRENT_UDID" "$app_path"
+      - name: Restore prebuilt WebDriverAgent
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/artifacts/wda-derived
+          key: wda-${{ runner.os }}-${{ runner.arch }}-xcode16.4-appium2.19.0-xcuitest8.4.3-${{ hashFiles('pyproject.toml') }}
       - name: Prebuild WebDriverAgent
         shell: bash
         run: |
           set -euo pipefail
           module_root="$HOME/.appium/node_modules/appium-xcuitest-driver/node_modules"
+          wda_derived_data="$GITHUB_WORKSPACE/artifacts/wda-derived"
           test -d "$module_root/appium-webdriveragent/WebDriverAgent.xcodeproj"
+          mkdir -p "$wda_derived_data"
           xcodebuild build-for-testing \
             -project "$module_root/appium-webdriveragent/WebDriverAgent.xcodeproj" \
             -scheme WebDriverAgentRunner \
-            -derivedDataPath "$module_root" \
+            -derivedDataPath "$wda_derived_data" \
             -destination "id=$QA_IOS_SIM_CURRENT_UDID" \
             "IPHONEOS_DEPLOYMENT_TARGET=$QA_IOS_SIM_CURRENT_VERSION" \
             GCC_TREAT_WARNINGS_AS_ERRORS=0 \
             COMPILER_INDEX_STORE_ENABLE=NO
+          test -d "$wda_derived_data/Build/Products"
+          printf 'QA_IOS_DERIVED_DATA_PATH=%s\n' "$wda_derived_data" >> "$GITHUB_ENV"
       - name: Start Appium
         shell: bash
         run: |

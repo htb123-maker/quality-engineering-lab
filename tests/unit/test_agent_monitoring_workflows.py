@@ -55,6 +55,28 @@ def test_quality_pipeline_runs_monitor_and_requires_full_evidence() -> None:
     assert "artifacts/collected/agent-monitor.json" in upload["with"]["path"]
 
 
+def test_quality_pipeline_reuses_prebuilt_wda_derived_data() -> None:
+    workflow = _workflow(PIPELINE_PATH)
+    ios_job = workflow["jobs"]["ios-simulator"]
+
+    assert ios_job["env"]["QA_IOS_USE_NEW_WDA"] == "true"
+
+    cache = _step(workflow, "ios-simulator", "Restore prebuilt WebDriverAgent")
+    assert cache["uses"] == "actions/cache@v4"
+    assert "artifacts/wda-derived" in cache["with"]["path"]
+    assert "appium2.19.0" in cache["with"]["key"]
+    assert "xcuitest8.4.3" in cache["with"]["key"]
+
+    prebuild = _step(workflow, "ios-simulator", "Prebuild WebDriverAgent")
+    run = prebuild["run"]
+    assert 'wda_derived_data="$GITHUB_WORKSPACE/artifacts/wda-derived"' in run
+    assert '-derivedDataPath "$wda_derived_data"' in run
+    assert (
+        'printf \'QA_IOS_DERIVED_DATA_PATH=%s\\n\' "$wda_derived_data" '
+        '>> "$GITHUB_ENV"'
+    ) in run
+
+
 def test_ios_cloud_upload_403_becomes_blocked_evidence() -> None:
     workflow = _workflow(IOS_CLOUD_PATH)
 
